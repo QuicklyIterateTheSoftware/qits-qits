@@ -1,0 +1,45 @@
+artifacts/pom.xml	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/control/ArtifactQueryService.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/control/ArtifactRepositoryService.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/control/ArtifactsRepositorySeeder.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/control/BlobService.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/control/BlobStore.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/control/MediaTypeSniffer.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/control/MetadataKeys.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/dto/ArtifactRecordDto.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/dto/ArtifactRepositoryDto.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/dto/UploadResult.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/entity/ArtifactRecord.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/entity/ArtifactRepository.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/entity/RepositoryType.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/error/ArtifactsException.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/error/BadRequestException.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/error/InternalServerErrorException.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/error/NotFoundException.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/error/PayloadTooLargeException.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/mapper/ArtifactRecordMapper.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/mapper/ArtifactRepositoryMapper.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/persistence/ArtifactRecordRepository.java	artifacts module
+artifacts/src/main/java/eu/wohlben/qits/artifacts/persistence/ArtifactRepositoryRepository.java	artifacts module
+artifacts/src/main/resources/META-INF/microprofile-config.properties	artifacts module
+artifacts/src/main/resources/db/artifacts/migration/V1__init.sql	artifacts module
+artifacts/src/test/java/eu/wohlben/qits/artifacts/control/ArtifactQueryServiceTest.java	artifacts module
+artifacts/src/test/java/eu/wohlben/qits/artifacts/control/ArtifactRepositoryServiceTest.java	artifacts module
+artifacts/src/test/java/eu/wohlben/qits/artifacts/control/ArtifactsTestSupport.java	artifacts module
+artifacts/src/test/java/eu/wohlben/qits/artifacts/control/BlobServiceTest.java	artifacts module
+artifacts/src/test/java/eu/wohlben/qits/artifacts/control/BlobStoreTest.java	artifacts module
+artifacts/src/test/java/eu/wohlben/qits/artifacts/control/MediaTypeSnifferTest.java	artifacts module
+artifacts/src/test/java/eu/wohlben/qits/artifacts/control/TestMedia.java	artifacts module
+artifacts/src/test/resources/application.properties	artifacts module
+service/src/main/java/eu/wohlben/qits/artifacts/api/ArtifactsExceptionMapper.java	REST boundary
+service/src/main/java/eu/wohlben/qits/artifacts/api/ArtifactsStartupSeed.java	REST boundary
+service/src/main/java/eu/wohlben/qits/artifacts/api/ArtifactsTokenFilter.java	REST boundary
+service/src/main/java/eu/wohlben/qits/artifacts/api/BlobController.java	REST boundary
+service/src/main/java/eu/wohlben/qits/artifacts/api/RepositoryController.java	REST boundary
+service/src/main/java/eu/wohlben/qits/githost/CiPostReceiveNotifier.java	git smart-HTTP host
+service/src/main/java/eu/wohlben/qits/githost/GitHostRoutes.java	git smart-HTTP host
+service/src/test/java/eu/wohlben/qits/artifacts/api/ArtifactsTestMedia.java	REST boundary
+service/src/test/java/eu/wohlben/qits/artifacts/api/ArtifactsTokenGuardTest.java	REST boundary
+service/src/test/java/eu/wohlben/qits/artifacts/api/BlobControllerTest.java	REST boundary
+service/src/test/java/eu/wohlben/qits/artifacts/api/RepositoryControllerTest.java	REST boundary
+service/src/test/java/eu/wohlben/qits/githost/GitHostTest.java	git smart-HTTP host

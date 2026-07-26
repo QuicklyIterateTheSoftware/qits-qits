@@ -1,0 +1,6 @@
+domain/src/main/java/eu/wohlben/qits/domain/speech/control/SpeechWorker.java	domain.speech
+domain/src/main/java/eu/wohlben/qits/domain/speech/control/TranscriptionService.java	domain.speech
+domain/src/main/resources/speech/transcribe_worker.py	python worker
+domain/src/test/java/eu/wohlben/qits/domain/speech/control/TranscriptionServiceTest.java	domain.speech
+service/src/main/java/eu/wohlben/qits/domain/speech/api/SpeechController.java	REST boundary
+service/src/test/java/eu/wohlben/qits/domain/speech/api/SpeechControllerTest.java	REST boundary

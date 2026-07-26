@@ -1,0 +1,6 @@
+domain/src/main/java/eu/wohlben/qits/domain/speech/control/SpeechWorker.java
+domain/src/main/java/eu/wohlben/qits/domain/speech/control/TranscriptionService.java
+domain/src/main/resources/speech/transcribe_worker.py
+domain/src/test/java/eu/wohlben/qits/domain/speech/control/TranscriptionServiceTest.java
+service/src/main/java/eu/wohlben/qits/domain/speech/api/SpeechController.java
+service/src/test/java/eu/wohlben/qits/domain/speech/api/SpeechControllerTest.java

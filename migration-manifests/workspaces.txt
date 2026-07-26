@@ -1,0 +1,210 @@
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/control/BootstrapRunService.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/control/WorkspaceBootstrapRunner.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/dto/BootstrapRunDto.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/dto/BootstrapStepDto.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/entity/BootstrapOutcome.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/entity/BootstrapRun.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/mapper/BootstrapRunMapper.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/bootstrap/persistence/BootstrapRunRepository.java	domain.bootstrap
+domain/src/main/java/eu/wohlben/qits/domain/capture/control/CaptureGoalRenderer.java	domain.capture
+domain/src/main/java/eu/wohlben/qits/domain/capture/control/CaptureService.java	domain.capture
+domain/src/main/java/eu/wohlben/qits/domain/capture/dto/CaptureContent.java	domain.capture
+domain/src/main/java/eu/wohlben/qits/domain/process/control/RepoProcessLease.java	domain.process
+domain/src/main/java/eu/wohlben/qits/domain/process/control/RepoReservation.java	domain.process
+domain/src/main/java/eu/wohlben/qits/domain/process/control/SegmentLineSink.java	domain.process
+domain/src/main/java/eu/wohlben/qits/domain/process/control/TechnicalProcess.java	domain.process
+domain/src/main/java/eu/wohlben/qits/domain/process/control/TechnicalProcessRegistry.java	domain.process
+domain/src/main/java/eu/wohlben/qits/domain/process/dto/TechnicalProcessFrame.java	domain.process
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/AngularComponentParser.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/ComponentMapService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/ContainerFileAccess.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/ContainerRuntime.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/DetectionService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/DockerExecutor.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/FrameworkDetectionService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/GitExecutor.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/GitIdentity.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/GitignoreLazyDirectoryStrategy.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/LazyDirectoryStrategy.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/ProvisionResult.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/ProxyOrigin.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/QitsConfig.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/QitsHostResolver.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkingTreeMarker.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceAgentActivity.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceBootstrapDriver.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceCheckpointService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceConfigReader.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceConfigView.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainer.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerEventPublisher.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerFactory.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerStarted.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerStopping.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceDaemonInfo.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceDaemonLiveness.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceDaemonProvisioner.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceFileAccess.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceFilesService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceGitStatus.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceGitSync.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceHistoryService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceMetadata.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspacePromptAttachmentService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspacePromptDraftService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceReadyForServices.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceResolver.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceService.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceServiceDriver.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceTreeFingerprint.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/ComponentMapDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/ComponentMapEntryDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/ComponentSelectorDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/DetectedProjectDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/DetectionDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/FileLinkDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/FrameworkMembershipDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/LazyDirDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/TestLinkDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspaceDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspaceEventDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspaceFileContentDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspaceHistoryDetailDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspaceHistoryDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspacePromptAttachmentDataDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspacePromptDraftDto.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/PromptAttachmentSource.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/Workspace.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/WorkspaceEvent.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/WorkspaceEventType.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/WorkspacePromptAttachment.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/WorkspacePromptDraft.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/WorkspaceRuntimeStatus.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/entity/WorkspaceStatus.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/mapper/WorkspaceMapper.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/mapper/WorkspacePromptDraftMapper.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/persistence/WorkspaceEventRepository.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/persistence/WorkspacePromptAttachmentRepository.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/persistence/WorkspacePromptDraftRepository.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/repository/persistence/WorkspaceRepository.java	workspace half
+domain/src/main/java/eu/wohlben/qits/domain/service/control/LineFramingSink.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/LogClassifier.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/LogLevelClassifier.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/LogLevelLineClassifier.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/ServiceAgentNotifier.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/ServiceEventPersister.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/ServiceEventService.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/ServiceEventSpool.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/ServiceLifecycleCoupler.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/ServiceProxyPath.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/ServiceSupervisor.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/control/TailSink.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/dto/HealthCheckDto.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/dto/HealthCheckState.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/dto/HealthCheckStatusDto.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/dto/ServiceDefinitionDto.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/dto/ServiceEventDto.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/dto/ServiceInstanceDto.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/dto/WebViewDto.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/entity/HealthCheckKind.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/entity/RestartPolicy.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/entity/ServiceEvent.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/entity/ServiceEventKind.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/entity/ServiceEventSeverity.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/entity/ServiceStatus.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/mapper/ServiceDefinitionMapper.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/mapper/ServiceEventMapper.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/service/persistence/ServiceEventRepository.java	domain.service
+domain/src/main/java/eu/wohlben/qits/domain/workspace/control/WorkspaceChangeHint.java	domain.workspace
+domain/src/main/java/eu/wohlben/qits/domain/workspace/control/WorkspaceChangePublisher.java	domain.workspace
+domain/src/main/resources/db/migration/V14__daemon.sql	flyway V14
+domain/src/main/resources/db/migration/V15__log_level_observer.sql	flyway V15
+domain/src/main/resources/db/migration/V16__daemon_log_sources.sql	flyway V16
+domain/src/main/resources/db/migration/V17__daemon_event.sql	flyway V17
+domain/src/main/resources/db/migration/V19__drop_global_daemon_scope.sql	flyway V19
+domain/src/main/resources/db/migration/V21__worktree_runtime_status.sql	flyway V21
+domain/src/main/resources/db/migration/V22__daemon_otel.sql	flyway V22
+domain/src/main/resources/db/migration/V23__daemon_http_port.sql	flyway V23
+domain/src/main/resources/db/migration/V25__daemon_webview_config.sql	flyway V25
+domain/src/main/resources/db/migration/V26__repository_daemon_auto_start.sql	flyway V26
+domain/src/main/resources/db/migration/V31__daemon_healthchecks.sql	flyway V31
+domain/src/main/resources/db/migration/V35__bootstrap_command.sql	flyway V35
+domain/src/main/resources/db/migration/V36__workspace_prompt_draft.sql	flyway V36
+domain/src/main/resources/db/migration/V37__workspace_prompt_attachment.sql	flyway V37
+domain/src/main/resources/db/migration/V38__workspace_prompt_draft_run.sql	flyway V38
+domain/src/main/resources/db/migration/V42__drop_service_log_observation.sql	flyway V42
+domain/src/main/resources/db/migration/V45__rename_daemon_to_service.sql	flyway V45
+domain/src/test/java/eu/wohlben/qits/domain/bootstrap/control/WorkspaceBootstrapKillSwitchTest.java	domain.bootstrap
+domain/src/test/java/eu/wohlben/qits/domain/bootstrap/control/WorkspaceBootstrapRunnerTest.java	domain.bootstrap
+domain/src/test/java/eu/wohlben/qits/domain/capture/control/CaptureGoalRendererTest.java	domain.capture
+domain/src/test/java/eu/wohlben/qits/domain/process/control/TechnicalProcessRegistryTest.java	domain.process
+domain/src/test/java/eu/wohlben/qits/domain/process/control/TechnicalProcessTest.java	domain.process
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/AngularComponentParserTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/ContainerFileAccessTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeContainerRuntime.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceAgentActivity.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceBootstrapDriver.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceConfigReader.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceDaemonInfo.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceDaemonLiveness.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceDaemonProvisioner.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceGitStatus.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceGitSync.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FakeWorkspaceServiceDriver.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FrameworkDetectionServiceTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/GitExecutorTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/GitIdentityAttributionTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/GitIdentityTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/GitignoreLazyDirectoryStrategyTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/IncomingMergePullNotificationTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/IntegrateSyncsSourceContainerTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/QitsHostResolverTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceCheckpointServiceTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerFactoryTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerLifecycleServiceTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerStartedRecorder.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerStoppingRecorder.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceContainerTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceDaemonOutdatedTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceDefaultMainBranchTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceEnsureContainerProcessTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceHistoryServiceTest.java	workspace half
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceReadyForServicesRecorder.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceRecreateContainerServiceTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceSubmoduleProvisionTest.java	workspace test/fake
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ObserverSinkTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceAgentNotifierTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceAttachTerminalTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceAutoStartKillSwitchTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceAutoStarterTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceLifecycleCouplerSettleTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceProcessCorrelationTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceSettleKillSwitchTest.java	domain.service
+domain/src/test/java/eu/wohlben/qits/domain/service/control/ServiceSupervisorProjectionTest.java	domain.service
+service/src/main/java/eu/wohlben/qits/domain/bootstrap/api/WorkspaceBootstrapController.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/capture/api/CaptureCorsRoute.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/capture/api/CaptureResource.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/process/api/TechnicalProcessEventsController.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/service/api/ServiceEventController.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/service/api/ServiceTerminalSocket.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/service/api/WorkspaceServiceController.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/workspace/api/GlobalEventsController.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/workspace/api/WorkspaceEventBroadcaster.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/domain/workspace/api/WorkspaceEventsController.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/serviceproxy/ServiceProxyRoute.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/workspacedaemonhost/DaemonControlSocket.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/workspacedaemonhost/DaemonMessageCodec.java	workspace boundary
+service/src/main/java/eu/wohlben/qits/workspacedaemonhost/WorkspaceDaemonRegistry.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/domain/bootstrap/api/WorkspaceBootstrapControllerTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/domain/capture/api/CaptureResourceTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/domain/process/api/TechnicalProcessEventsControllerTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/domain/service/api/ServiceEventControllerTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/domain/workspace/api/HintCollector.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/domain/workspace/api/WorkspaceChangeHintBusTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/domain/workspace/api/WorkspaceEventBroadcasterTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/serviceproxy/ServiceProxyRouteTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/workspacedaemonhost/DaemonBootstrapIT.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/workspacedaemonhost/DaemonControlSocketIT.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/workspacedaemonhost/DaemonControlSocketTest.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/workspacedaemonhost/DaemonSelfCloneIT.java	workspace boundary
+service/src/test/java/eu/wohlben/qits/workspacedaemonhost/DaemonServiceIT.java	workspace boundary

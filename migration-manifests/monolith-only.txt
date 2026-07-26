@@ -1,0 +1,106 @@
+domain/pom.xml	reactor build file
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/AGENTS.md	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/ActionConfigurationSeeder.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/ActionConfigurationService.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/ActionResolutionService.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowConfigurationService.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowPhaseActionService.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowPhaseService.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowPhaseStepService.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/dto/ActionConfigurationDto.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/dto/FeatureFlowConfigurationDto.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/dto/FeatureFlowPhaseActionDto.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/dto/FeatureFlowPhaseDto.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/dto/FeatureFlowPhaseStepDto.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/ActionCheckResult.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/ActionConfiguration.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/ActionType.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowConfiguration.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowPhase.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowPhaseAction.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowPhaseStep.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/mapper/ActionConfigurationMapper.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/mapper/FeatureFlowConfigurationMapper.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/mapper/FeatureFlowPhaseMapper.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/persistence/ActionConfigurationRepository.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/persistence/FeatureFlowConfigurationRepository.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/persistence/FeatureFlowPhaseActionRepository.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/persistence/FeatureFlowPhaseRepository.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/persistence/FeatureFlowPhaseStepRepository.java	out of scope
+domain/src/main/resources/db/migration/V11__remove_action_variant.sql	flyway V11
+domain/src/main/resources/db/migration/V27__unify_actions.sql	flyway V27
+domain/src/main/resources/db/migration/V2__feature_flow_config_repository.sql	flyway V2
+domain/src/main/resources/db/migration/V43__drop_repo_config_store.sql	flyway V43 (also workspaces,projects)
+domain/src/main/resources/db/migration/V4__action_configuration_run.sql	flyway V4
+domain/src/main/resources/db/migration/V5__action_configuration_interactive.sql	flyway V5
+domain/src/main/resources/db/migration/V6__repository_action.sql	flyway V6
+domain/src/main/resources/db/migration/V7__action_variant.sql	flyway V7
+domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/ActionConfigurationServiceTest.java	out of scope
+domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/ActionResolutionServiceTest.java	out of scope
+domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowConfigurationServiceTest.java	out of scope
+domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowPhaseActionServiceTest.java	out of scope
+domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowPhaseServiceTest.java	out of scope
+domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowPhaseStepServiceTest.java	out of scope
+service/.dockerignore	app shell
+service/.gitignore	app shell
+service/README.md	app shell
+service/pom.xml	app shell
+service/src/main/docker/Dockerfile.jvm	app shell
+service/src/main/docker/Dockerfile.legacy-jar	app shell
+service/src/main/docker/Dockerfile.native	app shell
+service/src/main/docker/Dockerfile.native-micro	app shell
+service/src/main/java/AGENTS.md	app shell
+service/src/main/java/eu/wohlben/qits/api/DomainExceptionMapper.java	app shell
+service/src/main/java/eu/wohlben/qits/api/WebApplicationExceptionMapper.java	app shell
+service/src/main/java/eu/wohlben/qits/domain/featureflow/api/ActionConfigurationController.java	out of scope
+service/src/main/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowConfigurationController.java	out of scope
+service/src/main/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowPhaseActionController.java	out of scope
+service/src/main/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowPhaseController.java	out of scope
+service/src/main/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowPhaseStepController.java	out of scope
+service/src/main/java/eu/wohlben/qits/domain/featureflow/api/WorkspaceActionsController.java	out of scope
+service/src/main/java/eu/wohlben/qits/domain/featureflow/mcp/ActionConfigurationMcpTools.java	out of scope
+service/src/main/java/eu/wohlben/qits/http/RootPath.java	app shell
+service/src/main/java/eu/wohlben/qits/mcp/ContextServerRegistry.java	app shell
+service/src/main/java/eu/wohlben/qits/mcp/DiscoveryMcpTools.java	app shell
+service/src/main/java/eu/wohlben/qits/mutiny/api/ContextPropagationController.java	app shell
+service/src/main/java/eu/wohlben/qits/mutiny/api/ReactiveEchoController.java	app shell
+service/src/main/java/eu/wohlben/qits/mutiny/control/RequestContext.java	app shell
+service/src/main/java/eu/wohlben/qits/spa/DevModeSpaFallbackRoute.java	app shell
+service/src/main/java/eu/wohlben/qits/spa/SpaShellCacheFilter.java	app shell
+service/src/main/java/eu/wohlben/qits/websocket/SameOriginUpgradeCheck.java	app shell
+service/src/main/resources/application.properties	app shell
+service/src/test/java/eu/wohlben/qits/domain/featureflow/api/ActionConfigurationControllerTest.java	out of scope
+service/src/test/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowConfigurationControllerTest.java	out of scope
+service/src/test/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowPhaseActionControllerTest.java	out of scope
+service/src/test/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowPhaseControllerTest.java	out of scope
+service/src/test/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowPhaseStepControllerTest.java	out of scope
+service/src/test/java/eu/wohlben/qits/domain/featureflow/api/WorkspaceActionsControllerTest.java	out of scope
+service/src/test/java/eu/wohlben/qits/domain/featureflow/mcp/ActionConfigurationMcpToolsTest.java	out of scope
+service/src/test/java/eu/wohlben/qits/health/HealthCheckTest.java	app shell
+service/src/test/java/eu/wohlben/qits/mutiny/MutinySmokeTest.java	app shell
+service/src/test/java/eu/wohlben/qits/mutiny/api/ContextPropagationControllerTest.java	app shell
+service/src/test/java/eu/wohlben/qits/mutiny/api/ReactiveEchoControllerTest.java	app shell
+service/src/test/java/eu/wohlben/qits/openapi/OpenApiSchemaExportTest.java	app shell
+service/src/test/java/eu/wohlben/qits/spa/SpaShellCacheFilterTest.java	app shell
+service/src/test/java/eu/wohlben/qits/testsupport/RepoDataDirReset.java	app shell
+service/src/test/java/eu/wohlben/qits/validation/ValidationTest.java	app shell
+service/src/test/java/eu/wohlben/qits/websocket/SameOriginUpgradeCheckTest.java	app shell
+service/src/test/resources/META-INF/services/org.junit.jupiter.api.extension.Extension	app shell
+service/src/test/resources/application.properties	app shell
+service/src/test/resources/junit-platform.properties	app shell
+userflows/AGENTS.md	product stories
+userflows/CLAUDE.md	product stories
+userflows/pom.xml	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/epic/CreateEpicIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/epic/CreateFeatureIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/epic/CreateTaskIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/epic/DeleteEpicIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/epic/MarkTaskImplementedIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/project/BrowseProjectIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/project/CreateProjectIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/project/DeleteProjectIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/project/EditProjectIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/BrowseDemoProjectIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/CreateRepositoryIT.java	product stories
+userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/DeleteRepositoryIT.java	product stories
+userflows/src/test/resources/junit-platform.properties	product stories

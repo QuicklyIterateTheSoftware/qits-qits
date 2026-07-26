@@ -1,0 +1,15 @@
+domain/src/main/java/eu/wohlben/qits/domain/error/BadRequestException.java	copied per target
+domain/src/main/java/eu/wohlben/qits/domain/error/DomainException.java	copied per target
+domain/src/main/java/eu/wohlben/qits/domain/error/InternalServerErrorException.java	copied per target
+domain/src/main/java/eu/wohlben/qits/domain/error/NotFoundException.java	copied per target
+domain/src/main/java/eu/wohlben/qits/domain/error/PayloadTooLargeException.java	copied per target
+domain/src/main/java/eu/wohlben/qits/validation/NotBlankIfPresent.java	shared bean-validation annotation
+domain/src/main/java/eu/wohlben/qits/validation/NotBlankIfPresentValidator.java	shared bean-validation annotation
+domain/src/test/java/eu/wohlben/qits/domain/testsupport/RepoDataDirReset.java	test scaffolding
+domain/src/test/resources/META-INF/services/org.junit.jupiter.api.extension.Extension	test scaffolding
+domain/src/test/resources/application.properties	test scaffolding
+domain/src/test/resources/fixtures/testing-repo	fixture gitlink (submodule)
+domain/src/test/resources/fixtures/testing-repo-angular	fixture gitlink (submodule)
+domain/src/test/resources/fixtures/testing-repo-quarkus-angular	fixture gitlink (submodule)
+domain/src/test/resources/fixtures/testing-repo-quarkus-lit	fixture gitlink (submodule)
+domain/src/test/resources/junit-platform.properties	test scaffolding
