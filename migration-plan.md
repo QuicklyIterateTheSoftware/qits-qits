@@ -418,8 +418,8 @@ the most cut sites (§6).
 
 ## 9. Open questions and follow-ups
 
-1. **Observability naming** — `qits-observability` / `qits-otel` / `qits-telemetry`.
-   Pick one (§3.6).
+1. **Observability naming** — `qits-observability` (submodule) / `qits-telemetry` (maven module in submodule).
+   Pick one (§3.6) -> i picked two.
 2. **`services/qits-repositories` removal** — drop the entry from `.gitmodules`, `git rm`
    the gitlink, **and remove the `REPOSITORIES` constant from `QitsService`**
    (`services/qits-gateway/.../QitsService.java:38`). The name collides with
