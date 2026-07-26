@@ -228,7 +228,38 @@ extraction rather than now:
 Dead code to drop rather than migrate: `CommandService.launchService`,
 `beginServiceRun`, `followService`, `launchAndAwait`, `launchScriptAndAwait` (no
 production callers) and the tmux verbs in `DockerExecutor.java:500-530` — residue of
-the pre-daemon host-exec supervisor. Also stale: the `runAction` entry in
+the pre-daemon host-exec supervisor.
+
+> **This was not honoured, and it cost a regression.** Neither the first
+> `qits-workspaces` extraction nor its completion dropped the tmux verbs, so
+> `ContainerRuntime`'s `startService`/`serviceAlive`/`serviceExitCode`/`signalService`/
+> `killService`/`serviceLogPath`/`attachServiceCommand` and their `DockerExecutor`
+> implementation rode along as dead-but-present code — until the completion imported a
+> `ServiceTerminalSocket` that called two of them, turning host-side `docker exec` service
+> supervision back on after it had been deliberately moved into the daemon. Removed in
+> `qits-workspaces@ea25b2d`. **The lesson generalises: "dead code to drop" left in place is
+> not inert — it is a landing pad for the next extraction.** Check §3.3's list is actually
+> gone before cutting the daemon modules.
+
+The boundary that replaced it, now that both sides exist: **the daemon owns the checkout
+and every git that touches it; the host owns the `Workspace` row and asks.** The host keeps
+only the lifecycle verbs (`run`/`start`/`stop`/`rm`/volumes) and `exists`. Concretely, from
+`qits-workspaces@ea25b2d` + `qits-workspace-daemon@8af81d8`:
+
+| Was, host-side | Is now |
+|---|---|
+| `containers.exec … git status --porcelain` | daemon's `GitStatus.clean`, read through `WorkspaceGitStatus.isClean` |
+| `containers.exec … git rev-parse HEAD` | daemon's `GitStatus.head` — already on the wire, the host had been discarding it |
+| `pushBranch` before stop/recreate | daemon auto-pushes committed work as it lands |
+| `containerGit push` before integration | same |
+| `POST …/fast-forward`, `POST …/update-from-parent` | daemon routes `POST /fast-forward`, `POST /update-from-parent` |
+| `ContainerRuntime` service verbs + tmux | daemon `ServiceSupervisor`; host keeps only the projection |
+
+**Both remaining host gates fail closed.** `isWorkspaceClean` and `isFullyPushed` treat
+unknown — no live daemon, nothing reported yet, no registry bean — as *refuse*, because the
+host no longer has a second opinion to fall back on. An absent container still counts as
+clean/pushed: that is a known state read through a lifecycle verb, not an unknown one, and
+making it fail closed would leave stopped workspaces permanently undiscardable. Also stale: the `runAction` entry in
 `ReadOnlyRepositoryToolFilter.java:46` names a tool that no longer exists.
 
 ### 3.4 `services/qits-artifacts` — blob store + git host
@@ -651,10 +682,15 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
     repository-side. The qits-projects extraction removed it rather than import the
     workspace half, and the manifests now assign it to workspaces — but **no target carries
     it yet**. Confirm the side, then extract it.
-12. **Eight assertions are unowned.** Each tested behaviour that belongs to a *different*
-    target than the file it lived in, so the extraction dropped it rather than import
-    another context. None are lost — §1 means the monolith still has every line — but no
-    submodule carries them:
+12. **Assertions unowned.** Each tested behaviour that belongs to a *different* target than
+    the file it lived in, so the extraction dropped it rather than import another context.
+    None are lost — §1 means the monolith still has every line — but no submodule carries
+    them. Four of the nine from the `ea25b2d` boundary fix have since been **re-homed** in
+    `qits-workspace-daemon@8af81d8` (fast-forward advances, refuses diverged;
+    update-from-parent merges diverged, aborts on conflict). Still open from that fix: the
+    container-side merge identity over stale clone config, the two lossless-recreate pushes
+    (the "no committed work is ever lost" property, now purely a daemon guarantee), and the
+    integrate push. Plus, from the earlier extractions:
     - `branchDeletionRecordsNoRun` (was ci) → artifacts: `CiPostReceiveNotifier`'s DELETE filter
     - `listBranches` is-listed sanity check (was observability) → projects
     - `deleteRepositoryCascadesCommandAgentSessionRows` (was projects) → daemon-commands;
