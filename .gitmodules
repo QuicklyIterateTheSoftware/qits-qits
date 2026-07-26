@@ -2,51 +2,64 @@
 	path = services/qits-gateway
 	url = https://github.com/QuicklyIterateTheSoftware/qits-gateway.git
 	ignore = all
+	branch = main
 [submodule "qits-artifacts"]
 	path = services/qits-artifacts
 	url = https://github.com/QuicklyIterateTheSoftware/qits-artifacts.git
 	ignore = all
+	branch = main
 [submodule "qits-otel"]
 	path = services/qits-otel
 	url = https://github.com/QuicklyIterateTheSoftware/qits-otel.git
 	ignore = all
+	branch = main
 [submodule "qits-workspace-daemon"]
 	path = qits-workspace-daemon
 	url = https://github.com/QuicklyIterateTheSoftware/qits-workspace-daemon.git
 	ignore = all
+	branch = main
 [submodule "qits-userflows"]
 	path = libs/qits-userflows
 	url = https://github.com/QuicklyIterateTheSoftware/qits-userflows.git
 	ignore = all
+	branch = main
 [submodule "qits-integrations-angular"]
 	path = integrations/qits-integrations-angular
 	url = https://github.com/QuicklyIterateTheSoftware/qits-integrations-angular.git
 	ignore = all
+	branch = main
 [submodule "qits-integrations-quarkus"]
 	path = integrations/qits-integrations-quarkus
 	url = https://github.com/QuicklyIterateTheSoftware/qits-integrations-quarkus.git
 	ignore = all
+	branch = main
 [submodule "qits-workspaces"]
 	path = services/qits-workspaces
 	url = https://github.com/QuicklyIterateTheSoftware/qits-workspaces.git
 	ignore = all
+	branch = main
 [submodule "qits-stt"]
 	path = services/qits-stt
 	url = https://github.com/QuicklyIterateTheSoftware/qits-stt.git
 	ignore = all
+	branch = main
 [submodule "qits-ci"]
 	path = services/qits-ci
 	url = https://github.com/QuicklyIterateTheSoftware/qits-ci.git
 	ignore = all
+	branch = main
 [submodule "qits-cd"]
 	path = services/qits-cd
 	url = https://github.com/QuicklyIterateTheSoftware/qits-cd.git
 	ignore = all
+	branch = main
 [submodule "qits-repositories"]
 	path = services/qits-repositories
 	url = https://github.com/QuicklyIterateTheSoftware/qits-repositories.git
 	ignore = all
+	branch = main
 [submodule "qits-projects"]
 	path = services/qits-projects
 	url = https://github.com/QuicklyIterateTheSoftware/qits-projects.git
 	ignore = all
+	branch = main
