@@ -6,39 +6,58 @@ SRC = "/tmp/claude-1000/-home-wohlben-code-qits-qits/148e2d54-70ab-401c-92a6-a93
 
 # --- domain/repository is the one package that genuinely splits -------------
 WS_REPO = {  # workspace-scoped -> qits-workspaces
- "control/AngularComponentParser","control/ComponentMapService","control/ContainerFileAccess",
- "control/ContainerRuntime","control/DetectionService","control/DockerExecutor",
- "control/FrameworkDetectionService","control/GitignoreLazyDirectoryStrategy",
- "control/LazyDirectoryStrategy","control/ProvisionResult","control/ProxyOrigin",
- "control/QitsConfig","control/QitsHostResolver","control/WorkingTreeMarker",
- "control/WorkspaceAgentActivity","control/WorkspaceBootstrapDriver","control/WorkspaceCheckpointService",
+ "control/ContainerRuntime","control/DockerExecutor",
+ "control/ProvisionResult","control/ProxyOrigin",
+ "control/QitsConfig","control/QitsHostResolver",
+ "control/WorkspaceAgentActivity","control/WorkspaceBootstrapDriver",
  "control/WorkspaceConfigReader","control/WorkspaceConfigView","control/WorkspaceContainer",
  "control/WorkspaceContainerEventPublisher","control/WorkspaceContainerFactory",
  "control/WorkspaceContainerStarted","control/WorkspaceContainerStopping",
  "control/WorkspaceDaemonInfo","control/WorkspaceDaemonLiveness","control/WorkspaceDaemonProvisioner",
- "control/WorkspaceFileAccess","control/WorkspaceFilesService","control/WorkspaceGitStatus",
+ "control/WorkspaceGitStatus",
  "control/WorkspaceGitSync","control/WorkspaceHistoryService","control/WorkspaceMetadata",
  "control/WorkspacePromptAttachmentService","control/WorkspacePromptDraftService",
  "control/WorkspaceReadyForServices","control/WorkspaceResolver","control/WorkspaceService",
- "control/WorkspaceServiceDriver","control/WorkspaceTreeFingerprint","control/GitExecutor",
+ "control/WorkspaceServiceDriver","control/GitExecutor",
  "control/GitIdentity",
+ # Moved from PROJ_REPO 2026-07-26: ~90% workspace-scoped (creates workspaces via
+ # WorkspaceService, writes workspace metadata, persists prompt drafts) plus a reach into
+ # agent.control.AgentLaunchService; only its CommitService.listIncomingCommits call is
+ # repository-side. Flagged by the qits-projects extraction and NOT ratified -- see
+ # migration-plan.md §9 item 11.
+ "control/ResolveConflictService",
  "entity/PromptAttachmentSource","entity/Workspace","entity/WorkspaceEvent","entity/WorkspaceEventType",
  "entity/WorkspacePromptAttachment","entity/WorkspacePromptDraft","entity/WorkspaceRuntimeStatus",
  "entity/WorkspaceStatus",
- "dto/ComponentMapDto","dto/ComponentMapEntryDto","dto/ComponentSelectorDto","dto/DetectedProjectDto",
- "dto/DetectionDto","dto/FileLinkDto","dto/FrameworkMembershipDto","dto/LazyDirDto","dto/TestLinkDto",
- "dto/WorkspaceDto","dto/WorkspaceEventDto","dto/WorkspaceFileContentDto","dto/WorkspaceHistoryDetailDto",
+ "dto/WorkspaceDto","dto/WorkspaceEventDto","dto/WorkspaceHistoryDetailDto",
  "dto/WorkspaceHistoryDto","dto/WorkspacePromptAttachmentDataDto","dto/WorkspacePromptDraftDto",
  "mapper/WorkspaceMapper","mapper/WorkspacePromptDraftMapper",
  "persistence/WorkspaceEventRepository","persistence/WorkspacePromptAttachmentRepository",
  "persistence/WorkspacePromptDraftRepository","persistence/WorkspaceRepository",
+}
+
+# Moved into daemons/qits-workspace-daemon by its own commits 2dbe0ab + 0b034cc (file browsing ->
+# workspace-daemon-files, framework detection -> workspace-daemon-detection), reimplemented in
+# java.nio instead of host-side `docker exec`. They were in WS_REPO until 2026-07-26 and are
+# neither workspaces' nor projects'. WorkspaceCheckpointService was deleted outright rather than
+# relocated -- the daemon's OriginSync already pushes per commit. Listed, not deleted, so that a
+# rerun of this script cannot silently re-adopt them.
+DAEMON_MOVED = {
+ "control/AngularComponentParser","control/ComponentMapService","control/ContainerFileAccess",
+ "control/DetectionService","control/FrameworkDetectionService",
+ "control/GitignoreLazyDirectoryStrategy","control/LazyDirectoryStrategy",
+ "control/WorkingTreeMarker","control/WorkspaceCheckpointService","control/WorkspaceFileAccess",
+ "control/WorkspaceFilesService","control/WorkspaceTreeFingerprint",
+ "dto/ComponentMapDto","dto/ComponentMapEntryDto","dto/ComponentSelectorDto",
+ "dto/DetectedProjectDto","dto/DetectionDto","dto/FileLinkDto","dto/FrameworkMembershipDto",
+ "dto/LazyDirDto","dto/TestLinkDto","dto/WorkspaceFileContentDto",
 }
 PROJ_REPO = {  # repo-scoped -> qits-projects
  "control/CommitService","control/GitExecutor","control/GitIdentity","control/GitRemoteAuth",
  "control/GitSubmoduleParser","control/MetadataService","control/ProjectTemplate",
  "control/QitsConfigParser","control/RemoteLoginSession","control/RemoteLoginSessions",
  "control/RepositoryDiscoveryService","control/RepositoryMetadata","control/RepositoryNameResolver",
- "control/RepositoryService","control/ResolveConflictService","control/ContainerRuntime",
+ "control/RepositoryService","control/ContainerRuntime",
  "control/DockerExecutor","control/QitsConfig","control/QitsHostResolver",
  "entity/Repository","entity/RepositoryArchetype","entity/RepositoryName","entity/RepositorySubmodule",
  "dto/BranchDto","dto/CommitChangesDto","dto/CommitDto","dto/CommitFileChangeDto","dto/CommitFileDiffDto",
@@ -106,6 +125,10 @@ def classify(p):
             key = re.search(r"/repository/(.*?)(?:Test|IT)?\.java$", p)
             if key:
                 k = key.group(1)
+                if k == "control/WorkspaceCheckpointService":
+                    return "monolith", "deleted, not relocated: daemon OriginSync pushes per commit"
+                if k in DAEMON_MOVED:
+                    return "daemon-done", "moved to qits-workspace-daemon (2dbe0ab+0b034cc)"
                 if k in WS_REPO:   return "workspaces", "workspace half"
                 if k in PROJ_REPO: return "projects", "repository half"
                 # tests + fakes: name-driven
@@ -142,7 +165,20 @@ def classify(p):
         if "/domain/agent/" in p:     return "daemon-agents", "REST boundary"
         if "/domain/command/" in p or "/domain/chat/" in p:
             return "daemon-commands", "REST/WS boundary"
-        if "/domain/repository/" in p: return "projects", "REST/MCP boundary"
+        if "/domain/repository/" in p:
+            # The repository package splits per class (WS_REPO/PROJ_REPO), and the service side
+            # splits with it. Matching the directory alone sent the whole boundary to projects and
+            # stranded 24 workspace-scoped files there with no other owner -- found when
+            # qits-projects was cut (its commit 54be913 removed them again).
+            leaf = p.rsplit("/", 1)[-1]
+            if leaf == "ContainerFileBrowserIT.java":
+                return "daemon-done", "file browsing -> qits-workspace-daemon"
+            if leaf.startswith("Workspace") or leaf.startswith("FakeWorkspace") \
+               or leaf.startswith("TaskPrompt") \
+               or leaf in ("TerminalSocket.java", "RepositoryEventsController.java",
+                           "FakeContainerRuntime.java"):
+                return "workspaces", "workspace boundary (service side)"
+            return "projects", "REST/MCP boundary"
         if "/domain/project/" in p:    return "projects", "REST boundary"
         if any(x in p for x in ("/domain/workspace/","/domain/bootstrap/","/domain/capture/",
                                 "/domain/process/","/domain/service/","/serviceproxy/",

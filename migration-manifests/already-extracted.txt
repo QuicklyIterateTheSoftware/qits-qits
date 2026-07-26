@@ -1,3 +1,28 @@
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/AngularComponentParser.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/ComponentMapService.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/ContainerFileAccess.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/DetectionService.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/FrameworkDetectionService.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/GitignoreLazyDirectoryStrategy.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/LazyDirectoryStrategy.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkingTreeMarker.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceFileAccess.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceFilesService.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceTreeFingerprint.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/ComponentMapDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/ComponentMapEntryDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/ComponentSelectorDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/DetectedProjectDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/DetectionDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/FileLinkDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/FrameworkMembershipDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/LazyDirDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/TestLinkDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/main/java/eu/wohlben/qits/domain/repository/dto/WorkspaceFileContentDto.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/AngularComponentParserTest.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/ContainerFileAccessTest.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/FrameworkDetectionServiceTest.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
+domain/src/test/java/eu/wohlben/qits/domain/repository/control/GitignoreLazyDirectoryStrategyTest.java	moved to qits-workspace-daemon (workspace-daemon-files/detection, 2dbe0ab+0b034cc)
 qits-userflows/AGENTS.md	already extracted
 qits-userflows/CLAUDE.md	already extracted
 qits-userflows/pom.xml	already extracted
@@ -30,6 +55,7 @@ qits-userflows/src/test/java/eu/wohlben/qits/userflows/harness/SkipChainFailingP
 qits-userflows/src/test/java/eu/wohlben/qits/userflows/harness/SkipChainSkippedConsumerHarnessTest.java	already extracted
 qits-userflows/src/test/resources/harness/greeting.html	already extracted
 qits-userflows/src/test/resources/junit-platform.properties	already extracted
+service/src/test/java/eu/wohlben/qits/domain/repository/control/ContainerFileBrowserIT.java	file browsing -> qits-workspace-daemon (workspace-daemon-files)
 workspace-daemon/pom.xml	already extracted
 workspace-daemon-protocol/pom.xml	already extracted
 workspace-daemon-protocol/src/main/java/eu/wohlben/qits/workspacedaemon/protocol/Ack.java	already extracted
