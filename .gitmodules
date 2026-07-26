@@ -10,9 +10,9 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-otel"]
-	path = services/qits-otel
-	url = https://github.com/QuicklyIterateTheSoftware/qits-otel.git
+[submodule "qits-observability"]
+	path = services/qits-observability
+	url = https://github.com/QuicklyIterateTheSoftware/qits-observability.git
 	ignore = all
 	branch = main
 	update = merge
