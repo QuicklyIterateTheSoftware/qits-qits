@@ -46,3 +46,7 @@
 	path = services/qits-repositories
 	url = https://github.com/QuicklyIterateTheSoftware/qits-repositories.git
 	ignore = all
+[submodule "qits-projects"]
+	path = services/qits-projects
+	url = https://github.com/QuicklyIterateTheSoftware/qits-projects.git
+	ignore = all
