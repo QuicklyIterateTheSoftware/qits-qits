@@ -35,7 +35,7 @@ same extractor was then run over each submodule.
 
 | | Operations |
 |---|---|
-| Monolith total | **145** |
+| Monolith REST total | **145** |
 | Carried by a submodule (path unchanged) | 80 |
 | Re-homed to the daemon at a **new path** | 6 |
 | **Live total** | **86** |
@@ -43,6 +43,9 @@ same extractor was then run over each submodule.
 | Pending the daemon extraction | 10 |
 | Monolith-only by decision (featureflow, mutiny demos) | 30 |
 | Unassigned (auth, settings) | 4 |
+
+Plus **25 MCP tools** (12 live, 6 stranded, 7 monolith-only), 5 websockets, 9 raw vertx routes
+and 23 control-socket EVENTs — all enumerated below.
 
 **Zero drift.** Not one submodule serves an operation that does not exist in the monolith at
 the identical path — every extraction was a move, never a redesign. The only six paths that
@@ -329,21 +332,48 @@ never permission.
 ¹ Wire tags keep their pre-rename `daemon*` spelling so stale daemon images keep speaking to a
 newer qits. Retag with the next `CAPABILITY_VERSION` bump.
 
-### MCP servers
+### MCP servers — every tool
 
-| Monolith | Status | New home | Note |
-|---|---|---|---|
-| `repository` server — repository tools | ✅ live | qits-projects | unchanged |
-| `repository` server — telemetry tools | ✅ live | qits-observability | behind two **fail-closed** ports (`RepositoryScopeGuard`, `WorkspaceLookup`) |
-| `repository` server — workspace tools (`listWorkspaces`, `createWorkspace`, `cleanupBranch`, `integrateBranch`, `mergeParentIntoWorkspace`) | ⚠️ **stranded** | qits-workspaces | no MCP surface shipped |
-| `repository` server — `TaskPromptMcpTools` / `TaskPromptToolFilter` | ⚠️ **stranded** | qits-workspaces | also needs `telemetry.mcp.WorkspaceScope` |
-| `actions` server | ⬜ monolith-only | — | featureflow |
-| `/mcp` discovery server | ⬜ monolith-only | — | app shell |
+25 tools across three servers. `@McpServer` names the server; the mount path comes from
+`quarkus.mcp.server.<name>.http.root-path`, which is an app-shell setting every extracted module
+has to re-provide or the server refuses to start.
 
-`qits-observability`'s MCP server is still *named* `"repository"` in a repo with no repository
-tools; renaming changes the mount path and every configured agent URL, so it was reported rather
-than changed. "Optional port" there means **deny**, not "skip the check" — both guards are
-cross-project isolation checks.
+| # | MCP server | Tool | Declared in | Status | New home | Note |
+|---|---|---|---|---|---|---|
+| 1 | `(default)` | `listContextServers` | `DiscoveryMcpTools` | ⬜ monolith-only | — | `/mcp` discovery server, app shell |
+| 2 | `(default)` | `listProjects` | `DiscoveryMcpTools` | ⬜ monolith-only | — | `/mcp` discovery server, app shell |
+| 3 | `actions` | `createGlobalAction` | `ActionConfigurationMcpTools` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
+| 4 | `actions` | `deleteGlobalAction` | `ActionConfigurationMcpTools` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
+| 5 | `actions` | `getGlobalAction` | `ActionConfigurationMcpTools` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
+| 6 | `actions` | `listGlobalActions` | `ActionConfigurationMcpTools` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
+| 7 | `actions` | `updateGlobalAction` | `ActionConfigurationMcpTools` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
+| 8 | `repository` | `cleanupBranch` | `RepositoryMcpTools` | ⚠️ **stranded** | qits-workspaces | no MCP surface shipped (§9 item 13) |
+| 9 | `repository` | `createWorkspace` | `RepositoryMcpTools` | ⚠️ **stranded** | qits-workspaces | no MCP surface shipped (§9 item 13) |
+| 10 | `repository` | `getCommitFileDiff` | `RepositoryMcpTools` | ✅ live | qits-projects | unchanged |
+| 11 | `repository` | `integrateBranch` | `RepositoryMcpTools` | ⚠️ **stranded** | qits-workspaces | no MCP surface shipped (§9 item 13) |
+| 12 | `repository` | `listBranches` | `RepositoryMcpTools` | ✅ live | qits-projects | unchanged |
+| 13 | `repository` | `listCommitChanges` | `RepositoryMcpTools` | ✅ live | qits-projects | unchanged |
+| 14 | `repository` | `listCommits` | `RepositoryMcpTools` | ✅ live | qits-projects | unchanged |
+| 15 | `repository` | `listRepositories` | `RepositoryMcpTools` | ✅ live | qits-projects | unchanged |
+| 16 | `repository` | `listWorkspaces` | `RepositoryMcpTools` | ⚠️ **stranded** | qits-workspaces | no MCP surface shipped (§9 item 13) |
+| 17 | `repository` | `mergeParentIntoWorkspace` | `RepositoryMcpTools` | ⚠️ **stranded** | qits-workspaces | no MCP surface shipped (§9 item 13) |
+| 18 | `repository` | `listSubmodules` | `RepositorySubmoduleMcpTools` | ✅ live | qits-projects | unchanged |
+| 19 | `repository` | `prepareSubmoduleBackend` | `RepositorySubmoduleMcpTools` | ✅ live | qits-projects | unchanged |
+| 20 | `repository` | `taskPrompt` | `TaskPromptMcpTools` | ⚠️ **stranded** | qits-workspaces | also needs `telemetry.mcp.WorkspaceScope` (§9 item 13) |
+| 21 | `repository` | `telemetryErrors` | `TelemetryMcpTools` | ✅ live | qits-observability | unchanged |
+| 22 | `repository` | `telemetryMetrics` | `TelemetryMcpTools` | ✅ live | qits-observability | unchanged |
+| 23 | `repository` | `telemetrySearchLogs` | `TelemetryMcpTools` | ✅ live | qits-observability | unchanged |
+| 24 | `repository` | `telemetrySlowSpans` | `TelemetryMcpTools` | ✅ live | qits-observability | unchanged |
+| 25 | `repository` | `telemetryTrace` | `TelemetryMcpTools` | ✅ live | qits-observability | unchanged |
+
+`qits-observability` carries `TelemetryMcpTools` but the server is still *named* `"repository"`,
+in a repo containing no repository tools. Renaming changes the mount path and every configured
+agent URL, so it was reported rather than changed. Its two ports (`RepositoryScopeGuard`,
+`WorkspaceLookup`) are cross-project isolation checks and **fail closed** — "optional port" there
+means deny when unwired, not skip the check.
+
+The six stranded tools are the whole reason `qits-workspaces` has no MCP surface: five workspace
+tools plus `taskPrompt`, which additionally needs a type owned by `qits-observability`.
 
 ---
 
@@ -353,6 +383,7 @@ cross-project isolation checks.
    prompt-draft surface (5), `/repositories/{repoId}/events`, both `/branches/{merge,cleanup}`,
    and the `ResolveConflictService` group (`conflicts`, `incoming-commits`, `resolve-conflict`)
    whose side is still unratified (§9 item 11).
-2. **The entire workspace MCP surface** — 5 tools plus the task-prompt pair.
+2. **6 MCP tools** — `listWorkspaces`, `createWorkspace`, `cleanupBranch`, `integrateBranch`,
+   `mergeParentIntoWorkspace` and `taskPrompt`.
 3. **The service terminal websocket** — needs the execution-seam flip (§9 item 3).
 4. **Four of six extracted services** — path/segment mismatch, see the warning at the top.
