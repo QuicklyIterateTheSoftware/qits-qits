@@ -17,7 +17,7 @@
 	branch = main
 	update = merge
 [submodule "qits-workspace-daemon"]
-	path = qits-workspace-daemon
+	path = daemons/qits-workspace-daemon
 	url = https://github.com/QuicklyIterateTheSoftware/qits-workspace-daemon.git
 	ignore = all
 	branch = main
