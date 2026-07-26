@@ -49,6 +49,10 @@ Machine-readable per-target file lists live in [`migration-manifests/`](migratio
 one `<target>.txt` per section below, `path<TAB>reason`. They are the input to
 `git filter-repo --paths-from-file` in §8.
 
+This document maps **files**. [`migration-api-map.md`](migration-api-map.md) maps
+**entrypoints** — every REST route, websocket and control-socket EVENT in the monolith and
+where it ended up — and is the better starting point for "where did *this API* go".
+
 ## 2. Target topology
 
 "Files" = how many monolith files this target receives a **copy** of. The columns do
