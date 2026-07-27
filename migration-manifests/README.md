@@ -14,7 +14,7 @@ means qits-projects should receive a copy of it, not that it leaves `../qits`.
 | `<target>.paths` | just the paths — input to `git filter-repo --paths-from-file` |
 | `duplicated.txt` | copied to more than one target (see migration-plan.md §5) |
 | `monolith-only.txt` | no target wants a copy; exists only in `../qits` |
-| `unassigned.txt` | open question — auth, `domain.setting`, `cli` |
+| `unassigned.txt` | open question — `domain.setting`, `cli` |
 | `already-extracted.txt` | already living in a submodule; do not re-extract |
 
 `daemon-commands.txt` and `daemon-agents.txt` are **empty and stay that way**. Their 92 rows
@@ -26,6 +26,19 @@ Targets with a `.paths` file: `projects`, `workspaces`, `artifacts`, `ci`, `obse
 `stt`. The two daemon targets had one and no longer do: `qits-commands` and
 `qits-coding-agents` were reimplemented rather than replayed (migration-plan.md §3.3), so there
 was no `filter-repo` to feed and a path list would have implied otherwise.
+
+`gateway.txt` has no `.paths` file for the same reason. The nine files were **adapted**, not
+replayed: `AuthController` became a raw Vert.x route (the gateway has no REST layer),
+`QitsAuthPolicy` lost its root-path stripping, and the two variant config files were folded into
+`application.properties`. A `filter-repo` path list would have promised a history replay that did
+not happen. See [`../migration-auth-plan.md`](../migration-auth-plan.md) §6.
+
+**`auth/` is no longer unassigned.** Authentication terminates at `qits-gateway`; the services
+consume a header and authenticate nothing. So the 33 `auth/` files split three ways rather than
+fanning out: 9 to the gateway, forwardauth's 3 duplicated per service, and 21 monolith-only — the
+variant poms, the `package-info` describing the `-Dqits.variant` contract, and every variant test
+suite, all of which exist to serve the build-time mechanism this decision deletes rather than moves.
+`service/…/security/ForwardAuthVariantTest.java` joins them for the same reason.
 
 ## Regenerating
 

@@ -1,3 +1,6 @@
+auth/forwardauth/src/main/java/eu/wohlben/qits/security/forwardauth/ForwardAuthIdentityProvider.java	forwardauth, copied per service
+auth/forwardauth/src/main/java/eu/wohlben/qits/security/forwardauth/ForwardAuthMechanism.java	forwardauth, copied per service
+auth/forwardauth/src/main/resources/META-INF/microprofile-config.properties	forwardauth, copied per service
 domain/src/main/java/eu/wohlben/qits/domain/error/BadRequestException.java	copied per target
 domain/src/main/java/eu/wohlben/qits/domain/error/DomainException.java	copied per target
 domain/src/main/java/eu/wohlben/qits/domain/error/InternalServerErrorException.java	copied per target

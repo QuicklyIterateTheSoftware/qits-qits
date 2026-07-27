@@ -1,4 +1,26 @@
+auth/core/pom.xml	variant reactor build file
+auth/core/src/main/java/eu/wohlben/qits/security/package-info.java	documents -Dqits.variant, which does not travel
+auth/forwardauth/pom.xml	variant reactor build file
+auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/DummyProtectedResource.java	variant suite; targets carry their own
+auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthDevFallbackTest.java	variant suite; targets carry their own
+auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthHeaderOverrideTest.java	variant suite; targets carry their own
+auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthRequiredRoleTest.java	variant suite; targets carry their own
+auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthTest.java	variant suite; targets carry their own
+auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/NoDevUserProfile.java	variant suite; targets carry their own
+auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/TestRawRoutes.java	variant suite; targets carry their own
+auth/forwardauth/src/test/resources/application.properties	variant suite; targets carry their own
+auth/local/pom.xml	variant reactor build file
+auth/local/src/test/java/eu/wohlben/qits/security/local/DummyProtectedResource.java	variant suite; targets carry their own
+auth/local/src/test/java/eu/wohlben/qits/security/local/LocalAuthTest.java	variant suite; targets carry their own
+auth/local/src/test/resources/application.properties	variant suite; targets carry their own
+auth/oidc/pom.xml	variant reactor build file
+auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/DummyProtectedResource.java	variant suite; targets carry their own
+auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/OidcAuthTest.java	variant suite; targets carry their own
+auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/OidcRequiredRoleTest.java	variant suite; targets carry their own
+auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/TestRawRoutes.java	variant suite; targets carry their own
+auth/oidc/src/test/resources/application.properties	variant suite; targets carry their own
 domain/pom.xml	reactor build file
+domain/src/main/java/eu/wohlben/qits/domain/command/control/OtelEnvironment.java	deleted, not relocated: only callers were the dropped launchService/beginServiceRun
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/AGENTS.md	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/ActionConfigurationSeeder.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/control/ActionConfigurationService.java	out of scope
@@ -16,8 +38,8 @@ domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/ActionCheckResult
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/ActionConfiguration.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/ActionType.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowConfiguration.java	out of scope
-domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowPhaseAction.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowPhase.java	out of scope
+domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowPhaseAction.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/entity/FeatureFlowPhaseStep.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/mapper/ActionConfigurationMapper.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/mapper/FeatureFlowConfigurationMapper.java	out of scope
@@ -29,13 +51,24 @@ domain/src/main/java/eu/wohlben/qits/domain/featureflow/persistence/FeatureFlowP
 domain/src/main/java/eu/wohlben/qits/domain/featureflow/persistence/FeatureFlowPhaseStepRepository.java	out of scope
 domain/src/main/java/eu/wohlben/qits/domain/repository/control/WorkspaceCheckpointService.java	deleted, not relocated: daemon OriginSync pushes per commit
 domain/src/main/resources/db/migration/V11__remove_action_variant.sql	flyway V11
+domain/src/main/resources/db/migration/V12__command_execute_script_lob.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V13__command_kind.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V18__command_log_line_severity.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
 domain/src/main/resources/db/migration/V27__unify_actions.sql	flyway V27
+domain/src/main/resources/db/migration/V28__command_agent_session.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V29__transcript_log_channel.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
 domain/src/main/resources/db/migration/V2__feature_flow_config_repository.sql	flyway V2
+domain/src/main/resources/db/migration/V30__agent_session_stat.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V32__command_agent_session_cascade.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V39__widen_agent_session_id.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
 domain/src/main/resources/db/migration/V43__drop_repo_config_store.sql	flyway V43 (also workspaces,projects)
 domain/src/main/resources/db/migration/V4__action_configuration_run.sql	flyway V4
 domain/src/main/resources/db/migration/V5__action_configuration_interactive.sql	flyway V5
 domain/src/main/resources/db/migration/V6__repository_action.sql	flyway V6
 domain/src/main/resources/db/migration/V7__action_variant.sql	flyway V7
+domain/src/main/resources/db/migration/V8__command.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V9__command_log_line.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/test/java/eu/wohlben/qits/domain/command/control/OtelEnvironmentTest.java	deleted, not relocated: only callers were the dropped launchService/beginServiceRun
 domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/ActionConfigurationServiceTest.java	out of scope
 domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/ActionResolutionServiceTest.java	out of scope
 domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowConfigurationServiceTest.java	out of scope
@@ -45,8 +78,8 @@ domain/src/test/java/eu/wohlben/qits/domain/featureflow/control/FeatureFlowPhase
 domain/src/test/java/eu/wohlben/qits/domain/repository/control/WorkspaceCheckpointServiceTest.java	deleted, not relocated: daemon OriginSync pushes per commit
 service/.dockerignore	app shell
 service/.gitignore	app shell
-service/pom.xml	app shell
 service/README.md	app shell
+service/pom.xml	app shell
 service/src/main/docker/Dockerfile.jvm	app shell
 service/src/main/docker/Dockerfile.legacy-jar	app shell
 service/src/main/docker/Dockerfile.native	app shell
@@ -79,17 +112,18 @@ service/src/test/java/eu/wohlben/qits/domain/featureflow/api/FeatureFlowPhaseSte
 service/src/test/java/eu/wohlben/qits/domain/featureflow/api/WorkspaceActionsControllerTest.java	out of scope
 service/src/test/java/eu/wohlben/qits/domain/featureflow/mcp/ActionConfigurationMcpToolsTest.java	out of scope
 service/src/test/java/eu/wohlben/qits/health/HealthCheckTest.java	app shell
+service/src/test/java/eu/wohlben/qits/mutiny/MutinySmokeTest.java	app shell
 service/src/test/java/eu/wohlben/qits/mutiny/api/ContextPropagationControllerTest.java	app shell
 service/src/test/java/eu/wohlben/qits/mutiny/api/ReactiveEchoControllerTest.java	app shell
-service/src/test/java/eu/wohlben/qits/mutiny/MutinySmokeTest.java	app shell
 service/src/test/java/eu/wohlben/qits/openapi/OpenApiSchemaExportTest.java	app shell
+service/src/test/java/eu/wohlben/qits/security/ForwardAuthVariantTest.java	asserts -Dqits.variant wiring
 service/src/test/java/eu/wohlben/qits/spa/SpaShellCacheFilterTest.java	app shell
 service/src/test/java/eu/wohlben/qits/testsupport/RepoDataDirReset.java	app shell
 service/src/test/java/eu/wohlben/qits/validation/ValidationTest.java	app shell
 service/src/test/java/eu/wohlben/qits/websocket/SameOriginUpgradeCheckTest.java	app shell
+service/src/test/resources/META-INF/services/org.junit.jupiter.api.extension.Extension	app shell
 service/src/test/resources/application.properties	app shell
 service/src/test/resources/junit-platform.properties	app shell
-service/src/test/resources/META-INF/services/org.junit.jupiter.api.extension.Extension	app shell
 userflows/AGENTS.md	product stories
 userflows/CLAUDE.md	product stories
 userflows/pom.xml	product stories
@@ -106,15 +140,3 @@ userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/BrowseDemoPr
 userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/CreateRepositoryIT.java	product stories
 userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/DeleteRepositoryIT.java	product stories
 userflows/src/test/resources/junit-platform.properties	product stories
-domain/src/main/java/eu/wohlben/qits/domain/command/control/OtelEnvironment.java	deleted, not relocated: only callers were the dropped launchService/beginServiceRun
-domain/src/test/java/eu/wohlben/qits/domain/command/control/OtelEnvironmentTest.java	deleted, not relocated: only callers were the dropped launchService/beginServiceRun
-domain/src/main/resources/db/migration/V12__command_execute_script_lob.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V13__command_kind.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V18__command_log_line_severity.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V28__command_agent_session.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V29__transcript_log_channel.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V32__command_agent_session_cascade.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V8__command.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V9__command_log_line.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V30__agent_session_stat.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
-domain/src/main/resources/db/migration/V39__widen_agent_session_id.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)

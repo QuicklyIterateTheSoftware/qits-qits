@@ -1,0 +1,9 @@
+auth/core/src/main/java/eu/wohlben/qits/security/PublicPaths.java	the token-free allowlist
+auth/core/src/main/java/eu/wohlben/qits/security/QitsAuthPolicy.java	the one authorization decision
+auth/core/src/main/java/eu/wohlben/qits/security/api/AuthController.java	/api/auth/me, as a raw Vert.x route
+auth/core/src/test/java/eu/wohlben/qits/security/PublicPathsTest.java	moved with PublicPaths
+auth/local/src/main/java/eu/wohlben/qits/security/local/LocalAuthMechanism.java	the `local` build target
+auth/local/src/main/java/eu/wohlben/qits/security/local/LocalIdentityProvider.java	the `local` build target
+auth/local/src/main/resources/META-INF/microprofile-config.properties	local defaults, folded into application.properties
+auth/oidc/src/main/java/eu/wohlben/qits/security/oidc/NonNavigationRequestChecker.java	the login itself
+auth/oidc/src/main/resources/META-INF/microprofile-config.properties	oidc defaults, folded into application.properties

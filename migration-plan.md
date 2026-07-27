@@ -368,9 +368,16 @@ Flyway V2, V4–V7, V11, V27, V43 (featureflow parts).
 
 | Files | What | Why it's open |
 |---|---|---|
-| 34 | `auth/{core,local,oidc,forwardauth}` | Every extracted service needs the same `QitsAuthPolicy` + `PublicPaths`. A `libs/qits-auth` is the obvious answer, but the modules are **profile-swapped at build time** (`-Dqits.variant`), which does not survive a per-service split unchanged. The `qits-gateway` epic Part 4 proposes moving auth to the edge instead, which would delete most of this. Decide with that epic, not here. |
 | 9 | `domain/setting/**` + its api | A generic DB-backed key/value store read by `agent` only (`agent.default-type`, `agent.activity-tracking.enabled`). Either follows agents into the daemon repo, or becomes the seed of `libs/qits-commons`. Flyway V40. |
 | 12 | `cli/` | Command-mode seeding/dev tooling (`SeedService`, `SeedWebappService`, `SeedLitService`, `GenerateMigrationService`). Depends on `domain` only, executes nothing. Likely ships with whatever holds the app shell. |
+
+> **`auth/` is settled** — see [`migration-auth-plan.md`](migration-auth-plan.md). It was listed
+> here as 34 files; the tracked count is **33**. Authentication terminates at `qits-gateway`, so the
+> variant question becomes single-instance instead of fanning out: 9 files to the gateway,
+> forwardauth's 3 duplicated per service (§5), and 21 monolith-only — the poms, the `package-info`
+> and every variant suite, which serve the `-Dqits.variant` mechanism this deletes rather than
+> moves. `libs/qits-auth` was not created and should not be; it would have made seven copies of the
+> problem share a jar without making the problem smaller.
 
 ## 5. Duplicate-now, library-later
 
@@ -707,15 +714,24 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
    direct child process and an FFM PTY, and the two interactive websockets are served by the
    daemon's own HTTP server rather than by `RunCommand` (which stays fire-and-collect, with no
    stdin and no resize — see §3.3).
-4. **Auth strategy** — resolve against `qits-gateway` epic Part 4 (edge auth) before
-   creating `libs/qits-auth` (§4).
+4. ~~**Auth strategy**~~ — **settled and landed.** Authentication terminates at
+   `qits-gateway` ([`migration-auth-plan.md`](migration-auth-plan.md)): the gateway
+   authenticates and asserts `X-Qits-User`; every service resolves a principal from that
+   header and authenticates nothing. `libs/qits-auth` was **not** created and should not
+   be. Still owed: nothing in this repo can demonstrate the seam end to end, because no
+   service is a runnable process yet (item 7, which is broader than it says).
 5. **`libs/qits-commons`** — when the duplicate register (§5) stops being cheaper than
    a shared jar.
 6. **`domain.featureflow`** — deferred; currently coupled to `project` in both
    directions.
-7. **`qits-workspaces` is not yet a deployable.** Its `service/` module is a library
-   JAR by design. Something must package it as a process (auth variant + main class)
-   before its gateway route can go live.
+7. **No service is a deployable — not just `qits-workspaces`.** Every `service/` module in
+   all six repos is a library JAR: `quarkus-maven-plugin` appears only in `pluginManagement`
+   in each root pom, never in a module's `<plugins>`, and no repo ships a
+   `service/src/main/resources/application.properties`. `@QuarkusTest` still boots each
+   module, so each one's suite is real — but nothing can be *started*, which is why the
+   auth seam (item 4) is tested on both sides and unproven in the middle. Something must
+   package each as a process before its gateway route can go live. The auth half of that
+   packaging is now trivial: there is no variant to select, only a header to read.
 8. **`daemons/` is not an archetype directory.** `RepositoryArchetype` defines
    `services`/`libs`/`integrations`/`apps` only. Either add `daemons` or move the
    submodule.

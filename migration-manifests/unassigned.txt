@@ -1,36 +1,3 @@
-auth/core/pom.xml	auth variants
-auth/core/src/main/java/eu/wohlben/qits/security/PublicPaths.java	auth variants
-auth/core/src/main/java/eu/wohlben/qits/security/QitsAuthPolicy.java	auth variants
-auth/core/src/main/java/eu/wohlben/qits/security/api/AuthController.java	auth variants
-auth/core/src/main/java/eu/wohlben/qits/security/package-info.java	auth variants
-auth/core/src/test/java/eu/wohlben/qits/security/PublicPathsTest.java	auth variants
-auth/forwardauth/pom.xml	auth variants
-auth/forwardauth/src/main/java/eu/wohlben/qits/security/forwardauth/ForwardAuthIdentityProvider.java	auth variants
-auth/forwardauth/src/main/java/eu/wohlben/qits/security/forwardauth/ForwardAuthMechanism.java	auth variants
-auth/forwardauth/src/main/resources/META-INF/microprofile-config.properties	auth variants
-auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/DummyProtectedResource.java	auth variants
-auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthDevFallbackTest.java	auth variants
-auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthHeaderOverrideTest.java	auth variants
-auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthRequiredRoleTest.java	auth variants
-auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/ForwardAuthTest.java	auth variants
-auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/NoDevUserProfile.java	auth variants
-auth/forwardauth/src/test/java/eu/wohlben/qits/security/forwardauth/TestRawRoutes.java	auth variants
-auth/forwardauth/src/test/resources/application.properties	auth variants
-auth/local/pom.xml	auth variants
-auth/local/src/main/java/eu/wohlben/qits/security/local/LocalAuthMechanism.java	auth variants
-auth/local/src/main/java/eu/wohlben/qits/security/local/LocalIdentityProvider.java	auth variants
-auth/local/src/main/resources/META-INF/microprofile-config.properties	auth variants
-auth/local/src/test/java/eu/wohlben/qits/security/local/DummyProtectedResource.java	auth variants
-auth/local/src/test/java/eu/wohlben/qits/security/local/LocalAuthTest.java	auth variants
-auth/local/src/test/resources/application.properties	auth variants
-auth/oidc/pom.xml	auth variants
-auth/oidc/src/main/java/eu/wohlben/qits/security/oidc/NonNavigationRequestChecker.java	auth variants
-auth/oidc/src/main/resources/META-INF/microprofile-config.properties	auth variants
-auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/DummyProtectedResource.java	auth variants
-auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/OidcAuthTest.java	auth variants
-auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/OidcRequiredRoleTest.java	auth variants
-auth/oidc/src/test/java/eu/wohlben/qits/security/oidc/TestRawRoutes.java	auth variants
-auth/oidc/src/test/resources/application.properties	auth variants
 cli/pom.xml	cli seeding tool
 cli/src/main/java/eu/wohlben/qits/cli/GenerateMigrationService.java	cli seeding tool
 cli/src/main/java/eu/wohlben/qits/cli/Main.java	cli seeding tool
@@ -52,4 +19,3 @@ domain/src/main/resources/db/migration/V40__setting.sql	flyway V40
 domain/src/test/java/eu/wohlben/qits/domain/setting/control/SettingsServiceTest.java	domain.setting
 service/src/main/java/eu/wohlben/qits/domain/setting/api/SettingController.java	domain.setting
 service/src/test/java/eu/wohlben/qits/domain/setting/api/SettingControllerTest.java	domain.setting
-service/src/test/java/eu/wohlben/qits/security/ForwardAuthVariantTest.java	auth variant test

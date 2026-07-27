@@ -85,13 +85,69 @@ MIG = {  # migration -> targets. "dropped" = the daemon keeps no state, so the t
  "V43":["monolith","workspaces","projects"],"V44":["projects"],"V45":["workspaces"],
 }
 
+# Authentication terminates at qits-gateway (../migration-auth-plan.md). The gateway performs the
+# login and asserts the identity as X-Qits-* headers; every service consumes the header and
+# authenticates nothing. So the variant modules do not fan out — the login goes to ONE target, and
+# only forwardauth's two header-reading classes are duplicated per service.
+#
+# The variant poms, the package-info describing the variant-module contract, and every variant test
+# suite stay monolith-only: they exist to serve `-Dqits.variant`, which is the mechanism this plan
+# deletes rather than moves. The gateway is parent-less and carries no pom of theirs, and it has its
+# own tests (GatewayAuthTest, LocalVariantTest, RequiredRoleTest, PublicPathsTest).
+AUTH_TO_GATEWAY = {
+    "auth/core/src/main/java/eu/wohlben/qits/security/PublicPaths.java":
+        "the token-free allowlist",
+    "auth/core/src/main/java/eu/wohlben/qits/security/QitsAuthPolicy.java":
+        "the one authorization decision",
+    "auth/core/src/main/java/eu/wohlben/qits/security/api/AuthController.java":
+        "/api/auth/me, as a raw Vert.x route",
+    "auth/core/src/test/java/eu/wohlben/qits/security/PublicPathsTest.java":
+        "moved with PublicPaths",
+    "auth/oidc/src/main/java/eu/wohlben/qits/security/oidc/NonNavigationRequestChecker.java":
+        "the login itself",
+    "auth/oidc/src/main/resources/META-INF/microprofile-config.properties":
+        "oidc defaults, folded into application.properties",
+    "auth/local/src/main/java/eu/wohlben/qits/security/local/LocalAuthMechanism.java":
+        "the `local` build target",
+    "auth/local/src/main/java/eu/wohlben/qits/security/local/LocalIdentityProvider.java":
+        "the `local` build target",
+    "auth/local/src/main/resources/META-INF/microprofile-config.properties":
+        "local defaults, folded into application.properties",
+}
+
+# forwardauth's two classes become every service's only relationship with auth — 115 lines each,
+# duplicated rather than shared, because a shared jar does not fit a build model where every repo
+# must build from a clone of itself alone. Its config travels with them. The roles half is dropped
+# on arrival: the gateway emits no groups header.
+AUTH_TO_EVERY_SERVICE = {
+    "auth/forwardauth/src/main/java/eu/wohlben/qits/security/forwardauth/ForwardAuthMechanism.java",
+    "auth/forwardauth/src/main/java/eu/wohlben/qits/security/forwardauth/"
+        "ForwardAuthIdentityProvider.java",
+    "auth/forwardauth/src/main/resources/META-INF/microprofile-config.properties",
+}
+
+
+def classify_auth(p):
+    if p in AUTH_TO_GATEWAY:
+        return "gateway", AUTH_TO_GATEWAY[p]
+    if p in AUTH_TO_EVERY_SERVICE:
+        return "DUPLICATE", "forwardauth, copied per service"
+    if p.endswith("/pom.xml"):
+        return "monolith", "variant reactor build file"
+    if p.endswith("/package-info.java"):
+        return "monolith", "documents -Dqits.variant, which does not travel"
+    if "/src/test/" in p:
+        return "monolith", "variant suite; targets carry their own"
+    return "REVIEW", p
+
+
 def classify(p):
     """return (primary_target, note)"""
     # ---- whole maven modules --------------------------------------------
     if p.startswith("artifacts/"):   return "artifacts", "artifacts module"
     if p.startswith("epics/"):       return "projects",  "epics module"
     if p.startswith("ci/"):          return "ci",        "ci module"
-    if p.startswith("auth/"):        return "unassigned","auth variants"
+    if p.startswith("auth/"):        return classify_auth(p)
     if p.startswith("cli/"):         return "unassigned","cli seeding tool"
     if p.startswith("workspace-daemon-protocol/"): return "daemon-done","already extracted"
     if p.startswith("workspace-daemon/"):          return "daemon-done","already extracted"
@@ -197,7 +253,7 @@ def classify(p):
         if "/domain/featureflow/" in p: return "monolith", "out of scope"
         if "/domain/setting/" in p:     return "unassigned", "domain.setting"
         if "/seeding/" in p:            return "projects", "self-seed gate"
-        if "/security/" in p:           return "unassigned", "auth variant test"
+        if "/security/" in p:           return "monolith", "asserts -Dqits.variant wiring"
         return "monolith", "app shell"
 
     return "REVIEW", p
