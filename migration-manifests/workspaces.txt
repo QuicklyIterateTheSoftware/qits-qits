@@ -161,7 +161,6 @@ service/src/main/java/eu/wohlben/qits/domain/capture/api/CaptureCorsRoute.java	w
 service/src/main/java/eu/wohlben/qits/domain/capture/api/CaptureResource.java	workspace boundary
 service/src/main/java/eu/wohlben/qits/domain/process/api/TechnicalProcessEventsController.java	workspace boundary
 service/src/main/java/eu/wohlben/qits/domain/repository/api/RepositoryEventsController.java	workspace half (service side; was misassigned to projects)
-service/src/main/java/eu/wohlben/qits/domain/repository/api/TerminalSocket.java	workspace half (service side; was misassigned to projects)
 service/src/main/java/eu/wohlben/qits/domain/repository/api/WorkspaceController.java	workspace half (service side; was misassigned to projects)
 service/src/main/java/eu/wohlben/qits/domain/repository/api/WorkspaceHistoryController.java	workspace half (service side; was misassigned to projects)
 service/src/main/java/eu/wohlben/qits/domain/repository/api/WorkspacePromptDraftController.java	workspace half (service side; was misassigned to projects)

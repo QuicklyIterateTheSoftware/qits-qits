@@ -17,8 +17,15 @@ means qits-projects should receive a copy of it, not that it leaves `../qits`.
 | `unassigned.txt` | open question — auth, `domain.setting`, `cli` |
 | `already-extracted.txt` | already living in a submodule; do not re-extract |
 
-Targets with a `.paths` file: `projects`, `workspaces`, `daemon-agents`,
-`daemon-commands`, `artifacts`, `ci`, `observability`, `stt`.
+`daemon-commands.txt` and `daemon-agents.txt` are **empty and stay that way**. Their 92 rows
+moved to `already-extracted.txt`, their 10 Flyway rows and `OtelEnvironment` to
+`monolith-only.txt` (dropped rather than carried), and `assign.py` now short-circuits
+`domain.agent` and `domain.command` to `daemon-done` so a rerun cannot silently re-adopt them.
+
+Targets with a `.paths` file: `projects`, `workspaces`, `artifacts`, `ci`, `observability`,
+`stt`. The two daemon targets had one and no longer do: `qits-commands` and
+`qits-coding-agents` were reimplemented rather than replayed (migration-plan.md §3.3), so there
+was no `filter-repo` to feed and a path list would have implied otherwise.
 
 ## Regenerating
 
@@ -27,12 +34,16 @@ cd ../qits
 git ls-files domain service artifacts epics ci auth cli \
              workspace-daemon workspace-daemon-protocol userflows qits-userflows \
   | grep -v 'service/src/main/webui/' > all.txt
-python3 migration-manifests/assign.py          # prints per-target counts
+python3 ../qits-qits/migration-manifests/assign.py all.txt   # prints per-target counts
 ```
 
 `assign.py` is an ordered first-match ruleset. It exits with an `UNCLASSIFIED` list if
-any path falls through — that list must stay empty. `SRC` at the top points at
-`all.txt`; adjust when re-running.
+any path falls through — that list must stay empty. It reads `all.txt` from the working
+directory, or a path given as its first argument; it writes per-target files into
+`manifests/` beside wherever it ran, which are then reconciled by hand against the
+files here.
+
+Last run: **926 / 926 classified, nothing unclassified.**
 
 ## Caveats
 

@@ -2,7 +2,9 @@
 """Assign every tracked file under ../qits (minus webui/target) to a migration target."""
 import re, sys, collections
 
-SRC = "/tmp/claude-1000/-home-wohlben-code-qits-qits/148e2d54-70ab-401c-92a6-a939008c68c5/scratchpad/all.txt"
+# The file list to classify: `all.txt` in the working directory, or argv[1]. It used to be an
+# absolute path into a scratch directory, which had rotted by the next rerun — see README.
+SRC = sys.argv[1] if len(sys.argv) > 1 else "all.txt"
 
 # --- domain/repository is the one package that genuinely splits -------------
 WS_REPO = {  # workspace-scoped -> qits-workspaces
@@ -67,18 +69,19 @@ PROJ_REPO = {  # repo-scoped -> qits-projects
  "persistence/RepositorySubmoduleRepository",
 }
 
-MIG = {  # migration -> targets
+MIG = {  # migration -> targets. "dropped" = the daemon keeps no state, so the table is gone
+       #                      rather than squashed into a new lineage (migration-plan.md §7).
  "V1":["projects"],"V2":["monolith"],"V3":["projects"],"V4":["monolith"],"V5":["monolith"],
- "V6":["monolith"],"V7":["monolith"],"V8":["daemon-commands"],"V9":["daemon-commands"],
- "V10":["projects","workspaces"],"V11":["monolith"],"V12":["daemon-commands"],
- "V13":["daemon-commands"],"V14":["workspaces"],"V15":["workspaces"],"V16":["workspaces"],
- "V17":["workspaces"],"V18":["daemon-commands"],"V19":["workspaces"],"V20":["projects"],
+ "V6":["monolith"],"V7":["monolith"],"V8":["dropped"],"V9":["dropped"],
+ "V10":["projects","workspaces"],"V11":["monolith"],"V12":["dropped"],
+ "V13":["dropped"],"V14":["workspaces"],"V15":["workspaces"],"V16":["workspaces"],
+ "V17":["workspaces"],"V18":["dropped"],"V19":["workspaces"],"V20":["projects"],
  "V21":["workspaces"],"V22":["workspaces"],"V23":["workspaces"],
  "V24":["projects","workspaces"],"V25":["workspaces"],"V26":["workspaces"],"V27":["monolith"],
- "V28":["daemon-commands","daemon-agents"],"V29":["daemon-commands"],"V30":["daemon-agents"],
- "V31":["workspaces"],"V32":["daemon-commands"],"V33":["projects"],"V34":["projects"],
+ "V28":["dropped"],"V29":["dropped"],"V30":["dropped"],
+ "V31":["workspaces"],"V32":["dropped"],"V33":["projects"],"V34":["projects"],
  "V35":["workspaces"],"V36":["workspaces"],"V37":["workspaces"],"V38":["workspaces"],
- "V39":["daemon-agents"],"V40":["unassigned"],"V41":["projects"],"V42":["workspaces"],
+ "V39":["dropped"],"V40":["unassigned"],"V41":["projects"],"V42":["workspaces"],
  "V43":["monolith","workspaces","projects"],"V44":["projects"],"V45":["workspaces"],
 }
 
@@ -144,8 +147,13 @@ def classify(p):
             return "projects", "repository non-java"
         if area in ("bootstrap","capture","process","service","workspace"):
             return "workspaces", "domain." + area
-        if area == "agent":   return "daemon-agents", "domain.agent"
-        if area == "command": return "daemon-commands", "domain.command"
+        # Both surfaces were reimplemented inside the container rather than copied
+        # (migration-plan.md §3.3), so they are done and must not be re-adopted by a rerun —
+        # the same short-circuit DAEMON_MOVED gives files/detection above.
+        if area == "agent":
+            return "daemon-done", "moved to qits-workspace-daemon (qits-coding-agents)"
+        if area == "command":
+            return "daemon-done", "moved to qits-workspace-daemon (qits-commands)"
         if area in ("project","seeding"): return "projects", "domain." + area
         if area == "speech":  return "stt", "domain.speech"
         if area == "featureflow": return "monolith", "out of scope"
@@ -162,9 +170,11 @@ def classify(p):
         if "/githost/" in p:       return "artifacts", "git smart-HTTP host"
         if "/domain/telemetry/" in p: return "observability", "telemetry"
         if "/domain/speech/" in p:    return "stt", "REST boundary"
-        if "/domain/agent/" in p:     return "daemon-agents", "REST boundary"
+        # See the domain-side note below: reimplemented in the container, not copied.
+        if "/domain/agent/" in p:
+            return "daemon-done", "moved to qits-workspace-daemon (qits-coding-agents)"
         if "/domain/command/" in p or "/domain/chat/" in p:
-            return "daemon-commands", "REST/WS boundary"
+            return "daemon-done", "moved to qits-workspace-daemon (qits-commands)"
         if "/domain/repository/" in p:
             # The repository package splits per class (WS_REPO/PROJ_REPO), and the service side
             # splits with it. Matching the directory alone sent the whole boundary to projects and

@@ -106,3 +106,15 @@ userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/BrowseDemoPr
 userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/CreateRepositoryIT.java	product stories
 userflows/src/test/java/eu/wohlben/qits/userflows/projectrepository/DeleteRepositoryIT.java	product stories
 userflows/src/test/resources/junit-platform.properties	product stories
+domain/src/main/java/eu/wohlben/qits/domain/command/control/OtelEnvironment.java	deleted, not relocated: only callers were the dropped launchService/beginServiceRun
+domain/src/test/java/eu/wohlben/qits/domain/command/control/OtelEnvironmentTest.java	deleted, not relocated: only callers were the dropped launchService/beginServiceRun
+domain/src/main/resources/db/migration/V12__command_execute_script_lob.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V13__command_kind.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V18__command_log_line_severity.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V28__command_agent_session.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V29__transcript_log_channel.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V32__command_agent_session_cascade.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V8__command.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V9__command_log_line.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V30__agent_session_stat.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)
+domain/src/main/resources/db/migration/V39__widen_agent_session_id.sql	deleted, not relocated: the daemon keeps no state, so these tables are gone (migration-plan.md §7)

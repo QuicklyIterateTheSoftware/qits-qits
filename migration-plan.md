@@ -63,7 +63,7 @@ not sum to a partition of the monolith — the monolith keeps all 926.
 | `services/qits-gateway` | Edge reverse proxy, service registry | **done** | — |
 | `services/qits-projects` | Project, repository, epics/planning | **done** | 200 |
 | `services/qits-workspaces` | Host side of workspaces, containers, dev services | **done** | 207 |
-| `daemons/qits-workspace-daemon` | In-container daemon **+ agents + commands** | **partial** (55 copied) | 104 new |
+| `daemons/qits-workspace-daemon` | In-container daemon **+ agents + commands** | **done** | 0 copied, 194 tracked |
 | `services/qits-artifacts` | Blob store + git smart-HTTP host | **done** | 45 |
 | `services/qits-ci` | In-repo pipelines | **done** | 41 |
 | `services/qits-observability` | Telemetry / OTLP | **done** | 32 |
@@ -89,6 +89,12 @@ Two assignment corrections came out of the extractions and are already applied t
   instead of host-side `docker exec`. 25 are recorded in `already-extracted.txt`;
   `WorkspaceCheckpointService` + its test were deleted rather than relocated (the daemon's
   `OriginSync` already pushes per commit) and are recorded in `monolith-only.txt`.
+- **104 rows left `daemon-commands` and `daemon-agents`, all for `already-extracted.txt`.**
+  Neither target file has a row left: both surfaces were **reimplemented** rather than copied
+  (§3.3), so the daemon receives a copy of nothing — its 194 tracked files are all new code. Two
+  rows went elsewhere instead: `TerminalSocket.java` was misfiled under `workspaces` and belongs
+  with the commands rows it serves, and `OtelEnvironment` + its test were dropped rather than
+  carried (§3.3) and are recorded in `monolith-only.txt` beside `WorkspaceCheckpointService`.
 - **25 rows left `projects`, 24 of them for `workspaces`.** `assign.py` split
   `domain/repository` per class but matched the *service* side by directory, so the whole
   `service/.../domain/repository/{api,mcp,control}` boundary went to projects — stranding
@@ -189,52 +195,79 @@ Flyway: V14–V17, V19, V21–V26, V31, V35–V38, V42, V43, V45, V10, V24.
 
 ### 3.3 `daemons/qits-workspace-daemon` — both ends of the container socket
 
-Gains **two new maven modules**, kept separate so each can be re-extracted later:
+Gained **two new maven modules**, kept separate so each can be re-extracted later:
 
-- **`agents/`** — `domain/agent/**` (28 main incl. `agent/acp`, 16 test)
-  + `service/.../domain/agent/api/**` (5+5 test). Flyway V30, V39, V28.
-- **`commands/`** — `domain/command/**` (33 main, 3 test)
-  + `service/.../domain/command/api` (1+2 test) + `service/.../domain/chat/api` (1).
-  Flyway V8, V9, V12, V13, V18, V28, V29, V32.
+- **`qits-commands/`** — from `domain/command/**` + `service/.../domain/command/api` +
+  `service/.../domain/chat/api`. Landed `qits-workspace-daemon@9a9f365`, `@f6fc9a5`.
+- **`qits-coding-agents/`** — from `domain/agent/**` (incl. `agent/acp`) +
+  `service/.../domain/agent/api/**`. Landed `@364d65e` … `@d32991a`, served `@d386e9f`.
 
-Existing `workspace-daemon/` and `workspace-daemon-protocol/` are untouched.
+They drop the `workspace-daemon-` prefix the older modules carry: those name a *part of the
+daemon*, these name a *capability* that happens to run inside it.
 
-**Rationale and the caveat this rests on.** Before the gateway existed the frontend
-could not address the daemon over REST, so agent/command APIs had to live in the
-monolith. With `services/qits-gateway` in place they can be daemon-side.
+> **What actually happened is not what this section originally planned.** It described these
+> two as a **host-side control plane**: a `git filter-repo` history replay, a package rename,
+> a port declared for every cross-context reach, Flyway lineages squashed per §7, and the
+> `docker exec` transport left in place with the flip to the control socket deferred to §9
+> item 3. The rest of this section is what was built instead. §8's extraction recipe does
+> **not** describe this target; steps 8–10 (verify from a pristine clone, push, register)
+> still do.
 
-The premise was checked against the code. It holds **partially**, and the difference
-is load-bearing for the extraction:
+**The decision taken instead.** Both surfaces moved **into the container**, and their state is
+**container-lifecycle-scoped** — nothing is kept beyond the life of the container. That removes
+the persistence layer, removes the `docker exec` transport, and dissolves most of §6's cut
+sites rather than porting them behind ports.
 
-- ✅ Every `CommandService` launch requires a workspace and a container. There are no
-  null-workspace commands (`CommandService.java:503-528`). All three `CommandKind`
-  values (`TERMINAL`, `CHAT`, `SERVICE`) execute their payload in-container.
-- ❌ The **transport is host-side**. `CommandRegistry.java:150` spawns a pty4j
-  `docker exec -it` client; `CommandRegistry.java:100` a `ProcessBuilder`
-  `docker exec -i`. `WorkspaceDaemonRegistry` is not referenced anywhere under
-  `domain/command/control/`. `WorkspaceDaemonRegistry.runCommand` is self-documented
-  as a *"Part-1 demonstration seam"* with a single caller
-  (`WorkspaceActionsController.java:134`).
+The precedent was already in the repo: `workspace-daemon-files` and `workspace-daemon-detection`
+(`@2dbe0ab`, `@0b034cc`) took exactly this path one level down — 25 monolith rows replaced by
+fresh code, plain JUnit, no history replay, DTO field names kept so the frontend contract did
+not move. This pass repeated that shape at a larger scale.
 
-So these two modules land in the daemon repo as **host-side control plane**, and
-flipping the execution seam to the daemon socket is tracked as follow-up (§9).
+**Why no history replay.** The code is not moved intact, it is reimplemented against a
+different runtime. A filtered branch would have carried a Panache persistence layer, a
+`ContainerRuntime` seam, and a set of Quarkus transactions that have no meaning inside the
+container — and every one of those would then have had to be deleted in a follow-up commit
+whose diff nobody could read against the replayed history.
 
-Known host-coupled classes inside `agents/`, to be resolved per-class during
-extraction rather than now:
+**What the relocation dissolved.** Each of these was listed above as a coupling "to be resolved
+per-class during extraction"; in the container most of them stopped existing:
 
-| Class | Coupling |
+| Was | Became |
 |---|---|
-| `AgentTranscriptService`, `AgentTranscriptTailService` | read `/claude-home/.claude` off the **host** filesystem |
-| `AgentSessionQueryService`, `AgentActivityState`, `agent_session_stat` | pure DB / in-memory, no execution |
-| `PromptRefinementService` (`:138`) | host `ProcessExecutor` wrapping docker argv |
-| `AgentAuthStatus`, `AgentPluginService` | `ContainerRuntime.exec` → host docker CLI |
+| `AgentTranscriptService`, `AgentTranscriptTailService` read `/claude-home` off the **host** | a local directory. The config-dir override, its legacy alias and the container→host path remap all collapse to identity |
+| `AgentAuthStatus`, `AgentPluginService`, `PromptRefinementService` → `ContainerRuntime.exec` | plain local processes; the plugin listing is a `Files.readString` |
+| `AgentLaunchService` → `QitsHostResolver` | the daemon dialled qits, so it knows the address: two lines of URI parsing |
+| `AgentLaunchService` → `RepositoryRepository` for one field | `qits.workspace-daemon.project-id`, already injected per container |
+| `AgentLaunchService`, `AgentPluginService` → `WorkspaceService.ensureContainer` | deleted. The daemon *is* the container |
+| `Command`'s FK to `Workspace` | gone from the model — inside the container every command is this workspace's by construction |
+| `CommandService.launch` → `featureflow.ActionResolutionService` | `ConfigActionResolver` over the checkout's own `.qits-config.yml` — the V42–V45 direction §7 already noted |
+| `AgentSessionQueryService` → `WorkspaceRepository` | dropped; the workspace is ambient |
+| `agent_session_stat` + `CommandRepository`/`CommandLogLineRepository` | in-memory `AgentSessionStore` / `CommandStore` / `CommandLogBuffer` |
 
-Dead code to drop rather than migrate: `CommandService.launchService`,
-`beginServiceRun`, `followService`, `launchAndAwait`, `launchScriptAndAwait` (no
-production callers) and the tmux verbs in `DockerExecutor.java:500-530` — residue of
-the pre-daemon host-exec supervisor.
+**Three couplings did not dissolve, and were dropped rather than ported:**
 
-> **This was not honoured, and it cost a regression.** Neither the first
+- `WorkspacePromptDraftService` — there is no draft store in the container, so the launch
+  request carries the prompt and `deliverTaskPrompt` is taken at its word.
+- `ServiceEventSpool` — a chat used to open seeded with the service events that fired while
+  nothing was listening. `ServiceSupervisor` is in the daemon repo but has no spool, and
+  building one is a feature rather than part of a move. **Open item, §9.**
+- `setting.control.SettingsService` — `agent.default-type` and
+  `agent.activity-tracking.enabled` are preferences that must outlive a container. Resolution
+  became *request parameter > the checkout's `.qits-config.yml` > a daemon default*, and
+  `domain.setting` **stays host-side** (§4 row unchanged, `/api/settings` stays ❔ open).
+
+**Two things this cost, both deliberate — see the durability item in §9.** Command history and
+agent-session lineage do not survive a container recreate, and resuming a session from a
+previous container fails closed.
+
+**The dead-code list was honoured this time.** `CommandService.launchService`,
+`beginServiceRun`, `followService`, `launchAndAwait` and `launchScriptAndAwait` were confirmed
+to have no production callers and are gone. `OtelEnvironment` went with them — its only callers
+were `launchService` and `beginServiceRun`, so keeping it would have left precisely the landing
+pad the warning below describes. If service launches ever need the OTLP overlay again it
+belongs beside `ServiceSupervisor`.
+
+> **The earlier warning, kept because it is why the list above was checked.** Neither the first
 > `qits-workspaces` extraction nor its completion dropped the tmux verbs, so
 > `ContainerRuntime`'s `startService`/`serviceAlive`/`serviceExitCode`/`signalService`/
 > `killService`/`serviceLogPath`/`attachServiceCommand` and their `DockerExecutor`
@@ -242,12 +275,11 @@ the pre-daemon host-exec supervisor.
 > `ServiceTerminalSocket` that called two of them, turning host-side `docker exec` service
 > supervision back on after it had been deliberately moved into the daemon. Removed in
 > `qits-workspaces@ea25b2d`. **The lesson generalises: "dead code to drop" left in place is
-> not inert — it is a landing pad for the next extraction.** Check §3.3's list is actually
-> gone before cutting the daemon modules.
+> not inert — it is a landing pad for the next extraction.**
 
-The boundary that replaced it, now that both sides exist: **the daemon owns the checkout
-and every git that touches it; the host owns the `Workspace` row and asks.** The host keeps
-only the lifecycle verbs (`run`/`start`/`stop`/`rm`/volumes) and `exists`. Concretely, from
+The boundary, now that both sides exist: **the daemon owns the checkout and every git that
+touches it; the host owns the `Workspace` row and asks.** The host keeps only the lifecycle
+verbs (`run`/`start`/`stop`/`rm`/volumes) and `exists`. Concretely, from
 `qits-workspaces@ea25b2d` + `qits-workspace-daemon@8af81d8`:
 
 | Was, host-side | Is now |
@@ -258,6 +290,9 @@ only the lifecycle verbs (`run`/`start`/`stop`/`rm`/volumes) and `exists`. Concr
 | `containerGit push` before integration | same |
 | `POST …/fast-forward`, `POST …/update-from-parent` | daemon routes `POST /fast-forward`, `POST /update-from-parent` |
 | `ContainerRuntime` service verbs + tmux | daemon `ServiceSupervisor`; host keeps only the projection |
+| pty4j `docker exec -it` (`CommandRegistry.java:150`) | `ForeignPty` + a direct child process |
+| `docker exec -i` (`CommandRegistry.java:100`) | the same, over plain pipes |
+| `WS /api/terminal/commands/{id}`, `WS /api/chat/commands/{id}` | daemon routes `WS /terminal/commands/{id}`, `WS /chat/commands/{id}` |
 
 **Both remaining host gates fail closed.** `isWorkspaceClean` and `isFullyPushed` treat
 unknown — no live daemon, nothing reported yet, no registry bean — as *refuse*, because the
@@ -443,18 +478,23 @@ The monolith's V1–V45 lineage cannot be split in place. Each target starts a f
 |---|---|
 | projects | V1, V3, V10\*, V20, V24\*, V33, V34, V41, V43\*, V44 |
 | workspaces | V10\*, V14–V17, V19, V21–V26, V31, V35–V38, V42, V43\*, V45 |
-| daemon-commands | V8, V9, V12, V13, V18, V28\*, V29, V32 |
-| daemon-agents | V28\*, V30, V39 |
 | unassigned (setting) | V40 |
 | monolith-only (featureflow) | V2, V4–V7, V11, V27, V43\* |
 | own lineage, unaffected | artifacts (`db/artifacts`), ci (`db/ci`), epics (`db/epics`) |
 
 `*` = migration touches more than one target; split its statements.
+
+**The daemon has no lineage at all**, and that is not an omission. V8, V9, V12, V13, V18, V29,
+V32 (commands) and V30, V39 (agents) were originally allocated here to be squashed into a fresh
+`V1__init.sql`. They are not squashed — they are **gone**. `command`, `command_log_line`,
+`command_agent_session` and `agent_session_stat` became in-memory structures when both surfaces
+moved into the container (§3.3), so the daemon carries no datasource, no Hibernate and no
+Flyway. V28 is therefore wholly the remaining targets'.
 Live tables by owner: `Project` → projects; `Repository`, `repository_name`,
 `repository_submodule` → projects; `workspace`, `workspace_event`,
 `workspace_prompt_draft`, `workspace_prompt_attachment`, `workspace_bootstrap_run`,
 `service_event` → workspaces; `command`, `command_log_line`, `command_agent_session`
-→ daemon-commands; `agent_session_stat` → daemon-agents; `setting` → unassigned;
+and `agent_session_stat` → **no owner; they have no table any more** (§3.3); `setting` → unassigned;
 `FeatureFlowConfiguration` + `feature_flow_*` + `ActionConfiguration*` → monolith-only.
 
 Note the V42–V45 trend: repo-scoped DB configuration was already deleted in favour of
@@ -463,6 +503,12 @@ in-repo `.qits-config.yml` read by the in-container daemon. The host DB now keep
 migration count suggests.
 
 ## 8. Extraction recipe
+
+> **One target did not use this recipe.** `qits-commands` and `qits-coding-agents` were
+> reimplemented against a different runtime rather than moved intact, so steps 1–7 (the
+> `filter-repo` replay, the unrelated-histories merge, the package rename, the Flyway squash)
+> do not describe them — see §3.3 for what was done instead and why. Steps 8–10, the pristine
+> clone verify and the push, apply to every target including that one.
 
 History replay is proven six times over: `qits-workspaces` carries 166 commits back to
 `3ab9791 Split into domain / service / cli modules`, and `qits-projects` 132 back to the
@@ -655,10 +701,12 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
    gone from `QitsService`. Still to do: drop the entry from `.gitmodules` and `git rm` the
    gitlink. The name collides with `domain.repository`; the git host it was meant to hold
    went to `qits-artifacts` (§3.4).
-3. **Daemon execution-seam flip** — move terminals/chats/agents off the host
-   `docker exec` client onto the daemon control socket, replacing
-   `CommandRegistry.java:100,150` with `RunCommand` protocol messages. Until then
-   `agents/` and `commands/` are host-side modules inside the daemon repo (§3.3).
+3. ~~**Daemon execution-seam flip**~~ — **settled, but not by flipping.** The seam did not
+   move onto the control socket; it **dissolved**. Both surfaces went into the container, so
+   there is no host `docker exec` client left to flip: `CommandRegistry.java:100,150` became a
+   direct child process and an FFM PTY, and the two interactive websockets are served by the
+   daemon's own HTTP server rather than by `RunCommand` (which stays fire-and-collect, with no
+   stdin and no resize — see §3.3).
 4. **Auth strategy** — resolve against `qits-gateway` epic Part 4 (edge auth) before
    creating `libs/qits-auth` (§4).
 5. **`libs/qits-commons`** — when the duplicate register (§5) stops being cheaper than
@@ -676,9 +724,9 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
    daemon's `agents`/`commands` REST surface is addressed — there is no `DAEMON` constant,
    and routing it under `/workspaces` would conflate two repos. `qits-gateway` is
    deliberately absent from its own enum.
-10. **Missing AGENTS.md** in `daemons/qits-workspace-daemon` and `libs/qits-userflows`.
-    Every other populated submodule has one, with `CLAUDE.md` a **symlink** to it.
-    (`qits-workspaces` was listed here and does have one.)
+10. **Missing AGENTS.md** in `libs/qits-userflows`. Every other populated submodule has one,
+    with `CLAUDE.md` a **symlink** to it. (`qits-workspaces` was listed here and does have one;
+    `daemons/qits-workspace-daemon` gained both in `@646e541`.)
 11. **`ResolveConflictService` changed sides without being ratified.** It was in
     `PROJ_REPO`, but it is ~90% workspace-scoped — creates workspaces via
     `WorkspaceService`, writes workspace metadata, persists prompt drafts, and reaches
@@ -705,6 +753,16 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
     - `WorkspaceSubmoduleProvisionTest` (was workspaces) → projects; it pinned an *accepted
       limitation* so that removing it would be a conscious change
     - `discoveryServerListsProjectsAndContextServers` (was projects) → monolith-only `/mcp`
+
+    And from the daemon pass:
+    - `CommandServiceTest`'s `launchService` / `launchAndAwait` coverage → nowhere. They tested
+      the dead paths §3.3 dropped, so this is a deletion rather than a debt.
+    - `AgentSessionLineageIT` (`@Tag("extended")`, real container, verified the transcript-path
+      convention against the pinned CLI) → nowhere. It is DB-backed and cannot survive a target
+      with no database. **This one is a real gap**: the Claude and Kimi transcript-path
+      conventions are now pinned only by unit tests asserting the *convention*, not by anything
+      that checks the pinned CLI still follows it. A CLI upgrade that changes the escaping would
+      pass every test in the daemon repo.
 13. **Work stranded by the `assign.py` service-side bug.** Now assigned to workspaces (§2)
     but not yet carried: the workspace↔container startup reconcile
     (`RepositoryDiscoveryService.discover()` + `reconcileWorkspaceVolumes()` + 3 tests) —
@@ -715,5 +773,43 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
     `@TestProfile` service classes fail with `Failed to start quarkus`; it did not reproduce.
     Looks like resource contention across Quarkus restarts. Watch it in CI before trusting
     the gate.
-15. **Compiled `.class` files are committed** under the daemon's
-    `workspace-daemon-{files,detection}/target/`.
+15. ~~**Compiled `.class` files are committed**~~ — **false when written and still false.**
+    `target/` is gitignored in the daemon repo and `git ls-files | grep target/` returns zero.
+16. **The daemon's REST surface has no address.** This is item 9's open half, and it now
+    matters: twelve operations and two websockets the frontend calls live only in the daemon
+    (`migration-api-map.md`, the re-homed-and-reduced category). Two things are missing. There
+    is no gateway constant for the daemon — routing it under `/workspaces` would conflate two
+    repos — and `WorkspaceContainerFactory` injects thirteen `QITS_WORKSPACE_DAEMON_*` env vars
+    but **not** `QITS_WORKSPACE_DAEMON_API_TOKEN`, so `WorkspaceApi.start` fail-closes and the
+    HTTP API does not bind at all in a host-created container. Both need settling together;
+    neither is a daemon-side change.
+17. **The durability trade.** Nothing in the daemon's `CommandStore`, `CommandLogBuffer` or
+    `AgentSessionStore` outlives the container (§3.3). Consequences, all deliberate:
+    - the Commands list and command logs are **empty** for a workspace whose container was
+      recreated or removed;
+    - `WorkspaceCommandHistory` — the port `qits-workspaces` already declares for the workspace
+      history page — can only ever be satisfied for a *running* container, and its contract is
+      keyed on `Long workspaceRowId`, which the daemon does not have. **It needs re-specifying**
+      before anything implements it;
+    - agent session lineage is lost on recreate, so the resume/fork ownership check only holds
+      within one container lifetime. It fails **closed** — a resume of a session from a previous
+      container is refused, not allowed;
+    - `agent_session_stat` token/cost aggregates are lost.
+
+    Transcripts themselves are safe: the harness writes them under `/claude-home`, a volume
+    shared across workspaces that outlives containers. What became ephemeral is the *index* of
+    them, which is why recovery — walking the volume rather than the command list — is a
+    feature rather than a fix.
+18. **Chat sessions no longer open seeded with recent service events.** `ServiceEventSpool.drain`
+    was dropped rather than ported (§3.3): `ServiceSupervisor` is in the daemon repo but has no
+    spool. Rebuild it there, or accept it and strike this item.
+19. **The three protocol copies have diverged for the first time.** The daemon repo and
+    `qits-workspaces` are at `CAPABILITY_VERSION` 3 and byte-identical; `../qits` stays at 2. It
+    is safe today — the shipped daemon image is still built from the monolith's *own*
+    `workspace-daemon` module (`docker/qits/Dockerfile:58`), not the submodule, so an old backend
+    never sees a v3 frame, and `DaemonControlSocket` drops an undecodable frame rather than
+    failing the connection. It stops being safe the moment the submodule's image ships.
+20. **A daemon-suite flake, seen once.** One `./mvnw verify` in eight reported a single error
+    that six targeted reruns and two further full verifies did not reproduce, and which left no
+    surefire report behind. Not diagnosed. Watch it in CI before trusting the gate — the same
+    posture as item 14.

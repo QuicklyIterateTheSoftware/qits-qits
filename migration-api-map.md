@@ -36,20 +36,42 @@ same extractor was then run over each submodule.
 | | Operations |
 |---|---|
 | Monolith REST total | **145** |
-| Carried by a submodule (path unchanged) | 80 |
+| Carried by a submodule (path unchanged) | 82 |
 | Re-homed to the daemon at a **new path** | 6 |
-| **Live total** | **86** |
-| Still owed to a submodule — assigned, not carried | **15** |
-| Pending the daemon extraction | 10 |
+| **Re-homed to the daemon and reduced** ‡ | 12 |
+| **Live total** | **100** |
+| Still owed to a submodule — assigned, not carried | **12** |
 | Monolith-only by decision (featureflow, mutiny demos) | 30 |
-| Unassigned (auth, settings) | 4 |
+| Unassigned (auth, settings) | 3 |
 
 Plus **25 MCP tools** (12 live, 6 stranded, 7 monolith-only), 5 websockets, 9 raw vertx routes
 and 23 control-socket EVENTs — all enumerated below.
 
-**Zero drift.** Not one submodule serves an operation that does not exist in the monolith at
-the identical path — every extraction was a move, never a redesign. The only six paths that
-changed are the ones deliberately handed to the daemon.
+**Zero drift, with one qualification.** Not one submodule serves an operation that does not
+exist in the monolith — every extraction was a move, never a redesign. Two categories of path
+did change, and they are not the same kind of change:
+
+- **Re-homed at a new path** (6). The daemon serves one workspace, so the
+  `/{repoId}/{workspaceId}` prefix became a constant and was dropped. Same semantics, shorter
+  URL.
+- **Re-homed and reduced ‡** (12 operations + 2 websockets). Same, *plus* the answer is
+  narrower than the monolith's. These moved inside the container, where nothing outlives the
+  container — so `GET /commands` lists what **this container** has run rather than what the
+  workspace has ever run, `GET /agent-sessions` shows only sessions it drove, and resuming a
+  session from a previous container is refused. See migration-plan.md §9 item 17.
+
+The distinction matters because the first is a caller-side rename and the second is a product
+decision. A reader checking "did anything change?" against the first category is right to move
+on; against the second they are not.
+
+**One genuinely new operation.** `GET /commands/actions` has no monolith counterpart: actions
+lived in featureflow tables the host already knew, and now come from the checkout's own
+`.qits-config.yml`, which only the daemon reads — so it has to be able to say what it will
+accept. Nothing consumes it yet.
+
+**Reachability, though.** Every ‡ row is served but not yet *addressable*: there is no gateway
+route to a per-workspace daemon and no API token is injected into a host-created container, so
+the HTTP API does not bind there at all. migration-plan.md §9 item 16.
 
 ## ⚠ Before treating "new path" as a URL
 
@@ -85,7 +107,7 @@ Paths carry the `/api` prefix from `quarkus.rest.path`.
 | 3 | `DELETE /api/action-configurations/{id}` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
 | 4 | `GET /api/action-configurations/{id}` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
 | 5 | `PUT /api/action-configurations/{id}` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
-| 6 | `GET /api/agents/available` | 🕓 pending | qits-workspace-daemon | agents module, not extracted |
+| 6 | `GET /api/agents/available` | ✅ live | qits-workspace-daemon | GET /agents/available ‡ |
 | 7 | `GET /api/artifacts/repositories` | ✅ live | qits-artifacts | unchanged |
 | 8 | `PUT /api/artifacts/repositories/{repo}` | ✅ live | qits-artifacts | unchanged |
 | 9 | `GET /api/artifacts/repositories/{repo}/blobs` | ✅ live | qits-artifacts | unchanged |
@@ -96,11 +118,11 @@ Paths carry the `/api` prefix from `quarkus.rest.path`.
 | 14 | `POST /api/ci/events/post-receive` | ✅ live | qits-ci | unchanged |
 | 15 | `GET /api/ci/repositories/{repoId}/runs` | ✅ live | qits-ci | unchanged |
 | 16 | `GET /api/ci/runs/{runId}` | ✅ live | qits-ci | unchanged |
-| 17 | `GET /api/commands` | 🕓 pending | qits-workspace-daemon | commands module, not extracted |
-| 18 | `POST /api/commands` | 🕓 pending | qits-workspace-daemon | commands module, not extracted |
-| 19 | `GET /api/commands/{commandId}` | 🕓 pending | qits-workspace-daemon | commands module, not extracted |
-| 20 | `GET /api/commands/{commandId}/log` | 🕓 pending | qits-workspace-daemon | commands module, not extracted |
-| 21 | `POST /api/commands/{commandId}/terminate` | 🕓 pending | qits-workspace-daemon | commands module, not extracted |
+| 17 | `GET /api/commands` | ✅ live | qits-workspace-daemon | GET /commands?status= ‡ |
+| 18 | `POST /api/commands` | ✅ live | qits-workspace-daemon | POST /commands ‡ |
+| 19 | `GET /api/commands/{commandId}` | ✅ live | qits-workspace-daemon | GET /commands/{id} ‡ |
+| 20 | `GET /api/commands/{commandId}/log` | ✅ live | qits-workspace-daemon | GET /commands/{id}/log ‡ |
+| 21 | `POST /api/commands/{commandId}/terminate` | ✅ live | qits-workspace-daemon | POST /commands/{id}/terminate ‡ |
 | 22 | `GET /api/config.json` | ✅ live | qits-observability | unchanged |
 | 23 | `POST /api/context/chain` | ⬜ monolith-only | — | mutiny demo |
 | 24 | `GET /api/context/trace` | ⬜ monolith-only | — | mutiny demo |
@@ -156,8 +178,8 @@ Paths carry the `/api` prefix from `quarkus.rest.path`.
 | 74 | `GET /api/repositories/{repoId}/active-process` | ✅ live | qits-projects | unchanged |
 | 75 | `DELETE /api/repositories/{repoId}/branches` | ✅ live | qits-projects | unchanged |
 | 76 | `GET /api/repositories/{repoId}/branches` | ✅ live | qits-projects | unchanged |
-| 77 | `POST /api/repositories/{repoId}/branches/cleanup` | ⚠️ **stranded** | qits-workspaces | assigned, not carried (§9 item 13) |
-| 78 | `POST /api/repositories/{repoId}/branches/merge` | ⚠️ **stranded** | qits-workspaces | assigned, not carried (§9 item 13) |
+| 77 | `POST /api/repositories/{repoId}/branches/cleanup` | ✅ live | qits-workspaces | unchanged; `BranchController` |
+| 78 | `POST /api/repositories/{repoId}/branches/merge` | ✅ live | qits-workspaces | unchanged; `BranchController` |
 | 79 | `GET /api/repositories/{repoId}/commits` | ✅ live | qits-projects | unchanged |
 | 80 | `GET /api/repositories/{repoId}/commits/{commitHash}/changes` | ✅ live | qits-projects | unchanged |
 | 81 | `GET /api/repositories/{repoId}/commits/{commitHash}/diff` | ✅ live | qits-projects | unchanged |
@@ -175,10 +197,10 @@ Paths carry the `/api` prefix from `quarkus.rest.path`.
 | 93 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/actions` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
 | 94 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/actions/{actionId}/run` | ⬜ monolith-only | — | featureflow, deferred (§9 item 6) |
 | 95 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/active-process` | ✅ live | qits-workspaces | unchanged |
-| 96 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/agent-plugins` | 🕓 pending | qits-workspace-daemon | agents module, not extracted |
-| 97 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/agent-plugins/{pluginId}/install` | 🕓 pending | qits-workspace-daemon | agents module, not extracted |
-| 98 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/agent-sessions` | 🕓 pending | qits-workspace-daemon | agents module, not extracted |
-| 99 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/agents` | 🕓 pending | qits-workspace-daemon | agents module, not extracted |
+| 96 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/agent-plugins` | ✅ live | qits-workspace-daemon | GET /agent-plugins ‡ |
+| 97 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/agent-plugins/{pluginId}/install` | ✅ live | qits-workspace-daemon | POST /agent-plugins/{id}/install ‡ |
+| 98 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/agent-sessions` | ✅ live | qits-workspace-daemon | GET /agent-sessions ‡ |
+| 99 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/agents` | ✅ live | qits-workspace-daemon | POST /agents ‡ |
 | 100 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/bootstrap-commands` | ✅ live | qits-workspaces | unchanged |
 | 101 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/bootstrap-commands/run` | ✅ live | qits-workspaces | unchanged |
 | 102 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/bootstrap-commands/{stepId}/run` | ✅ live | qits-workspaces | unchanged |
@@ -200,7 +222,7 @@ Paths carry the `/api` prefix from `quarkus.rest.path`.
 | 118 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/prompt-draft/attachments` | ⚠️ **stranded** | qits-workspaces | assigned, not carried (§9 item 13) |
 | 119 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/prompt-draft/attachments` | ⚠️ **stranded** | qits-workspaces | assigned, not carried (§9 item 13) |
 | 120 | `DELETE /api/repositories/{repoId}/workspaces/{workspaceId}/prompt-draft/attachments/{attachmentId}` | ⚠️ **stranded** | qits-workspaces | assigned, not carried (§9 item 13) |
-| 121 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/prompt-refinements` | ⚠️ **stranded** | qits-workspaces | assigned, not carried (§9 item 13) |
+| 121 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/prompt-refinements` | ✅ live | qits-workspace-daemon | POST /prompt-refinements ‡ (was misassigned to qits-workspaces) |
 | 122 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/recreate-container` | ✅ live | qits-workspaces | unchanged |
 | 123 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/resolve-conflict` | ⚠️ **stranded** | qits-workspaces | ResolveConflictService — side unratified (§9 item 11) |
 | 124 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/services` | ✅ live | qits-workspaces | unchanged |
@@ -217,7 +239,7 @@ Paths carry the `/api` prefix from `quarkus.rest.path`.
 | 135 | `POST /api/repositories/{repositoryId}/submodules/import` | ✅ live | qits-projects | unchanged |
 | 136 | `POST /api/repositories/{repositoryId}/submodules/prepare` | ✅ live | qits-projects | unchanged |
 | 137 | `GET /api/service-events` | ✅ live | qits-workspaces | unchanged |
-| 138 | `GET /api/settings` | ❔ open | — | domain.setting unassigned (§4) |
+| 138 | `GET /api/settings` | ❔ open | — | domain.setting unassigned (§4); stays host-side — a preference must outlive a container |
 | 139 | `GET /api/settings/{key}` | ❔ open | — | domain.setting unassigned (§4) |
 | 140 | `PUT /api/settings/{key}` | ❔ open | — | domain.setting unassigned (§4) |
 | 141 | `POST /api/speech/transcriptions` | ✅ live | qits-stt | unchanged |
@@ -253,8 +275,8 @@ the inventory: raw vertx routes, websockets and the control-socket protocol are 
 |---|---|---|---|
 | `/api/workspace-daemon/{workspaceId}` (host end) | ✅ live | qits-workspaces | `DaemonControlSocket` + `WorkspaceDaemonRegistry` |
 | `/api/terminal/repositories/{repoId}/remote-login` | ✅ live | qits-projects | `RemoteLoginTerminalSocket`, unchanged |
-| `/api/terminal/commands/{commandId}` | 🕓 pending | qits-workspace-daemon | commands module |
-| `/api/chat/commands/{commandId}` | 🕓 pending | qits-workspace-daemon | commands module |
+| `/api/terminal/commands/{commandId}` | ✅ live | qits-workspace-daemon | `WS /terminal/commands/{id}` ‡ |
+| `/api/chat/commands/{commandId}` | ✅ live | qits-workspace-daemon | `WS /chat/commands/{id}` ‡ |
 | `/api/terminal/services/{repoId}/{workspaceId}/{serviceId}` | ❌ **removed** | — | see below |
 
 The service terminal is the **only entrypoint deleted rather than moved**. It attached a browser
@@ -264,7 +286,7 @@ that migration-plan.md §3.3 already listed as dead code to drop. Re-serving it 
 `qits-workspaces` declares `WorkspaceTerminalSessions` for exactly that; nothing implements it,
 and absent ⇒ the socket refuses the upgrade.
 
-### Daemon HTTP API — where six operations actually went
+### Daemon HTTP API — where eighteen operations and two websockets actually went
 
 Bearer auth, constant-time compare, bound `0.0.0.0` (reachable from `qits-net`), unlike the
 loopback hook webhook. Read endpoints are GET-only, the two integration endpoints POST-only, and
@@ -278,17 +300,44 @@ the pairing is checked before dispatch so a GET can never reach git.
 | `GET /api/repositories/{repoId}/workspaces/{workspaceId}/component-map` | `GET /component-map` |
 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/fast-forward` | `POST /fast-forward?parent=` |
 | `POST /api/repositories/{repoId}/workspaces/{workspaceId}/update-from-parent` | `POST /update-from-parent?parent=` |
+| `GET /api/commands` | `GET /commands?status=` ‡ |
+| `POST /api/commands` | `POST /commands` ‡ |
+| `GET /api/commands/{commandId}` | `GET /commands/{id}` ‡ |
+| `GET /api/commands/{commandId}/log` | `GET /commands/{id}/log?severity=&channel=` ‡ |
+| `POST /api/commands/{commandId}/terminate` | `POST /commands/{id}/terminate` ‡ |
+| `POST /api/…/agents` | `POST /agents` ‡ |
+| `GET /api/agents/available` | `GET /agents/available` ‡ |
+| `GET /api/…/agent-sessions` | `GET /agent-sessions` ‡ |
+| `GET /api/…/agent-plugins` | `GET /agent-plugins` ‡ |
+| `POST /api/…/agent-plugins/{pluginId}/install` | `POST /agent-plugins/{id}/install` ‡ |
+| `POST /api/…/prompt-refinements` | `POST /prompt-refinements` ‡ |
+| `WS /api/terminal/commands/{commandId}` | `WS /terminal/commands/{id}` ‡ |
+| `WS /api/chat/commands/{commandId}` | `WS /chat/commands/{id}` ‡ |
+| *(none — new)* | `GET /commands/actions` — what `POST /commands` will accept, read from the checkout's `.qits-config.yml` |
 | *(none — new)* | *(loopback)* agent lifecycle hook sink |
 
 The first four replaced N `docker exec find/cat/realpath` per request with local `java.nio`; the
-last two replaced `docker exec git`. Response bodies keep the host DTOs' field names, so the
-frontend contract did not move with the endpoints.
+next two replaced `docker exec git`. The commands and agents rows replaced a pty4j
+`docker exec -it` client, a host database, and five JAX-RS controllers. Response bodies keep the
+host DTOs' field names throughout, so the frontend contract did not move with the endpoints —
+`CommandsApiTest` and `AgentsApiTest` assert them as literal strings for exactly that reason.
+
+The two websockets are served on the same `HttpServer`, authenticated at the handshake. They are
+deliberately **not** on the control socket: `RunCommand`/`CommandChunk`/`CommandExit` are
+fire-and-collect, with no stdin and no resize.
+
+‡ = re-homed *and reduced* — the answer is scoped to this container's lifetime. See the headline
+note.
 
 ### Daemon control socket — EVENTs
 
 One websocket per workspace. The protocol module is **vendored into both repos**, same java
 package, different artifactIds; any change must be mirrored and bump
 `DaemonProtocol.CAPABILITY_VERSION`, and `DaemonCodecTest` runs on both sides to catch drift.
+
+`CAPABILITY_VERSION` is now **3** (`workspaceChanged`, below) in the daemon repo and
+qits-workspaces. `../qits` carries a third copy still at 2 — see migration-plan.md §9 item 19 for
+why that is currently safe and when it stops being.
 Nothing "moved" here — the socket *is* the boundary. What is recorded is which repo owns each end.
 
 #### daemon → qits
@@ -306,10 +355,11 @@ Nothing "moved" here — the socket *is* the boundary. What is recorded is which
 | `bootstrapOutcome` | `BootstrapOutcome` | qits-workspaces |
 | `bootstrapped` | `Bootstrapped` | qits-workspaces |
 | `gitStatus` | `GitStatus(workspaceId, clean, head)` | qits-workspaces — `WorkspaceGitStatus.isClean` **and** `.head` |
-| `agentActivity` | `AgentActivity` | qits-workspaces; the session-lineage write is daemon-agents' |
+| `agentActivity` | `AgentActivity` | qits-workspaces; the session-lineage write is the daemon's own |
+| `workspaceChanged` | `WorkspaceChanged` | qits-workspaces — a change nudge carrying a `WorkspaceChangeHint.Topic` name. **New at capability 3** |
 | `daemonEvent` ¹ | `ServiceTransition` | qits-workspaces — `ServiceSupervisor` (projection only; the daemon owns the process) |
-| `commandChunk` | `CommandChunk` | 🕓 qits-workspace-daemon, commands module |
-| `commandExit` | `CommandExit` | 🕓 qits-workspace-daemon, commands module |
+| `commandChunk` | `CommandChunk` | qits-workspaces — provision/bootstrap/service output. Not the commands surface: that is HTTP + websockets (‡) |
+| `commandExit` | `CommandExit` | qits-workspaces — as above |
 
 `gitStatus` is the load-bearing one: it always carried `head`, and the host was discarding it.
 Both halves are now cached, and the two gates that used to shell into the container — "is the
@@ -327,7 +377,7 @@ never permission.
 | `pullBranch` | `PullBranch` | qits-workspaces — `WorkspaceGitSync.pullFromOrigin` |
 | `startDaemon` ¹ | `StartService` | qits-workspaces — `WorkspaceServiceDriver` |
 | `signalDaemon` ¹ | `SignalService` | qits-workspaces — `WorkspaceServiceDriver` |
-| `runCommand` | `RunCommand` | 🕓 qits-workspace-daemon, commands module |
+| `runCommand` | `RunCommand` | qits-workspaces — fire-and-collect (no stdin, no resize), which is why terminals do **not** ride it |
 
 ¹ Wire tags keep their pre-rename `daemon*` spelling so stale daemon images keep speaking to a
 newer qits. Retag with the next `CAPABILITY_VERSION` bump.
