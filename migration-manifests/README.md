@@ -31,7 +31,7 @@ was no `filter-repo` to feed and a path list would have implied otherwise.
 replayed: `AuthController` became a raw Vert.x route (the gateway has no REST layer),
 `QitsAuthPolicy` lost its root-path stripping, and the two variant config files were folded into
 `application.properties`. A `filter-repo` path list would have promised a history replay that did
-not happen. See [`../migration-auth-plan.md`](../migration-auth-plan.md) §6.
+not happen.
 
 **`auth/` is no longer unassigned.** Authentication terminates at `qits-gateway`; the services
 consume a header and authenticate nothing. So the 33 `auth/` files split three ways rather than
