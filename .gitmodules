@@ -82,3 +82,9 @@
 	ignore = all
 	branch = main
 	update = merge
+[submodule "qits-spa-ui-components"]
+	path = libs/qits-spa-ui-components
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-ui-components.git
+	ignore = all
+	branch = main
+	update = merge
