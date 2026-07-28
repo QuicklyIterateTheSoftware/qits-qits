@@ -76,3 +76,9 @@
 	ignore = all
 	branch = main
 	update = merge
+[submodule "qits-spa-home"]
+	path = frontends/qits-spa-home
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-home.git
+	ignore = all
+	branch = main
+	update = merge
