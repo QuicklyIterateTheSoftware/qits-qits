@@ -116,6 +116,28 @@ absent-behaviour. Verified: `qits-projects` (`WorkspaceLookup`, `WorkspaceLifecy
 Do **not** relax the port to `Instance<T>`. The mandatory-ness is a documented invariant; weakening
 it to unblock packaging trades a startup failure for a silent one.
 
+> **Resolved 2026-07-28 — the scaffold is gone.** `UnconfiguredRepositoryLookup` has been replaced by
+> `wiring/HttpRepositoryLookup`, the qits-projects-backed implementation its javadoc always named,
+> reaching `GET /projects/api/repositories/{id}` through a `@RegisterRestClient` interface. So
+> `qits-workspaces` now starts and answers.
+>
+> The fail-closed posture is unchanged, only relocated: it was "no implementation", it is now "no
+> address". One explicit key, `qits.projects.url` (scheme, host and port, no path — qits-projects
+> serves its own `/projects/api` segment, so one base url is correct both on `qits-net` and through
+> the gateway), and the service refuses to start in a production launch without it. Dev and test
+> downgrade to a warning, and the suite's `FakeRepositoryLookup` still wins, so the replacement kept
+> `@DefaultBean` — dropping it makes the two an ambiguous dependency that fails the *build*.
+>
+> The judgement worth knowing, because it is the whole reason the class is more than three lines:
+> **only a 404 becomes `Optional.empty()`.** Any other status and any transport failure throws.
+> `require()` turns empty into a 404, so folding an outage into it would report an unreachable
+> qits-projects as a user mistyping an id. Verified against both native binaries: unknown id → 404,
+> qits-projects killed → 500 naming the address.
+>
+> Deliberately not cached. `find` sits on nearly every repository-scoped route, so a cache is a real
+> optimisation — and also a staleness policy for a value that changes. That is a decision to take,
+> not to inherit.
+
 ## 4. The per-repo recipe
 
 Applied six times. Steps 1–4 are the deliverable; 5–6 are the gate.
@@ -298,6 +320,12 @@ Named so nobody widens the change mid-flight:
   deliverable. Images are a deployment concern and the topology is still open.
 - **No auth.** `forwardauth` per service lands *on top* of this and names this as its
   prerequisite. It has since landed; see `migration-plan.md` §9 item 4.
+- **No coexistence with the monolith.** *(Added 2026-07-28.)* Nothing here is designed to run beside
+  a monolith or to share a database, volume or session with one. qits is deployed clean, as these
+  services and nothing else — see `migration-plan.md` §1, "This is a source-tree invariant, not a
+  deployment strategy". The gateway's `/` catch-all and `PublicPaths.onTheMonolith` were deleted
+  rather than deferred, so an unclaimed path is a 404 and the monolith-relative spellings are no
+  longer an anonymous surface.
 - **No REST clients.** §3's `@DefaultBean` is a scaffold, not the HTTP `RepositoryLookup`.
 - **No segment/path decision.** Four of six services could not be reached through their own gateway
   segment. This change did not fix it — but the generated `docs/openapi.yml` per repo made the

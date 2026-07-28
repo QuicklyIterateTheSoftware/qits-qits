@@ -24,9 +24,33 @@ been corrected against what actually happened, not against what was planned.
 > `../qits` and their submodules, and `../qits/pom.xml` still lists all 14 modules.
 >
 > "Extraction" here means *history replay into a new repo*, which operates on a clone
-> (§8 step 1). Nothing writes to `../qits`. Decommissioning the monolith's copies is
-> out of scope and happens later, per context, once a service is live behind the
-> gateway.
+> (§8 step 1). Nothing writes to `../qits`.
+>
+> ### This is a source-tree invariant, not a deployment strategy.
+>
+> Read on its own, "the monolith keeps running unchanged" sounds like a plan to run the
+> two side by side and move traffic over path by path. **It is not, and that plan is
+> explicitly rejected.** *(Decided 2026-07-28, superseding the earlier "decommission per
+> context, once a service is live behind the gateway".)*
+>
+> **qits is deployed clean, on a new environment: these services and nothing else.** No
+> monolith runs beside them. There is no shared database, no shared volume, no shared
+> session, no dual-write, and no window in which a request could be served by either. The
+> monolith's copies stay in `../qits` because deleting source while extracting it is how
+> you lose it — not because anything is going to keep serving them.
+>
+> What that rules out, concretely:
+>
+> - **No gateway catch-all.** `qits.gateway.app-host` and the `/` route it built are
+>   deleted, not merely unset. A path no service claims is a 404.
+> - **No monolith-relative paths.** `/git/*`, `/api/otel/*`, `/mcp/*` and the rest named
+>   an upstream that will not exist. `PublicPaths.onTheMonolith` is gone, and
+>   `PublicPathsTest` now asserts those paths are *protected*, so re-adding a catch-all
+>   fails a test.
+> - **No data migration path is designed here.** A clean environment starts with empty
+>   Flyway lineages (§7). If existing data ever has to move, that is a separate exercise
+>   with its own document — not a fallback the services are built to tolerate.
+> - **No compatibility aliases.** The old path is gone, not redirected.
 
 `../qits` is the Quarkus/Maven monolith being rearchitected into one deployable per
 submodule of this repo. Three extractions have already landed ad hoc. This document
@@ -850,9 +874,23 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
     single gateway is stateless and needs nothing. Two replicas need a shared
     `quarkus.oidc.token-state-manager.encryption-secret` at minimum. Nothing forces the issue yet;
     settle it before anyone scales the front door.
-24. **Nothing is routed to a split service yet.** Every `qits.gateway.proxy-hosts.*` entry is still
-    commented out and the monolith catch-all (`qits.gateway.app-host=qits`) is still configured, so
-    the six services serve correct addresses that no traffic reaches. Pointing the gateway at them
-    and deleting the monolith's copies is the last step, and it is a deployment change rather than a
-    code one. Until it happens, `PublicPaths` deliberately carries both the segment-prefixed forms
-    and the monolith-relative ones — two upstreams, not two spellings.
+24. ~~**Nothing is routed to a split service yet.**~~ **Half resolved, 2026-07-28.** The monolith
+    half is settled: qits deploys clean (§1), so `qits.gateway.app-host`, `GatewayRoute.catchAll`
+    and `PublicPaths.onTheMonolith` are deleted rather than deferred, and an unclaimed path is now a
+    404 instead of a forward to a monolith this topology does not run.
+
+    What remains is only that `qits.gateway.proxy-hosts.*` is still shipped commented, so a stock
+    gateway routes nothing and reports **not ready**. That is deliberate and should stay: a `Map`
+    entry cannot be unset by a later config source, only overridden, so an entry shipped in
+    `application.properties` is one no deployment and no test could remove — "run five of the six"
+    would become inexpressible, and the suite depends on being able to say it (`StubUpstream`
+    enables two services, `GatewayRoutingTest` asserts an unconfigured third is not routed). The
+    deployment names its own table:
+
+        QITS_GATEWAY_PROXY_HOSTS_ARTIFACTS=qits-artifacts     # containers on qits-net
+        QITS_GATEWAY_PROXY_HOSTS_PROJECTS=localhost:8090      # one host, many ports
+
+    Verified end to end on 2026-07-28: all six services plus the gateway running natively on one
+    host, every segment reachable through `:8080`, including a chained call
+    (gateway → qits-workspaces → qits-projects) and git smart-HTTP for a repository qits-projects
+    had just cloned.
