@@ -88,3 +88,9 @@
 	ignore = all
 	branch = main
 	update = merge
+[submodule "qits-ci-daemon"]
+	path = daemons/qits-ci-daemon
+	url = https://github.com/QuicklyIterateTheSoftware/qits-ci-daemon
+	ignore = all
+	update = merge
+	branch = main
