@@ -1,10 +1,33 @@
 # qits-dns — an authoritative DNS server for platform-managed hostnames
 
-Status: **planned, not started.** Written 2026-07-29. The submodule does not exist yet and is
-created only after this plan is finalized — §10 carries the recipe but is deliberately not step 1.
-Conventions cited as "the qits-ci case" refer to that repo's `CLAUDE.md`; where this document names
-a mechanism qits-ci also has (token guard, named datasource, packaged-surface IT), the intent is
-*that mechanism, ported*, not a reinvention.
+Status: **built.** Written and implemented 2026-07-29. The submodule is
+[`services/qits-dns`](services/qits-dns); its `AGENTS.md` is now the living contract and **this
+document is history** — where the two disagree, the repo is right. Conventions cited as "the
+qits-ci case" refer to that repo's `CLAUDE.md`; where this document names a mechanism qits-ci also
+has (token guard, named datasource, packaged-surface IT), the intent is *that mechanism, ported*,
+not a reinvention.
+
+**What the build found wrong in this plan.** Six things, each corrected in the repo:
+
+1. **§5's dnsjava coordinate is dead.** `org.dnsjava:dnsjava` stops at 2.0.6 (2010); the live
+   artifact is `dnsjava:dnsjava`, built against 3.6.5.
+2. **§4's SQL does not run.** `value` is a reserved word in H2 2.x, so `create table dns_record (…
+   value varchar(253) …)` fails and the migration never applies. The column is `rdata`; the entity
+   field and the JSON key stay `value`.
+3. **§3's negative-answer rule contradicts §8's defaults.** "Every negative answer carries the
+   zone's SOA" is unconditional, but `ns-names`/`hostmaster` ship blank — the state the whole test
+   suite runs in — so there is no SOA to carry. Resolved: the negative answer is still given, with
+   an empty authority section. See §3 below, amended in place.
+4. **The three blank config keys must inject as `Optional<String>`.** SmallRye reads an empty value
+   as *unset*, so a plain `String` injection of a documented default fails the deployment at boot.
+5. **§14's seam ownership crosses a module fence.** It gives the resolver agent `DnsCodec`, which
+   §7 puts in `service/` — two writers in one module. `DnsCodec` belongs to the wire agent.
+6. **§9's `SimpleResolver` suggestion is wrong.** dnsjava's resolver stack is what the native image
+   must sever (its `Lookup` class initializer bakes the *build machine's* `/etc/resolv.conf` into
+   the binary), so the suite drives plain sockets and the whole repo stays free of those imports.
+
+The §5 spike returned **GO**: dnsjava's codec surface needs no reflection metadata at all, only two
+build-config lines, both about the resolver half the service never calls.
 
 ---
 
@@ -96,7 +119,10 @@ the whole subtree, which would poison `y.x`.
   `qits.dns.ns-names`. qtype ANY → REFUSED (the modern stance, RFC 8482 in spirit; keeps the
   amplification surface at zero).
 - Every negative answer (NXDOMAIN, NODATA) carries the zone's SOA in the authority section — 
-  without it, negative caching breaks and resolvers hammer us.
+  without it, negative caching breaks and resolvers hammer us. **Amended as built:** this cannot be
+  unconditional, because §8 ships `ns-names`/`hostmaster` blank and a zone then has no SOA to carry.
+  The negative answer is still given, with an empty authority section — declining to say a name does
+  not exist because nobody configured a hostmaster address would be absurd.
 
 **Synthesized apex records.** SOA: `mname` = first entry of `qits.dns.ns-names`, `rname` =
 `qits.dns.hostmaster`, `serial` = the zone row's serial (bumped on every write in that zone),

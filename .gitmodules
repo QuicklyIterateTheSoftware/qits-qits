@@ -94,3 +94,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-dns"]
+	path = services/qits-dns
+	url = https://github.com/QuicklyIterateTheSoftware/qits-dns.git
+	ignore = all
+	update = merge
+	branch = main
