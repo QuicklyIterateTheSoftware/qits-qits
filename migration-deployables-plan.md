@@ -263,6 +263,12 @@ So the `otel: true` toggle is parsed, echoed, and ignored. The receiver has no s
 process. Both halves are broken, and the toggle round-tripping through the config is exactly why
 nobody noticed.
 
+> **The toggle has since been removed** *(2026-07-29)*, from the daemon and from `qits-workspaces`
+> both — `ServiceDecl.otel`, the `ConfigJson` field and `ServiceDefinitionDto.otel` are gone, so the
+> paragraph above is a record of what was there, not of what is. Rebuilding the sender side now
+> means reintroducing the declaration as well as the overlay, which is the honest price: a config
+> key that reaches nothing is worse than no key, because it reads as a wired feature.
+
 **The work, in order:**
 
 > **Steps 1 and 2 are out of scope — see §6.** *(2026-07-29.)* They are the sender side, and nothing
@@ -332,12 +338,13 @@ Named so nobody widens the change mid-flight:
   longer an anonymous surface.
 - **No REST clients.** §3's `@DefaultBean` is a scaffold, not the HTTP `RepositoryLookup`.
 - **No OTLP sender side.** *(Added 2026-07-29 — this is §4a steps 1 and 2, deferred rather than
-  done.)* A workspace's dev servers do not export telemetry: the `otel:` toggle in
-  `.config/qits/repository.yml` is parsed and carried but never reaches a launched process, and no
-  qits service exports either, so `qits-observability` receives nothing. A nice-to-have — it costs
-  observability of a user's own dev servers, and nothing is blocked on it. The receiver itself is
-  finished: packaged, native, and addressable at `POST /observability/api/otel/v1/*`, so the day
-  senders exist there is nothing to build on this side.
+  done.)* A workspace's dev servers do not export telemetry, and no qits service exports either, so
+  `qits-observability` receives nothing. A nice-to-have — it costs observability of a user's own dev
+  servers, and nothing is blocked on it. The receiver itself is finished: packaged, native, and
+  addressable at `POST /observability/api/otel/v1/*`, so the day senders exist there is nothing to
+  build on this side. **The `otel:` toggle was removed rather than left dangling**, in the daemon
+  and in `qits-workspaces` — a config key a user can set that reaches nothing is a worse absence
+  than no key, since it reads as a feature that is merely misconfigured.
 - **No segment/path decision.** Four of six services could not be reached through their own gateway
   segment. This change did not fix it — but the generated `docs/openapi.yml` per repo made the
   mismatch a document diff instead of an argument, and all six have since adopted their segment.
