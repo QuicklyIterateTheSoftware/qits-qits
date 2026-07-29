@@ -265,12 +265,16 @@ nobody noticed.
 
 **The work, in order:**
 
-1. **Rebuild the OTLP overlay in the daemon, beside `ServiceSupervisor`.** `migration-plan.md` §3.3
+> **Steps 1 and 2 are out of scope — see §6.** *(2026-07-29.)* They are the sender side, and nothing
+> waits on them: a workspace's dev servers run, they just do not export telemetry. Steps 3 and 4
+> landed without them.
+
+1. ~~**Rebuild the OTLP overlay in the daemon, beside `ServiceSupervisor`.**~~ `migration-plan.md` §3.3
    already nominated this home: *"If service launches ever need the OTLP overlay again it belongs
    beside `ServiceSupervisor`."* Port `OtelEnvironment.forLaunch` from `../qits`, gate it on
    `decl.otel()`, and merge it *under* `decl.environment()` so a service's own declared env still
    wins. Assert the toggle actually reaches the child process — the missing test is what let this rot.
-2. **Repoint the endpoint.** In the monolith the exporter dialled qits itself. Split, it must dial
+2. ~~**Repoint the endpoint.**~~ In the monolith the exporter dialled qits itself. Split, it must dial
    `qits-observability` on `qits-net`. That is a change of meaning, not a config edit: the daemon
    learns the address from the container env it is already given, so the host must inject an
    observability endpoint alongside the thirteen `QITS_WORKSPACE_DAEMON_*` vars
@@ -327,6 +331,13 @@ Named so nobody widens the change mid-flight:
   rather than deferred, so an unclaimed path is a 404 and the monolith-relative spellings are no
   longer an anonymous surface.
 - **No REST clients.** §3's `@DefaultBean` is a scaffold, not the HTTP `RepositoryLookup`.
+- **No OTLP sender side.** *(Added 2026-07-29 — this is §4a steps 1 and 2, deferred rather than
+  done.)* A workspace's dev servers do not export telemetry: the `otel:` toggle in
+  `.config/qits/repository.yml` is parsed and carried but never reaches a launched process, and no
+  qits service exports either, so `qits-observability` receives nothing. A nice-to-have — it costs
+  observability of a user's own dev servers, and nothing is blocked on it. The receiver itself is
+  finished: packaged, native, and addressable at `POST /observability/api/otel/v1/*`, so the day
+  senders exist there is nothing to build on this side.
 - **No segment/path decision.** Four of six services could not be reached through their own gateway
   segment. This change did not fix it — but the generated `docs/openapi.yml` per repo made the
   mismatch a document diff instead of an argument, and all six have since adopted their segment.
