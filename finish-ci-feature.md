@@ -1,20 +1,29 @@
 # Finish the ci feature — outline
 
-Status: **phases A–C implemented (unpushed); phase D open; phase E named only.** Written
+Status: **phases A–C implemented and pushed; phase D open; phase E named only.** Written
 2026-07-29, iterated and implemented the same day. §1's "what finished means" is delivered except
 the conformance step: live step output, cancellation, per-step timeouts, and the structured step
 lifecycle all run through a `qits-ci-daemon` inside each step container, and `CiDockerRunner` was
 eradicated rather than retired, per decision 5. Decision 1's deferred checksum question is settled —
 the shipped binary url is qits-artifacts' OCI blob route, so the version pin and the integrity pin
 are the same field. Decision 7 landed as **one** socket: chunks carry a correlation id from day one,
-so the split stays additive and unforced. Details, corrections and the operational items still open
-are in [`ci-daemon-implementation-plan.md`](ci-daemon-implementation-plan.md).
+so the split stays additive and unforced.
+
+Proven on a live stack, not only by tests: a `git push` to qits-artifacts drove a two-step run whose
+containers downloaded the daemon from qits-artifacts' own blob route, cloned the pushed sha, streamed
+output observable mid-run, and were reaped — and a `SIGKILL` of qits-ci mid-run left an orphan that
+the next boot swept while marking the run `FAILED`.
+
+The phase A–C implementation document is **retired**: that work is in tree, and the corrections it
+accumulated live where they are load-bearing rather than in a plan — the musl builder's rationale in
+qits-ci-daemon's `docker/Dockerfile.musl-builder` and `README.md`, the wire contract's decode
+strictness in `CiDaemonSocket`, the null-reason obligation in `CiDaemonStepRunner`, the seven step
+outcomes on `CiStepRunner`, and the daemon binary url in qits-ci's shipped config. What it left
+behind is [`ship-the-ci-daemon.md`](ship-the-ci-daemon.md).
+
 This file started as the conformance-suite plan alone; that content survives as phase D. This
-outline owns the decisions and their rationale;
-[`ci-daemon-implementation-plan.md`](ci-daemon-implementation-plan.md) is the implementation
-document for phases A–C (files, names, wire contract, order, gates) — where the two disagree, this
-outline's decision stands. Phase D needs no further document; §7 holds the remaining
-confirmations. Precedent throughout is
+outline owns the decisions and their rationale. Phase D needs no further document; §7 holds the
+remaining confirmations. Precedent throughout is
 [`final-workspaces-and-agent-communication-migration-plan.md`](final-workspaces-and-agent-communication-migration-plan.md)
 — cited below by its section numbers.
 
