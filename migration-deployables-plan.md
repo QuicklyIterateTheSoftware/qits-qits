@@ -337,14 +337,13 @@ Named so nobody widens the change mid-flight:
   rather than deferred, so an unclaimed path is a 404 and the monolith-relative spellings are no
   longer an anonymous surface.
 - **No REST clients.** §3's `@DefaultBean` is a scaffold, not the HTTP `RepositoryLookup`.
-- **No OTLP sender side.** *(Added 2026-07-29 — this is §4a steps 1 and 2, deferred rather than
-  done.)* A workspace's dev servers do not export telemetry, and no qits service exports either, so
-  `qits-observability` receives nothing. A nice-to-have — it costs observability of a user's own dev
-  servers, and nothing is blocked on it. The receiver itself is finished: packaged, native, and
-  addressable at `POST /observability/api/otel/v1/*`, so the day senders exist there is nothing to
-  build on this side. **The `otel:` toggle was removed rather than left dangling**, in the daemon
-  and in `qits-workspaces` — a config key a user can set that reaches nothing is a worse absence
-  than no key, since it reads as a feature that is merely misconfigured.
+- **No OTLP sender side _from a workspace's dev servers_.** *(Added 2026-07-29 — this is §4a steps 1
+  and 2, deferred rather than done. Narrowed the same day: the qits services themselves now export,
+  so only the workspace half is out of scope.)* A nice-to-have — it costs observability of a user's
+  own dev servers, and nothing is blocked on it. **The `otel:` toggle was removed rather than left
+  dangling**, in the daemon and in `qits-workspaces` — a config key a user can set that reaches
+  nothing is a worse absence than no key, since it reads as a feature that is merely misconfigured.
+  Rebuilding this now means the overlay *and* a new way to declare it.
 - **No segment/path decision.** Four of six services could not be reached through their own gateway
   segment. This change did not fix it — but the generated `docs/openapi.yml` per repo made the
   mismatch a document diff instead of an argument, and all six have since adopted their segment.
