@@ -424,22 +424,7 @@ binary under `-Dnative`. It is the only place these are visible. Write them to e
 config (relocate `user.home`; do not restate the datasource in test resources), or they pass against
 a default no deployment can boot.
 
-### `qits-workspace-daemon` does not currently native-compile
+### ~~`qits-workspace-daemon` does not currently native-compile~~
 
-Found while verifying qits-projects' pty4j replacement. `ForeignPty`'s javadoc says a `static final`
-`FunctionDescriptor` is "what GraalVM requires to register a downcall stub automatically at build
-time — no `Feature`, no `RuntimeForeignAccess` call, nothing in a config file."
-
-That is false on GraalVM 25. Measured both ways (hoisted constant and inlined), both give
-`0 downcalls registered`, and `./mvnw -pl workspace-daemon -am package -Dnative` fails with:
-
-    0 downcalls and 0 upcalls registered for foreign access
-    VMError$HostedError: should not reach here: unexpected input could not be handled: linkToNative
-
-Two things are needed, and the daemon has neither: a `reachability-metadata.json` with one entry per
-distinct descriptor, **and** `--initialize-at-run-time` on the class holding the handles — the second
-being counter-intuitive, since Quarkus build-time-initialises application classes and a handle bound
-to a native entry point cannot survive in the image heap. `qits-projects` carries both; copy from
-there. **Not fixed here** — it is the daemon's own change, and its AGENTS.md opens by calling native
-compilation one of its two governing rules, so the claim and the build need to be reconciled
-deliberately.
+**Migrated** to `daemons/qits-workspace-daemon`, which owns its own native build and documents it
+there.
