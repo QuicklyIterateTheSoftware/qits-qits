@@ -100,3 +100,33 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-spa-workspaces"]
+	path = frontends/qits-spa-workspaces
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-workspaces.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-spa-ci"]
+	path = frontends/qits-spa-ci
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-ci.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-spa-observability"]
+	path = frontends/qits-spa-observability
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-observability.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-spa-artifacts"]
+	path = frontends/qits-spa-artifacts
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-artifacts.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-spa-projects"]
+	path = frontends/qits-spa-projects
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-projects.git
+	ignore = all
+	update = merge
+	branch = main
