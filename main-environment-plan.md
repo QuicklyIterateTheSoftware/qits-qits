@@ -106,4 +106,13 @@ Everything lands in **qits-projects**:
   when it arrives; nothing else may grow a dependency on these columns.
 - **Epic environments** — the branch-per-epic flow, slug on Epic, participating-repo derivation:
   the next leg, not this one.
-- **Retro-firing the hooks for projects that already exist** — one curl per project when needed.
+- **Automatic drift healing** — the hooks are fire-and-forget, and unlike an event stream a
+  creation has no next event to carry a missed registration forward. The remedy, for now, is a
+  MANUAL step (added after the first cut): `POST /projects/api/projects/{id}/reconcile` re-asserts
+  the stored config against both services **synchronously** and answers with per-target outcomes
+  (environment `CREATED`/`ALREADY_EXISTS`/`FAILED`; domain
+  `REGISTERED`/`NO_MATCHING_ZONE`/`NOT_CONFIGURED`/`FAILED`) — a manual step whose result you can
+  see is a remedy, a warn line in an unwatched log is not. Both receivers being idempotent is what
+  makes re-asserting legitimate. It doubles as the retro-fire for pre-existing projects, the
+  already-seeded qits project included. A periodic/startup reconcile can be layered on the same
+  seam later if manual proves too manual.
