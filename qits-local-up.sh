@@ -7,23 +7,21 @@
 #     -v "$PWD":/out \
 #     docker:cli sh /out/qits-local-up.sh
 #
-# The architecture, in one line: hand-build only the platform's own build/deploy core, then let
-# that core build and deploy everything else the way it would in production.
+# The architecture, in one line: hand-build the platform's build/deploy core once to get the ball
+# rolling — from then on the platform deploys ALL of its components through its own pipeline.
 #
-#   seed (hand-built, compose-managed) ... qits-gateway (local variant), qits-artifacts, qits-ci,
-#                                          qits-cd, the qits-ci-daemon binary, and the
-#                                          qits/build-images/ci-base step image
-#   platform-deployed (the main pipeline). qits-observability, qits-stt, qits-projects,
-#                                          qits-workspaces — each pushed to the seed's git host,
-#                                          built by qits-ci from its own
-#                                          .config/qits/ci-post-receive.yml, published to the
-#                                          seed's registry, and cut over onto qits-net by qits-cd's
-#                                          "qits" main environment (branch main, network qits-net)
+# Every deployable (observability, stt, projects, workspaces, gateway, artifacts, ci, cd) is an
+# application of qits-cd's "qits" main environment (branch main, network qits-net): pushed to the
+# platform's git host, built by qits-ci from the repo's own .config/qits/ci-post-receive.yml,
+# published to the platform's registry, and cut over by qits-cd's replace cutover — which stops
+# whatever holds the application's alias first, so even the compose-seeded originals of the first
+# boot hand themselves over and reappear under cd's own container names.
 #
-# As the last act the seed repos themselves are pushed through the pipeline (publish-only) and
-# the running seed containers are re-pointed at those images, so the final state is
-# pipeline-produced end to end; hand-built remains only what the pipeline cannot make for
-# itself yet (the ci-base step image, the ci-daemon binary, and the first boot's lineage).
+# The one standing exception is qits-cd itself: cd refuses to stop the instance performing a
+# deployment, so a qits-cd push publishes the image and records an honest FAILED row until the
+# planned self-update (the successor shuts down its predecessor) exists. Until then cd's own
+# container stays compose-managed. Also still hand-built: the ci-base step image and the
+# ci-daemon binary — the two things the pipeline cannot make for itself.
 #
 # Everything durable — images, containers, volumes, qits-net — lands on the HOST daemon through
 # the mounted socket; this container is disposable. The generated compose file (the seed stack
@@ -66,11 +64,13 @@ SKIP_BUILD=${QITS_SKIP_BUILD:-0}
 DEPLOY_TIMEOUT=${QITS_DEPLOY_TIMEOUT:-3600}
 SRC=${QITS_SRC:-/qits-src}
 
-# The seed: hand-built, compose-managed. The order below is the build order.
+# The seed: hand-built for the FIRST boot only. On later runs any of these already replaced by a
+# cd deployment is skipped at compose-up, and the deploy loop below hands the rest over.
 CORE="gateway artifacts ci cd"
-# The dogfood: deployed by the platform itself, in this order (observability first quiets the
-# seed's OTLP warnings earliest).
-APPS="observability stt projects workspaces"
+# Everything the platform deploys through itself — the environment's applications. Order matters:
+# observability first (quiets OTLP warnings earliest), the seed's own repos last, cd at the very
+# end (its deployment records the honest self-update-pending FAILED row).
+DEPLOYABLES="observability stt projects workspaces gateway artifacts ci cd"
 
 ENV_NAME=qits
 ARTIFACTS=http://qits-artifacts:8080
@@ -111,8 +111,9 @@ DOCKER_GID=$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
 # --- sources -------------------------------------------------------------------------------------
 say "cloning sources into $SRC"
 mkdir -p "$SRC"
-for name in $CORE ci-daemon $APPS; do
-  repo="qits-$name"; [ "$name" = ci-daemon ] && repo="qits-ci-daemon"
+# DEPLOYABLES covers the CORE names, so one pass clones everything.
+for name in ci-daemon $DEPLOYABLES; do
+  repo="qits-$name"
   local_src="/out/$(repo_path "$name")"
   if [ -e "$local_src/.git" ]; then from="$local_src"; else from="$ORG_URL/$repo.git"; fi
   if [ -d "$SRC/$repo/.git" ]; then
@@ -230,7 +231,8 @@ services:
       QITS_GATEWAY_PROXY_HOSTS_WORKSPACES: qits-workspaces
       QITS_GATEWAY_PROXY_HOSTS_STT: qits-stt
     networks: [qits-net]
-    depends_on: [qits-artifacts, qits-ci, qits-cd]
+    # No depends_on: on later runs compose starts only the services cd does not already manage,
+    # and a dependency would resurrect a compose sibling next to its cd-managed replacement.
     restart: unless-stopped
 
   qits-artifacts:
@@ -288,7 +290,37 @@ services:
       # qits.cd.run-args.<application>: what each pipeline-deployed application's container needs
       # beyond its image — the deployment's own words, carried verbatim into docker run. The
       # images refuse to boot without their datasource env (their Dockerfile headers own that
-      # story); the volumes are declared above.
+      # story); the volumes are declared above. The seed services are applications too — the
+      # replace cutover stops the compose-seeded original and these args recreate its exact
+      # runtime. No entry for qits-cd itself: the self-guard fails that deployment before any
+      # docker run; when successor-shuts-down-predecessor lands, cd's run-args move to a mounted
+      # config file (env cannot nest these values).
+      QITS_CD_RUN_ARGS_QITS_GATEWAY: >-
+        -p ${PORT}:8080
+        -e QITS_GATEWAY_PROXY_HOSTS_ARTIFACTS=qits-artifacts
+        -e QITS_GATEWAY_PROXY_HOSTS_CI=qits-ci
+        -e QITS_GATEWAY_PROXY_HOSTS_CD=qits-cd
+        -e QITS_GATEWAY_PROXY_HOSTS_OBSERVABILITY=qits-observability
+        -e QITS_GATEWAY_PROXY_HOSTS_PROJECTS=qits-projects
+        -e QITS_GATEWAY_PROXY_HOSTS_WORKSPACES=qits-workspaces
+        -e QITS_GATEWAY_PROXY_HOSTS_STT=qits-stt
+      QITS_CD_RUN_ARGS_QITS_ARTIFACTS: >-
+        -p 127.0.0.1:${REGISTRY_PORT}:8080
+        -v qits-artifacts-data:/data
+        -v qits-repositories:/data/repositories
+        -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts
+        -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs
+        -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive
+      QITS_CD_RUN_ARGS_QITS_CI: >-
+        -v qits-ci-data:/data
+        -v /var/run/docker.sock:/var/run/docker.sock
+        --group-add ${DOCKER_GID}
+        -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci
+        -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts
+        -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts
+        -e QITS_CI_NETWORK=qits-net
+        -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT}
+        -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA}
       QITS_CD_RUN_ARGS_QITS_STT: >-
         -v qits-stt-data:/data
         -e QITS_SPEECH_HOME=/data/speech
@@ -313,7 +345,19 @@ EOF
 
 say "starting the seed stack"
 docker network inspect qits-net >/dev/null 2>&1 || docker network create qits-net >/dev/null
-docker compose -p qits -f "$COMPOSE" up -d
+# Only what cd does not already manage: a compose service whose application has a live cd-managed
+# container must NOT be resurrected next to it. cd itself is always compose's (the self-update
+# fixpoint, until successor-shuts-down-predecessor exists).
+UP="qits-cd"
+for name in gateway artifacts ci; do
+  if docker ps --format '{{.Names}}' | grep -q "^qits-cd-$ENV_NAME-qits-$name-"; then
+    echo "  qits-$name is cd-managed — compose leaves it alone"
+  else
+    UP="$UP qits-$name"
+  fi
+done
+# shellcheck disable=SC2086
+docker compose -p qits -f "$COMPOSE" up -d $UP
 
 # --- join the platform's network -----------------------------------------------------------------
 docker network connect qits-net "$SELF" 2>/dev/null || true
@@ -348,7 +392,7 @@ fi
 # repoId doubles as the on-disk directory and the clone path; the charset allows readable names,
 # and readable beats capability-opaque on a workstation.
 say "seeding the platform's repositories on the git host"
-for name in $APPS; do
+for name in $DEPLOYABLES; do
   docker run --rm -v qits-repositories:/repos --entrypoint sh alpine/git -c \
     "git init -q --bare -b main /repos/qits-$name/origin && chown -R 1001:0 /repos/qits-$name"
   echo "  qits-$name -> /artifacts/git/qits-$name"
@@ -359,8 +403,11 @@ done
 # than recreating it), one application per pipeline-deployed repo. The name 'qits' is deliberate:
 # qits-projects' self-seed will later announce the same name and land on the idempotent 409.
 say "creating the '$ENV_NAME' main environment in qits-cd"
-apps_json=$(for name in $APPS; do
-  printf '{"repoId":"qits-%s","name":"qits-%s","healthPath":"/%s/q/health/ready"}\n' "$name" "$name" "$name"
+apps_json=$(for name in $DEPLOYABLES; do
+  hp="/$name/q/health/ready"
+  # The gateway's non-application root is /q — it owns the whole path space, no segment prefix.
+  [ "$name" = gateway ] && hp="/q/health/ready"
+  printf '{"repoId":"qits-%s","name":"qits-%s","healthPath":"%s"}\n' "$name" "$name" "$hp"
 done | jq -s .)
 payload=$(jq -n --argjson apps "$apps_json" \
   '{name: "'"$ENV_NAME"'", branch: "main", network: "qits-net", applications: $apps}')
@@ -389,10 +436,13 @@ echo "  environment $ENV_NAME ($ENV_ID)"
 
 # --- push, build, deploy — one application at a time ---------------------------------------------
 # Sequential on purpose: each push triggers a cold native build on the host daemon (~4 GB), and a
-# workstation rarely wants four at once.
+# workstation rarely wants eight at once. Every deployable takes the same path — push, and if the
+# push was a no-op but the application still lacks an ACTIVE deployment at HEAD (a recreated
+# environment, an image published on an earlier run), the build-succeeded event is posted by hand:
+# the intake is open on qits-net and the image is already in the registry.
 say "pushing the platform through its own pipeline"
 overall=0
-for name in $APPS; do
+for name in $DEPLOYABLES; do
   repo="qits-$name"
   say "$repo: push -> ci build -> cd deploy"
   # The pipeline config is committed in the repos; older checkouts get it overlaid here so the
@@ -416,29 +466,50 @@ PIPELINE
       commit -q -m "Opt into CI: publish this repo's image from a green push"
   fi
 
-  before=$(curl -fsS "$CD/cd/api/deployments?environmentId=$ENV_ID" \
-    | jq -r --arg n "$repo" '[.deployments[] | select(.applicationName == $n)][0].id // ""')
   out=$(git -C "$SRC/$repo" push "$ARTIFACTS/artifacts/git/$repo" main 2>&1) || die "push of $repo failed: $out"
-  if echo "$out" | grep -qiE 'up.to.date'; then
-    echo "  $repo unchanged — no build triggered"
+  sha=$(git -C "$SRC/$repo" rev-parse HEAD)
+
+  newest() {
+    curl -fsS "$CD/cd/api/deployments?environmentId=$ENV_ID" \
+      | jq -r --arg n "$repo" '[.deployments[] | select(.applicationName == $n)][0] // {}'
+  }
+
+  row=$(newest)
+  if [ "$(echo "$row" | jq -r .status)" = ACTIVE ] && [ "$(echo "$row" | jq -r .commitSha)" = "$sha" ]; then
+    echo "  $repo already ACTIVE at $(echo "$sha" | cut -c1-7)"
     continue
   fi
+  if echo "$out" | grep -qiE 'up.to.date'; then
+    # No push, no event — but no ACTIVE deployment at HEAD either. The image exists from an
+    # earlier run; hand cd the event it never got.
+    echo "  $repo unchanged but not deployed at HEAD — posting the build event"
+    curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' \
+      -d "{\"runId\":\"bootstrap\",\"repoId\":\"$repo\",\"branch\":\"main\",\"commitSha\":\"$sha\"}" \
+      "$CD/cd/api/events/build-succeeded"
+  else
+    echo "  pushed $(echo "$sha" | cut -c1-7), waiting for the deployment (a cold native build — be patient)"
+  fi
 
-  sha=$(git -C "$SRC/$repo" rev-parse --short HEAD)
-  echo "  pushed $sha, waiting for the deployment (build is a cold native compile — be patient)"
   waited=0
   while :; do
-    row=$(curl -fsS "$CD/cd/api/deployments?environmentId=$ENV_ID" \
-      | jq -r --arg n "$repo" '[.deployments[] | select(.applicationName == $n)][0] // {}')
-    id=$(echo "$row" | jq -r '.id // ""')
+    row=$(newest)
     status=$(echo "$row" | jq -r '.status // "PENDING"')
-    if [ -n "$id" ] && [ "$id" != "$before" ]; then
+    if [ "$(echo "$row" | jq -r '.commitSha // ""')" = "$sha" ]; then
       case "$status" in
         ACTIVE)
           echo "  $repo ACTIVE ($(echo "$row" | jq -r .containerName))"; break ;;
         FAILED|IMAGE_MISSING)
-          warn "$repo deployment $status: $(echo "$row" | jq -r '.detail // "no detail"' | head -c 400)"
-          overall=1; break ;;
+          detail=$(echo "$row" | jq -r '.detail // "no detail"')
+          if [ "$name" = cd ] && echo "$detail" | grep -q 'self-update'; then
+            # The one expected non-ACTIVE outcome: cd refuses to stop the instance performing
+            # the deployment. Its image IS published; the successor-shuts-down-predecessor
+            # mechanism is the planned follow-up.
+            echo "  $repo: image published; deployment deferred (self-update pending): recorded honestly by cd"
+          else
+            warn "$repo deployment $status: $(echo "$detail" | head -c 400)"
+            overall=1
+          fi
+          break ;;
       esac
     fi
     waited=$((waited + 10))
@@ -446,55 +517,6 @@ PIPELINE
     sleep 10
   done
 done
-
-# --- the seed through its own pipeline -----------------------------------------------------------
-# Publish-only: no environment tracks these repos, so their build-succeeded events match nothing
-# in cd. What it buys: the seed containers get re-pointed at images the platform built for
-# itself, so the final state is pipeline-produced end to end (the gateway pipeline builds the
-# local variant — this flow feeds a one-machine platform). Hand-built remnants after this phase:
-# only the first-boot seed lineage, the ci-base step image, and the ci-daemon binary.
-say "pushing the seed through its own pipeline (publish-only)"
-MANIFEST_ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
-for name in $CORE; do
-  repo="qits-$name"
-  docker run --rm -v qits-repositories:/repos --entrypoint sh alpine/git -c \
-    "git init -q --bare -b main /repos/$repo/origin && chown -R 1001:0 /repos/$repo"
-  out=$(git -C "$SRC/$repo" push "$ARTIFACTS/artifacts/git/$repo" main 2>&1) || die "push of $repo failed: $out"
-  sha=$(git -C "$SRC/$repo" rev-parse HEAD)
-  if echo "$out" | grep -qiE 'up.to.date'; then
-    echo "  $repo unchanged — pipeline image assumed current"
-    continue
-  fi
-  echo "  $repo pushed, waiting for the pipeline-published image"
-  waited=0
-  until curl -fsS -o /dev/null -H "Accept: $MANIFEST_ACCEPT" "$ARTIFACTS/v2/qits/$repo/manifests/$sha"; do
-    waited=$((waited + 10))
-    if [ "$waited" -ge "$DEPLOY_TIMEOUT" ]; then
-      warn "$repo: no published image after ${DEPLOY_TIMEOUT}s — check qits-ci logs"; overall=1; break
-    fi
-    sleep 10
-  done
-done
-
-say "re-pointing the seed at its pipeline-built images"
-recreate=0
-for name in $CORE; do
-  repo="qits-$name"
-  sha=$(git -C "$SRC/$repo" rev-parse HEAD)
-  ref="localhost:$REGISTRY_PORT/qits/$repo:$sha"
-  if docker pull "$ref" >/dev/null 2>&1; then
-    docker tag "$ref" "qits/$name:latest"
-    echo "  qits/$name:latest <- $ref"
-    recreate=1
-  else
-    warn "$repo: pipeline image $ref not pullable — container keeps the hand-built image"
-    overall=1
-  fi
-done
-if [ "$recreate" = 1 ]; then
-  docker compose -p qits -f "$COMPOSE" up -d
-  wait_seed
-fi
 
 # --- summary -------------------------------------------------------------------------------------
 say "the platform"

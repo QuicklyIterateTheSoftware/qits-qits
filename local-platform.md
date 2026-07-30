@@ -13,16 +13,21 @@ Two sets to keep straight:
 
 | set | members | managed by | updated by |
 |---|---|---|---|
-| **seed** | qits-gateway (local variant), qits-artifacts, qits-ci, qits-cd, the qits-ci-daemon binary, `qits/build-images/ci-base` | compose (`docker-compose.qits.yml`, generated) | a git push + bootstrap rerun (tag swap) |
-| **pipeline-deployed** | qits-observability, qits-stt, qits-projects, qits-workspaces | qits-cd's `qits` environment (branch `main`, network `qits-net`) | a git push |
+| **cd-managed** | qits-observability, qits-stt, qits-projects, qits-workspaces, qits-gateway, qits-ci, qits-artifacts | qits-cd's `qits` environment (branch `main`, network `qits-net`) — cd container names, sha-addressed registry images | a git push |
+| **the fixpoint** | qits-cd's own container (plus the ci-daemon binary and the `ci-base` step image) | compose (`docker-compose.qits.yml`, generated) | a bootstrap rerun |
 
-The seed is hand-built only for the **first boot**: the bootstrap's last act pushes the seed
-repos through the pipeline too (publish-only — no environment tracks them) and re-points the
-running containers at those images, so the final state is pipeline-produced end to end. What
-stays genuinely hand-built: the `ci-base` step image and the ci-daemon binary — the two things
-the pipeline cannot yet make for itself. The gateway's pipeline publishes the **local**
-(unauthenticated) variant on purpose: this flow feeds a one-machine platform; a deployment that
-fronts anything beyond one machine builds the oauth variant and must not consume that image.
+Every component is an application of the `qits` environment, qits-cd included. The compose seed
+exists only to get the ball rolling: on the first pass each seed service's own pipeline
+deployment *replaces* its compose-seeded original — cd's replace cutover stops whatever holds
+the application's alias (H2 files and published host ports allow exactly one holder), starts the
+fresh container, health-gates it, and only then removes what it stopped; a failed gate restarts
+it. The one exception is qits-cd itself: cd refuses to stop the instance performing the
+deployment, so a qits-cd push publishes the image and records an honest `FAILED` row until the
+planned self-update (the successor shuts down its predecessor) exists — until then cd's
+container stays compose-managed and is updated by rerunning the bootstrap without
+`QITS_SKIP_BUILD`. The gateway's pipeline publishes the **local** (unauthenticated) variant on
+purpose: this flow feeds a one-machine platform; anything fronting more than one machine builds
+the oauth variant and must not consume that image.
 
 ## First run
 
@@ -61,17 +66,19 @@ deployment row, with the log tail in `detail`); nothing to clean up.
 Alternatively `QITS_SKIP_BUILD=1` on a bootstrap rerun pushes every repo and skips the seed
 builds — unchanged repos push up-to-date and trigger nothing.
 
-## Updating a seed service
+## Updating qits-gateway / qits-artifacts / qits-ci
 
-Commit in qits-gateway / qits-artifacts / qits-ci / qits-cd, then rerun the bootstrap with
-`QITS_SKIP_BUILD=1`: it pushes the seed repos through the pipeline, waits for the published
-images, re-tags them over `qits/<name>:latest` and `up -d` recreates exactly the changed
-containers. (The push-only fast path from the section above also works to *publish* a seed
-image, but nothing re-points the running container until a bootstrap rerun does the swap.)
+The same push as any other service — they are cd applications. Expect a few seconds of downtime
+on gateway or artifacts updates (the replace cutover stops the old container through the health
+gate; the host port rebinds when the fresh one starts). A failed gate restarts the old container.
 
-A qits-ci-daemon change is the one seed flow that still needs a full rerun **without**
-`QITS_SKIP_BUILD` — the rerun rebuilds the binary, uploads the new blob, and the regenerated
-compose pins the new digest on qits-ci.
+## Updating qits-cd or the qits-ci-daemon
+
+Rerun the bootstrap **without** `QITS_SKIP_BUILD`: it rebuilds cd's image (and the daemon binary,
+uploading the new blob and pinning the new digest into qits-ci's run-args) and compose recreates
+cd's container. Pushing qits-cd also publishes its pipeline image — the deployment row just
+records `FAILED (self-update pending)` until the successor-shuts-down-predecessor mechanism
+exists.
 
 ## Changing what a deployed application gets at runtime
 
@@ -87,7 +94,7 @@ qits-cd has no add-application endpoint: applications are fixed at environment c
 script owns this — it detects that the existing `qits` environment's application count differs
 from its list and recreates the environment (tearing down its containers; they redeploy on the
 next pushes). To add a fifth service: give the repo a `.config/qits/ci-post-receive.yml` and a
-`docker/Dockerfile`, add its name to `APPS` in the script (plus run-args if it needs state), and
+`docker/Dockerfile`, add its name to `DEPLOYABLES` in the script (plus run-args if it needs state), and
 rerun.
 
 ## Teardown
