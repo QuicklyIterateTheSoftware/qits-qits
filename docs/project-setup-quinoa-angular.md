@@ -143,6 +143,42 @@ Bare `/<segment>` (no trailing slash) is a **404** — Quinoa mounts at `/<segme
 match the bare segment (upstream quinoa issue #960). `/<segment>/` works. This affects all clients
 identically; a redirect would be a gateway-level decision, deliberately not solved per-service.
 
+## The landing-page exception: qits-spa-home at the gateway
+
+One client deliberately deviates from the recipe above, in exactly four ways — everything else
+(Angular 21 on npm, standard scaffold, host node locally) is the same. `qits-spa-home` is the
+platform landing page, served by **qits-gateway** from a submodule at its `src/main/webui`:
+
+1. **It mounts at `/`, not under a segment.** The gateway has no segment of its own, so
+   `ui-root-path` stays at Quinoa's default `/` and the client's `angular.json` sets **no**
+   `baseHref` (the default `/` is correct). Do not copy either fact into a segment-mounted client.
+2. **Precedence replaces the ignore list.** The gateway's proxy catch-all runs at route order
+   20 000 — wedged between Quinoa's static resources (1 060) and its SPA fallback (40 000), orders
+   read from the jars, not assumed — and calls `next()` on an empty route-table match. A configured
+   segment therefore proxies (nested deep paths included: `/ci/runs/123` longest-prefix-matches
+   `/ci` and forwards verbatim) **without appearing in any list**, and only unclaimed paths fall
+   through to the landing page. `ignored-path-prefixes` holds just `/api,/q` — the gateway's own
+   machine surfaces, the same policy as every other service. The route table is the single source
+   of segment truth; there is no second spelling to drift.
+3. **Leaving the SPA is a routing rule, not a link list.** spa-home's `**` route: hit on the
+   *initial* navigation (the gateway already decided nothing owns this URL) it renders a 404 view;
+   hit on a *subsequent* in-app navigation it performs a full `window.location.assign`, and the
+   gateway serves whichever micro frontend owns the segment. Loop-free by construction, and the SPA
+   holds no segment knowledge. Cross-app links in templates are plain `href` anchors, never
+   `routerLink`.
+4. **The image build packages a prebuilt `dist/`.** spa-home depends on `@qits/*` packages that
+   exist only on the platform's own npm registry, and a docker `RUN` can reach that registry by no
+   address — so the pipeline's step container (on `qits-net`) runs the install and build, and the
+   Dockerfile neuters Quinoa's install/ci/build commands to `--version`, staging the bundle it was
+   handed. A missing bundle fails loudly ("Quinoa build directory not found").
+
+One caveat that travels with npm and the platform registry, wherever `@qits/*` is consumed:
+`package-lock.json` records **absolute** `resolved` tarball URLs, `npm ci` fetches by those URLs
+and ignores the configured registry, and npm's `replace-registry-host` is broken for registries
+mounted under a path prefix (arborist concatenates paths). CI recipes therefore rewrite the
+lockfile's `resolved` **origins** from the injected registry env before `npm ci`; the committed
+lockfile keeps the developer-host origin, which is correct locally.
+
 ## Checklist: adding the next SPA-serving service
 
 1. Scaffold the client (Angular CLI defaults, no SSR), set `baseHref` to `"/<segment>/"`, push.
