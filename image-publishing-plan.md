@@ -54,6 +54,17 @@ also what §4 is about.
    through the mounted socket, skipping without docker like the rest of the `extended` tags.
 5. **Docs**: README pipeline schema; AGENTS.md's untrusted-input section amended *consciously* —
    see §5. The boundary table gains the two injected env names.
+6. **A flow document with a diagram, in qits-ci's `docs/`** (e.g. `docs/step-execution-flow.md`):
+   a mermaid sequence diagram of the whole interaction as it actually runs — push → post-receive
+   → intake → run worker → `docker run` of the step container → bootstrap downloads the ci-daemon
+   → the daemon dials the control **WebSocket** out to qits-ci → script delivered as the reply to
+   `Initialized` → output streamed back over that socket → terminal frame → step row written →
+   container removed → next step's fresh container, and finally the CD announcement. It must draw
+   the distinction that prompted it: the control WebSocket every step has always had versus the
+   host's **docker daemon socket** that only a `docker: true` step gets mounted — two unrelated
+   sockets that share a word, and the confusion is cheaper to prevent with one picture than to
+   re-explain per reader. The README's "How a step runs" prose stays the contract; the diagram
+   references it rather than restating it.
 
 **qits-cd**: rename its registry keys to the shared spelling (§3); no behavior change. Its
 `IMAGE_MISSING` docs lighten: the state now means "the pipeline publishes nothing, or the tag
