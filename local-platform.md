@@ -13,21 +13,28 @@ Two sets to keep straight:
 
 | set | members | managed by | updated by |
 |---|---|---|---|
-| **cd-managed** | qits-observability, qits-stt, qits-projects, qits-workspaces, qits-gateway, qits-ci, qits-artifacts | qits-cd's `qits` environment (branch `main`, network `qits-net`) — cd container names, sha-addressed registry images | a git push |
-| **the fixpoint** | qits-cd's own container (plus the ci-daemon binary and the `ci-base` step image) | compose (`docker-compose.qits.yml`, generated) | a bootstrap rerun |
+| **cd-managed** | all eight: observability, stt, projects, workspaces, gateway, ci, artifacts, **and qits-cd itself** | qits-cd's `qits` environment (branch `main`, network `qits-net`) — cd container names, sha-addressed registry images | a git push |
+| **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, cd's run-args file (the `qits-cd-config` volume) | the bootstrap | a bootstrap rerun |
 
-Every component is an application of the `qits` environment, qits-cd included. The compose seed
-exists only to get the ball rolling: on the first pass each seed service's own pipeline
-deployment *replaces* its compose-seeded original — cd's replace cutover stops whatever holds
-the application's alias (H2 files and published host ports allow exactly one holder), starts the
-fresh container, health-gates it, and only then removes what it stopped; a failed gate restarts
-it. The one exception is qits-cd itself: cd refuses to stop the instance performing the
-deployment, so a qits-cd push publishes the image and records an honest `FAILED` row until the
-planned self-update (the successor shuts down its predecessor) exists — until then cd's
-container stays compose-managed and is updated by rerunning the bootstrap without
-`QITS_SKIP_BUILD`. The gateway's pipeline publishes the **local** (unauthenticated) variant on
-purpose: this flow feeds a one-machine platform; anything fronting more than one machine builds
-the oauth variant and must not consume that image.
+Every component is an application of the `qits` environment, qits-cd included, and the steady
+state has **zero compose-managed containers** — the compose seed exists only for a first boot,
+after which each service's own pipeline deployment *replaces* its compose original: cd's replace
+cutover stops whatever holds the application's alias (H2 files and published host ports allow
+exactly one holder), starts the fresh container, health-gates it, and only then removes what it
+stopped; a failed gate restarts it.
+
+**qits-cd updates itself via the handoff**: deploying `qits-cd` starts the successor (retrying
+on the H2 lock under its restart policy) and launches a detached referee that stops the old
+instance, awaits the successor's health gate, and removes whichever side lost — restarting the
+old cd on a missed gate. The successor's startup sweep adopts the deployment row it finds itself
+named on. Expect the cd API to blink for a few seconds during the swap; there is no old↔new
+channel — the H2 lock is the mutex, the row is the state, docker is the lifecycle. cd's run-args
+live in `config/application.properties` on the `qits-cd-config` volume (not compose env) exactly
+so the successor inherits them.
+
+The gateway's pipeline publishes the **local** (unauthenticated) variant on purpose: this flow
+feeds a one-machine platform; anything fronting more than one machine builds the oauth variant
+and must not consume that image.
 
 ## First run
 
@@ -72,21 +79,26 @@ The same push as any other service — they are cd applications. Expect a few se
 on gateway or artifacts updates (the replace cutover stops the old container through the health
 gate; the host port rebinds when the fresh one starts). A failed gate restarts the old container.
 
-## Updating qits-cd or the qits-ci-daemon
+## Updating qits-cd
 
-Rerun the bootstrap **without** `QITS_SKIP_BUILD`: it rebuilds cd's image (and the daemon binary,
-uploading the new blob and pinning the new digest into qits-ci's run-args) and compose recreates
-cd's container. Pushing qits-cd also publishes its pipeline image — the deployment row just
-records `FAILED (self-update pending)` until the successor-shuts-down-predecessor mechanism
-exists.
+The same push as everything else — the handoff does the rest. If the new cd's gate fails, the
+referee restarts the old one and its sweep records the `FAILED` row; if the handoff dies in a
+way that leaves no cd running (both crash-looping images, say), recovery is `docker start` on
+the stopped predecessor or a bootstrap rerun.
+
+## Updating the qits-ci-daemon
+
+The one flow that still needs a bootstrap rerun **without** `QITS_SKIP_BUILD`: it rebuilds the
+binary, uploads the new blob, and regenerates the run-args file pinning the new digest — after
+which qits-ci must be redeployed (any push to it) to pick the new env up.
 
 ## Changing what a deployed application gets at runtime
 
-Volumes, env and sockets for pipeline-deployed containers come from qits-cd's
-`qits.cd.run-args.<application>` config (`QITS_CD_RUN_ARGS_*` in the generated compose). The
-source of truth is the compose heredoc **in the script** — edit it there, rerun the bootstrap
-(`QITS_SKIP_BUILD=1` suffices), and the next deployment of that application picks it up. cd only
-reads the key at `docker run` time, so a redeploy (empty commit push, at worst) applies it.
+Volumes, env and sockets come from qits-cd's `qits.cd.run-args.<application>` config, which
+lives in `config/application.properties` on the `qits-cd-config` volume. The source of truth is
+the properties heredoc **in the script** — edit it there and rerun (`QITS_SKIP_BUILD=1`
+suffices), which rewrites the volume; cd reads the key at `docker run` time, so the next
+deployment of that application (empty commit push, at worst) applies it.
 
 ## Changing the environment's membership
 
@@ -99,6 +111,6 @@ rerun.
 
 ## Teardown
 
-    docker compose -p qits -f docker-compose.qits.yml down        # the seed
-    docker ps -aq --filter label=qits.cd.environment | xargs -r docker rm -f   # cd's deployments
+    docker ps -aq --filter label=qits.cd.environment | xargs -r docker rm -f   # cd's deployments (the whole platform)
+    docker compose -p qits -f docker-compose.qits.yml down        # leftover first-boot seed, if any
     docker volume ls -q | grep '^qits-' | xargs -r docker volume rm            # ALL local state: dbs, registry, git origins

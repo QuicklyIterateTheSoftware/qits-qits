@@ -17,11 +17,12 @@
 # whatever holds the application's alias first, so even the compose-seeded originals of the first
 # boot hand themselves over and reappear under cd's own container names.
 #
-# The one standing exception is qits-cd itself: cd refuses to stop the instance performing a
-# deployment, so a qits-cd push publishes the image and records an honest FAILED row until the
-# planned self-update (the successor shuts down its predecessor) exists. Until then cd's own
-# container stays compose-managed. Also still hand-built: the ci-base step image and the
-# ci-daemon binary — the two things the pipeline cannot make for itself.
+# qits-cd updates ITSELF via the handoff: deploying qits-cd starts the successor, a detached
+# referee stops the old instance and arbitrates the health gate, and the successor's startup
+# sweep adopts the deployment row. cd's run-args therefore live on the qits-cd-config volume
+# (config/application.properties) rather than in compose env — the successor must inherit them.
+# Still hand-built: the ci-base step image and the ci-daemon binary — the two things the
+# pipeline cannot make for itself.
 #
 # Everything durable — images, containers, volumes, qits-net — lands on the HOST daemon through
 # the mounted socket; this container is disposable. The generated compose file (the seed stack
@@ -69,7 +70,8 @@ SRC=${QITS_SRC:-/qits-src}
 CORE="gateway artifacts ci cd"
 # Everything the platform deploys through itself — the environment's applications. Order matters:
 # observability first (quiets OTLP warnings earliest), the seed's own repos last, cd at the very
-# end (its deployment records the honest self-update-pending FAILED row).
+# end (its deployment is the self-update handoff: the cd API blinks while the successor takes
+# over and adopts the row).
 DEPLOYABLES="observability stt projects workspaces gateway artifacts ci cd"
 
 ENV_NAME=qits
@@ -213,6 +215,10 @@ volumes:
     name: qits-workspaces-data
   qits-stt-data:
     name: qits-stt-data
+  # cd's run-args config (config/application.properties), written by the bootstrap. A volume
+  # rather than env so a self-update's successor inherits it — env cannot nest these values.
+  qits-cd-config:
+    name: qits-cd-config
 
 services:
   qits-gateway:
@@ -287,77 +293,57 @@ services:
       QUARKUS_DATASOURCE_CD_JDBC_URL: jdbc:h2:file:/data/cd/h2/cd
       # cd pulls through the HOST daemon too — same reasoning as ci's registry host.
       QITS_ARTIFACTS_REGISTRY_HOST: localhost:${REGISTRY_PORT}
-      # qits.cd.run-args.<application>: what each pipeline-deployed application's container needs
-      # beyond its image — the deployment's own words, carried verbatim into docker run. The
-      # images refuse to boot without their datasource env (their Dockerfile headers own that
-      # story); the volumes are declared above. The seed services are applications too — the
-      # replace cutover stops the compose-seeded original and these args recreate its exact
-      # runtime. No entry for qits-cd itself: the self-guard fails that deployment before any
-      # docker run; when successor-shuts-down-predecessor lands, cd's run-args move to a mounted
-      # config file (env cannot nest these values).
-      QITS_CD_RUN_ARGS_QITS_GATEWAY: >-
-        -p ${PORT}:8080
-        -e QITS_GATEWAY_PROXY_HOSTS_ARTIFACTS=qits-artifacts
-        -e QITS_GATEWAY_PROXY_HOSTS_CI=qits-ci
-        -e QITS_GATEWAY_PROXY_HOSTS_CD=qits-cd
-        -e QITS_GATEWAY_PROXY_HOSTS_OBSERVABILITY=qits-observability
-        -e QITS_GATEWAY_PROXY_HOSTS_PROJECTS=qits-projects
-        -e QITS_GATEWAY_PROXY_HOSTS_WORKSPACES=qits-workspaces
-        -e QITS_GATEWAY_PROXY_HOSTS_STT=qits-stt
-      QITS_CD_RUN_ARGS_QITS_ARTIFACTS: >-
-        -p 127.0.0.1:${REGISTRY_PORT}:8080
-        -v qits-artifacts-data:/data
-        -v qits-repositories:/data/repositories
-        -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts
-        -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs
-        -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive
-      QITS_CD_RUN_ARGS_QITS_CI: >-
-        -v qits-ci-data:/data
-        -v /var/run/docker.sock:/var/run/docker.sock
-        --group-add ${DOCKER_GID}
-        -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci
-        -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts
-        -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts
-        -e QITS_CI_NETWORK=qits-net
-        -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT}
-        -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA}
-      QITS_CD_RUN_ARGS_QITS_STT: >-
-        -v qits-stt-data:/data
-        -e QITS_SPEECH_HOME=/data/speech
-      QITS_CD_RUN_ARGS_QITS_PROJECTS: >-
-        -v qits-projects-data:/data
-        -v qits-repositories:/data/repositories
-        -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects
-        -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics
-      QITS_CD_RUN_ARGS_QITS_WORKSPACES: >-
-        -v qits-workspaces-data:/data
-        -v qits-repositories:/data/repositories
-        -v /var/run/docker.sock:/var/run/docker.sock
-        --group-add ${DOCKER_GID}
-        -e QUARKUS_DATASOURCE_WORKSPACES_JDBC_URL=jdbc:h2:file:/data/workspaces/h2/workspaces
-        -e QITS_PROJECTS_URL=http://qits-projects:8080
+      # Per-application run-args live in the qits-cd-config volume (config/application.properties,
+      # written below), NOT here: a self-update's successor must inherit them, and env cannot
+      # nest those values.
     volumes:
       - qits-cd-data:/data
+      - qits-cd-config:/work/config
       - /var/run/docker.sock:/var/run/docker.sock
     networks: [qits-net]
     restart: unless-stopped
 EOF
 
+# cd's per-application run arguments, as a config file on a named volume: quarkus reads
+# config/application.properties next to the binary (the cd image's WORKDIR is /work), and a
+# self-update's successor mounts the same volume via its own run-args entry below — which is the
+# whole reason this is a file and not compose env.
+say "writing cd's run-args config volume"
+cat > /tmp/cd-run-args.properties <<RUNARGS
+# Generated by qits-local-up.sh — qits.cd.run-args.<application>: what each deployed container
+# needs beyond its image. Whitespace-split, appended verbatim between cd's flags and the image.
+qits.cd.run-args.qits-gateway=-p ${PORT}:8080 -e QITS_GATEWAY_PROXY_HOSTS_ARTIFACTS=qits-artifacts -e QITS_GATEWAY_PROXY_HOSTS_CI=qits-ci -e QITS_GATEWAY_PROXY_HOSTS_CD=qits-cd -e QITS_GATEWAY_PROXY_HOSTS_OBSERVABILITY=qits-observability -e QITS_GATEWAY_PROXY_HOSTS_PROJECTS=qits-projects -e QITS_GATEWAY_PROXY_HOSTS_WORKSPACES=qits-workspaces -e QITS_GATEWAY_PROXY_HOSTS_STT=qits-stt
+qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive
+qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA}
+qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT}
+qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speech
+qits.cd.run-args.qits-projects=-v qits-projects-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics
+qits.cd.run-args.qits-workspaces=-v qits-workspaces-data:/data -v qits-repositories:/data/repositories -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_WORKSPACES_JDBC_URL=jdbc:h2:file:/data/workspaces/h2/workspaces -e QITS_PROJECTS_URL=http://qits-projects:8080
+RUNARGS
+docker volume create qits-cd-config >/dev/null
+docker run --rm -i -v qits-cd-config:/cfg --entrypoint sh alpine/git \
+  -c 'cat > /cfg/application.properties && chown 1001:0 /cfg/application.properties' \
+  < /tmp/cd-run-args.properties
+
 say "starting the seed stack"
 docker network inspect qits-net >/dev/null 2>&1 || docker network create qits-net >/dev/null
 # Only what cd does not already manage: a compose service whose application has a live cd-managed
-# container must NOT be resurrected next to it. cd itself is always compose's (the self-update
-# fixpoint, until successor-shuts-down-predecessor exists).
-UP="qits-cd"
-for name in gateway artifacts ci; do
+# container must NOT be resurrected next to it — cd's own container included, once a self-update
+# handoff has made cd one of its own deployments.
+UP=""
+for name in cd gateway artifacts ci; do
   if docker ps --format '{{.Names}}' | grep -q "^qits-cd-$ENV_NAME-qits-$name-"; then
     echo "  qits-$name is cd-managed — compose leaves it alone"
   else
     UP="$UP qits-$name"
   fi
 done
-# shellcheck disable=SC2086
-docker compose -p qits -f "$COMPOSE" up -d $UP
+if [ -n "$UP" ]; then
+  # shellcheck disable=SC2086
+  docker compose -p qits -f "$COMPOSE" up -d $UP
+else
+  echo "  the whole seed is cd-managed — compose has nothing to start"
+fi
 
 # --- join the platform's network -----------------------------------------------------------------
 docker network connect qits-net "$SELF" 2>/dev/null || true
@@ -499,16 +485,8 @@ PIPELINE
         ACTIVE)
           echo "  $repo ACTIVE ($(echo "$row" | jq -r .containerName))"; break ;;
         FAILED|IMAGE_MISSING)
-          detail=$(echo "$row" | jq -r '.detail // "no detail"')
-          if [ "$name" = cd ] && echo "$detail" | grep -q 'self-update'; then
-            # The one expected non-ACTIVE outcome: cd refuses to stop the instance performing
-            # the deployment. Its image IS published; the successor-shuts-down-predecessor
-            # mechanism is the planned follow-up.
-            echo "  $repo: image published; deployment deferred (self-update pending): recorded honestly by cd"
-          else
-            warn "$repo deployment $status: $(echo "$detail" | head -c 400)"
-            overall=1
-          fi
+          warn "$repo deployment $status: $(echo "$row" | jq -r '.detail // "no detail"' | head -c 400)"
+          overall=1
           break ;;
       esac
     fi
