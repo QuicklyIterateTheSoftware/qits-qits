@@ -147,6 +147,13 @@ if [ "$SKIP_BUILD" != 1 ]; then
   printf 'FROM docker:cli\nRUN apk add --no-cache git bash curl\n' \
     | docker build -q -t qits/build-images/ci-base:latest - >/dev/null
 
+  # The same for node pipelines. Same contract (git, bash, a downloader) on a node base, plus
+  # corepack for pnpm. No docker CLI: an npm publish goes to qits-artifacts over qits-net as
+  # ordinary HTTP, so such a step never declares docker:true.
+  say "build qits/build-images/node-base:latest"
+  printf 'FROM node:24-alpine\nRUN apk add --no-cache git bash curl && corepack enable\n' \
+    | docker build -q -t qits/build-images/node-base:latest - >/dev/null
+
   # The ci-daemon: a fully static musl native binary. Its documented recipe runs mvnw on the host
   # with container-build=true; inside this container that would need bind mounts the socket
   # boundary cannot honour (paths resolve on the HOST), so the build runs INSIDE the builder
@@ -276,6 +283,10 @@ services:
       # Injected into publish steps as QITS_REGISTRY: dialled by the HOST daemon (see the
       # qits-artifacts ports note).
       QITS_ARTIFACTS_REGISTRY_HOST: localhost:${REGISTRY_PORT}
+      # The npm roots (QITS_NPM_REGISTRY_URL / QITS_NPM_PROXY_URL) are deliberately NOT overridden
+      # here: a step container dials THOSE itself, on qits-net, so ci's shipped defaults
+      # (http://qits-artifacts:8080/artifacts/npm/...) are already right. Copying the localhost
+      # mapping above onto them would point every npm install at the step container's own loopback.
       # The binary every step container downloads and execs — uploaded by this bootstrap, digest
       # pinned. Blank would mean every run fails as never-registered.
       QITS_CI_DAEMON_VERSION: "${DAEMON_SHA}"
