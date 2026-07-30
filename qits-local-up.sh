@@ -154,6 +154,16 @@ if [ "$SKIP_BUILD" != 1 ]; then
   printf 'FROM node:24-alpine\nRUN apk add --no-cache git bash curl && corepack enable\n' \
     | docker build -q -t qits/build-images/node-base:latest - >/dev/null
 
+  # node-base plus the docker CLI, for a frontend's publish step: the app builds in the step
+  # container (which is on qits-net and can reach the registry), and the docker build only COPYs
+  # the built dist into a runtime image. Build-time network is deliberately not relied on —
+  # buildkit RUN steps cannot reach qits-net, the VM-host loopback, or a host-gateway alias on
+  # every daemon this platform targets, so an image build that fetches packages is unbuildable
+  # on some of them by construction.
+  say "build qits/build-images/node-docker-base:latest"
+  printf 'FROM node:24-alpine\nRUN apk add --no-cache git bash curl docker-cli && corepack enable\n' \
+    | docker build -q -t qits/build-images/node-docker-base:latest - >/dev/null
+
   # The ci-daemon: a fully static musl native binary. Its documented recipe runs mvnw on the host
   # with container-build=true; inside this container that would need bind mounts the socket
   # boundary cannot honour (paths resolve on the HOST), so the build runs INSIDE the builder
