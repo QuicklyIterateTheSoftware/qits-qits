@@ -13,8 +13,16 @@ Two sets to keep straight:
 
 | set | members | managed by | updated by |
 |---|---|---|---|
-| **seed** | qits-gateway (local variant), qits-artifacts, qits-ci, qits-cd, the qits-ci-daemon binary, `qits/build-images/ci-base` | compose (`docker-compose.qits.yml`, generated) | rerunning the bootstrap |
+| **seed** | qits-gateway (local variant), qits-artifacts, qits-ci, qits-cd, the qits-ci-daemon binary, `qits/build-images/ci-base` | compose (`docker-compose.qits.yml`, generated) | a git push + bootstrap rerun (tag swap) |
 | **pipeline-deployed** | qits-observability, qits-stt, qits-projects, qits-workspaces | qits-cd's `qits` environment (branch `main`, network `qits-net`) | a git push |
+
+The seed is hand-built only for the **first boot**: the bootstrap's last act pushes the seed
+repos through the pipeline too (publish-only — no environment tracks them) and re-points the
+running containers at those images, so the final state is pipeline-produced end to end. What
+stays genuinely hand-built: the `ci-base` step image and the ci-daemon binary — the two things
+the pipeline cannot yet make for itself. The gateway's pipeline publishes the **local**
+(unauthenticated) variant on purpose: this flow feeds a one-machine platform; a deployment that
+fronts anything beyond one machine builds the oauth variant and must not consume that image.
 
 ## First run
 
@@ -55,11 +63,15 @@ builds — unchanged repos push up-to-date and trigger nothing.
 
 ## Updating a seed service
 
-Seed images are hand-built, so rerun the bootstrap without `QITS_SKIP_BUILD` after committing in
-qits-gateway / qits-artifacts / qits-ci / qits-cd: it rebuilds the images (docker layer cache
-makes untouched ones instant), regenerates the compose file, and `up -d` recreates exactly the
-changed containers. A qits-ci-daemon change is the same flow — the rerun rebuilds the binary,
-uploads the new blob, and the regenerated compose pins the new digest on qits-ci.
+Commit in qits-gateway / qits-artifacts / qits-ci / qits-cd, then rerun the bootstrap with
+`QITS_SKIP_BUILD=1`: it pushes the seed repos through the pipeline, waits for the published
+images, re-tags them over `qits/<name>:latest` and `up -d` recreates exactly the changed
+containers. (The push-only fast path from the section above also works to *publish* a seed
+image, but nothing re-points the running container until a bootstrap rerun does the swap.)
+
+A qits-ci-daemon change is the one seed flow that still needs a full rerun **without**
+`QITS_SKIP_BUILD` — the rerun rebuilds the binary, uploads the new blob, and the regenerated
+compose pins the new digest on qits-ci.
 
 ## Changing what a deployed application gets at runtime
 

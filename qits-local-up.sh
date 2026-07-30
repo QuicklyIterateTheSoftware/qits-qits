@@ -20,6 +20,11 @@
 #                                          seed's registry, and cut over onto qits-net by qits-cd's
 #                                          "qits" main environment (branch main, network qits-net)
 #
+# As the last act the seed repos themselves are pushed through the pipeline (publish-only) and
+# the running seed containers are re-pointed at those images, so the final state is
+# pipeline-produced end to end; hand-built remains only what the pipeline cannot make for
+# itself yet (the ci-base step image, the ci-daemon binary, and the first boot's lineage).
+#
 # Everything durable — images, containers, volumes, qits-net — lands on the HOST daemon through
 # the mounted socket; this container is disposable. The generated compose file (the seed stack
 # only) is copied to /out, along with .qits-bootstrap.env recording the ci-daemon digest.
@@ -313,15 +318,18 @@ docker compose -p qits -f "$COMPOSE" up -d
 # --- join the platform's network -----------------------------------------------------------------
 docker network connect qits-net "$SELF" 2>/dev/null || true
 
-say "waiting for the seed services"
-for name in artifacts ci cd; do
-  i=0
-  until curl -fsS -o /dev/null "http://qits-$name:8080/$name/q/health/ready"; do
-    i=$((i + 5)); [ "$i" -gt 120 ] && die "qits-$name not ready after 120s — docker logs qits-$name"
-    sleep 5
+wait_seed() {
+  for name in artifacts ci cd; do
+    i=0
+    until curl -fsS -o /dev/null "http://qits-$name:8080/$name/q/health/ready"; do
+      i=$((i + 5)); [ "$i" -gt 120 ] && die "qits-$name not ready after 120s — docker logs qits-$name"
+      sleep 5
+    done
+    echo "  qits-$name ready"
   done
-  echo "  qits-$name ready"
-done
+}
+say "waiting for the seed services"
+wait_seed
 
 # --- publish the ci-daemon binary ----------------------------------------------------------------
 say "publishing the ci-daemon binary to the registry"
@@ -438,6 +446,55 @@ PIPELINE
     sleep 10
   done
 done
+
+# --- the seed through its own pipeline -----------------------------------------------------------
+# Publish-only: no environment tracks these repos, so their build-succeeded events match nothing
+# in cd. What it buys: the seed containers get re-pointed at images the platform built for
+# itself, so the final state is pipeline-produced end to end (the gateway pipeline builds the
+# local variant — this flow feeds a one-machine platform). Hand-built remnants after this phase:
+# only the first-boot seed lineage, the ci-base step image, and the ci-daemon binary.
+say "pushing the seed through its own pipeline (publish-only)"
+MANIFEST_ACCEPT='application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json'
+for name in $CORE; do
+  repo="qits-$name"
+  docker run --rm -v qits-repositories:/repos --entrypoint sh alpine/git -c \
+    "git init -q --bare -b main /repos/$repo/origin && chown -R 1001:0 /repos/$repo"
+  out=$(git -C "$SRC/$repo" push "$ARTIFACTS/artifacts/git/$repo" main 2>&1) || die "push of $repo failed: $out"
+  sha=$(git -C "$SRC/$repo" rev-parse HEAD)
+  if echo "$out" | grep -qiE 'up.to.date'; then
+    echo "  $repo unchanged — pipeline image assumed current"
+    continue
+  fi
+  echo "  $repo pushed, waiting for the pipeline-published image"
+  waited=0
+  until curl -fsS -o /dev/null -H "Accept: $MANIFEST_ACCEPT" "$ARTIFACTS/v2/qits/$repo/manifests/$sha"; do
+    waited=$((waited + 10))
+    if [ "$waited" -ge "$DEPLOY_TIMEOUT" ]; then
+      warn "$repo: no published image after ${DEPLOY_TIMEOUT}s — check qits-ci logs"; overall=1; break
+    fi
+    sleep 10
+  done
+done
+
+say "re-pointing the seed at its pipeline-built images"
+recreate=0
+for name in $CORE; do
+  repo="qits-$name"
+  sha=$(git -C "$SRC/$repo" rev-parse HEAD)
+  ref="localhost:$REGISTRY_PORT/qits/$repo:$sha"
+  if docker pull "$ref" >/dev/null 2>&1; then
+    docker tag "$ref" "qits/$name:latest"
+    echo "  qits/$name:latest <- $ref"
+    recreate=1
+  else
+    warn "$repo: pipeline image $ref not pullable — container keeps the hand-built image"
+    overall=1
+  fi
+done
+if [ "$recreate" = 1 ]; then
+  docker compose -p qits -f "$COMPOSE" up -d
+  wait_seed
+fi
 
 # --- summary -------------------------------------------------------------------------------------
 say "the platform"
