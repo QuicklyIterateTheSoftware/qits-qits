@@ -142,3 +142,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-spa-cd"]
+	path = frontends/qits-spa-cd
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-cd.git
+	ignore = all
+	update = merge
+	branch = main
