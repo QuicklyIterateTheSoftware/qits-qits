@@ -45,7 +45,10 @@ Release-flow implementation (`release-flow-plan.md`, settled: calver `YYYY.MMDD.
 - **Agent X** — qits-artifacts ProtectedRefHook, shipped INERT (default false). Verify: pushed?
   deployed? inertness proven?
 - **Agent Y** — qits-workspaces VersionStamp + maven/npm splice bumpers, commits UNPUSHED (Z ships).
-- **Agent AA** — qits-spa-workspaces Integrate UI (frozen API contract), pushed to GitHub + mirror?
+- **Agent AA — DONE** (~22:30): Integrate UI at qits-spa-workspaces `f5860ee`, pushed GitHub +
+  mirror (mirror run green). Six outcome surfaces; Z must emit `reason`+`conflicts` on its 409s
+  (additive) and 4xx-not-500 for hook refusals — friction notes in AA's report, folded into Z's
+  brief. Gitlink advance into qits-workspaces rides Z's ship step.
 - **Then queued**: Z (integrate flow + endpoint, after Y) → AB (deployment wiring: token into
   qits-local-up.sh + live cd-config; teach the pushers) → AC (flip protection on, prove
   default-locked live).
