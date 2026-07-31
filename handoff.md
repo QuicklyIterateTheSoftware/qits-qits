@@ -92,6 +92,15 @@ parentId is knowingly lost across the push boundary (solved differently, later).
 
 ## Parked follow-ups (deliberate, not forgotten)
 
+- **RECONSIDER THE INTEGRATE/RELEASE API SHAPE — user-flagged 2026-07-31, decide AFTER picking up
+  this handoff, not before.** The release logic (versionbump + release(<version>) commit +
+  SoftwareRelease later) was folded into the *integrate* action. The user suspects that was a
+  mistake: the cleaner shape may be a dedicated **`/release`** endpoint — available only for
+  branches being integrated into main — with `/integrate` staying a plain merge (or retiring).
+  This touches release-flow-plan.md's frozen API (Z's `/workspaces/{id}/integrate`), AA's UI
+  wording, and the hops plan's branch-keyed endpoint (AE) — so it is a deliberate design pass,
+  not a rename: weigh it once Z/AB/AC have landed and the first live release exists to look at.
+
 - **index.html immutable-cache bug — USER-IMPACTING**: every SPA serves `index.html` with
   `immutable, max-age=86400`; returning browsers get blank/stale pages after every deploy until a
   hard reload (measured twice today). Fix: document must revalidate, hashed bundles stay immutable;
