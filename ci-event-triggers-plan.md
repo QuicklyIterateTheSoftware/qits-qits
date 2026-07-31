@@ -10,7 +10,13 @@ each SPA's own release fires the event pipelines of the Quarkus services embeddi
 release themselves. Each hop is one repo declaring, in its own tree, which upstream events it
 cares about.
 
-Status: SETTLED 2026-07-31 — the selection DSL (YAML matcher document, list-of-maps groups,
+Status: SHIPPED 2026-07-31 — F (raw listener, qits-ci 59b057d), G (the engine, 610ede3 +
+b25d937), H (live E2E: the first event-triggered run, `da4a3f0e`, fired by a real
+qits-spa-ui-components green build matching `.config/qits/ci-event-upstream-ui-components.yml`
+in qits-spa-workspaces at c9d1514 — provenance recorded, `QITS_EVENT_*` in the step log, the
+run's own BuildSuccessful stamped with the trigger event as `parentId` and walkable via
+`?parentId=`, replay produced no second run; the trigger file stays as a live canary). The
+decisions below were settled before implementation: the selection DSL (YAML matcher document, list-of-maps groups,
 `exact`/`prefix`/`exists`), and the loop question (deliberately **no guard** in this feature;
 cycle/self-reference detection is a separate future feature operating on a meta-level DAG of
 triggers, with its own UX). Decisions recorded inline below.
@@ -121,10 +127,13 @@ Flow, on every inbound event frame:
    `triggerEventName`, `configPath` (which trigger file — post-receive rows get the constant).
    Flyway migration in ci's lineage.
 5. **The payload reaches the steps as environment**: `QITS_EVENT_ID`, `QITS_EVENT_NAME`,
-   `QITS_EVENT_OCCURRED_AT`, `QITS_EVENT_PAYLOAD` (the canonical JSON, verbatim — steps that
-   want a field use `jq`, which the step images carry). No per-field flattening: env names
-   from payload paths invite collision and quoting bugs, and `jq` is already the platform's
-   answer inside steps.
+   `QITS_EVENT_OCCURRED_AT`, `QITS_EVENT_PAYLOAD` (the canonical JSON, verbatim — a step that
+   wants a field parses the one string itself). No per-field flattening: env names from
+   payload paths invite collision and quoting bugs. This document originally said "use `jq`,
+   which the step images carry" — measured false during the E2E: `node-base` has no `jq`
+   (`node -p 'JSON.parse(process.env.QITS_EVENT_PAYLOAD).repoId'` is that image's way).
+   Either the build images grow `jq` or docs must stop promising it; qits-ci's README carries
+   the same stale sentence — an open follow-up.
 
 ### Exactly one run per (event, trigger) — the 1-relationship
 
