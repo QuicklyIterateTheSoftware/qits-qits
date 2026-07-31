@@ -13,7 +13,7 @@ Two sets to keep straight:
 
 | set | members | managed by | updated by |
 |---|---|---|---|
-| **cd-managed** | all eight: observability, stt, projects, workspaces, gateway, ci, artifacts, **and qits-cd itself** | qits-cd's `qits` environment (branch `main`, network `qits-net`) — cd container names, sha-addressed registry images | a git push |
+| **cd-managed** | all nine: observability, stt, projects, workspaces, events, gateway, ci, artifacts, **and qits-cd itself** | qits-cd's `qits` environment (branch `main`, network `qits-net`) — cd container names, sha-addressed registry images | a git push |
 | **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, cd's run-args file (the `qits-cd-config` volume) | the bootstrap | a bootstrap rerun |
 
 Every component is an application of the `qits` environment, qits-cd included, and the steady

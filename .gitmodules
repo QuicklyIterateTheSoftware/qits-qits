@@ -130,3 +130,15 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-events"]
+	path = services/qits-events
+	url = https://github.com/QuicklyIterateTheSoftware/qits-events.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-spa-events"]
+	path = frontends/qits-spa-events
+	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-events.git
+	ignore = all
+	update = merge
+	branch = main

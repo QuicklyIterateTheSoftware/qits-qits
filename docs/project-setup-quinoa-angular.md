@@ -116,8 +116,9 @@ misconfiguration rather than "no client": the build stops at `No package.json fo
 directory`. Three places assume the checkout, and each ships its own fix:
 
 1. **A developer clone** — the clone-alone rule reads "clone **and** `git submodule update --init`".
-   `mvn verify` still needs neither node nor the submodule (Quinoa is disabled by default in test
-   mode); `mvn package` needs both.
+   `mvn test` still needs neither node nor the submodule (Quinoa is disabled by default in test
+   mode); `mvn verify` runs `package` on its way to failsafe, so it — like `mvn package` — needs
+   both (measured: an empty `webui/` stops it at "No package.json found in Web UI directory").
 2. **The image build** — `.dockerignore` must exclude `**/node_modules` and the client's `dist`
    (a host-built `node_modules` leaking into the context is a client built by the wrong toolchain,
    since Quinoa reuses one rather than reinstalling).
