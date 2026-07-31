@@ -51,9 +51,14 @@ Release-flow implementation (`release-flow-plan.md`, settled: calver `YYYY.MMDD.
   splice bumpers at qits-workspaces `c4bb7cf`, UNPUSHED (Z ships it). Measured find: StAX char
   offsets lie past the first 8KB buffer — pom splicing maps line/column instead. 59 new tests,
   round-trip byte-identity as the load-bearing assertion.
-- **Agent Z — RUNNING** (launched ~22:45): integrate flow + endpoint on top of Y, ships Y + Z +
-  AA's webui gitlink (f5860ee) as one pipeline run. Carries AA's 409 contract (additive
-  reason+conflicts) and X's live facts.
+- **Agent Z — DONE** (~23:17): integrate flow live at qits-workspaces `7cb9baa` (ships Y + AA's
+  UI too). Endpoint answers; 409s carry `reason`+`conflicts` (fifth reason: PUSH_REJECTED —
+  hook refusals are 409s, never 500s); `ReleaseAnnouncer` port is the SoftwareRelease seam
+  (`RepositoryView` still lacks projectId — widen when the event lands). The live integrate
+  proof is AC's. OpenAPI declares no 4xx anywhere — declaring the reason enum is a follow-up.
+- **Agent AB — RUNNING** (~23:25): deployment wiring — push token into qits-local-up.sh + live
+  cd-config, `QITS_ARTIFACTS_URL` explicit, docs learn integrate + token. Then AC flips
+  protection and proves the whole flow live.
 - **Agent AA — DONE** (~22:30): Integrate UI at qits-spa-workspaces `f5860ee`, pushed GitHub +
   mirror (mirror run green). Six outcome surfaces; Z must emit `reason`+`conflicts` on its 409s
   (additive) and 4xx-not-500 for hook refusals — friction notes in AA's report, folded into Z's
