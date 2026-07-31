@@ -11,9 +11,15 @@ The purpose is a picture: a chain-walk in qits-spa-events that draws the train. 
 builds the field, the stamping and the query that make such a picture possible, and builds no
 picture.
 
-Status: DESIGN — not started. The wire contract delta below is frozen the moment it is accepted, on
-the same terms the parent plan set: an agent that believes it is wrong reports back rather than
-adjusting its own side.
+Status: SHIPPED 2026-07-31. Agent I (qits-events, `16656f0`) and Agent J (the eventsourcing module
+in qits-ci, `88d1bca`) are deployed and ACTIVE. Agent K drew the first real edge by hand through the
+gateway: a three-event chain, the pushed `/events/stream` frame carrying `parentId`, the walk down
+(`?parentId=`) and the walk up (`parentId`) agreeing at every hop, 200 on the byte-identical replay,
+400 on a re-PUT naming a different cause and 400 on one with the field removed — absent means null
+in the comparison, and null is not the value already stored. Probe rows deleted afterwards. Nothing
+stamps a non-null parent in production yet; the first *automatic* edge is the trigger engine's
+(Decision 7). The wire contract delta below is frozen, on the same terms the parent plan set: an
+agent that believes it is wrong reports back rather than adjusting its own side.
 
 ## What exists today (the seams this builds on)
 

@@ -80,6 +80,12 @@ The eventsourcing module lives in the qits-ci repo and **must not** depend on qi
 domain module (cross-repo dependency); the contract below is the only coupling, duplicated
 as DTOs on each side.
 
+**One superseding delta since, and it is written elsewhere:** the envelope and the frame each
+gained a nullable `parentId` — the id of the event that caused this one — frozen in
+event-causation-plan.md's Decision 3, which is where that field's semantics live. Everything
+below stands as written, because absent means null: a publisher built against this document is
+still a correct publisher.
+
 ### 1. Idempotent publish — `PUT /events/api/events/{id}`
 
 - `{id}` is a UUID v4, chosen by the publisher.

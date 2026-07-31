@@ -151,7 +151,10 @@ per-event check buried in the engine. Until that lands, the footgun is documente
 trigger author will read it (the config-format docs Agent G writes): a `when` that matches an
 event the same repo's build publishes is an unbounded build loop, and review is the only
 guard. Engine-side, nothing is built that the DAG feature would have to undo; the provenance
-columns (`triggerEventId`, `triggerEventName`) are exactly the trail it will need.
+columns (`triggerEventId`, `triggerEventName`) are exactly the trail it will need — and, now
+that causation has shipped, `triggerEventId` is also what the run stamps as the `parentId` of
+the events it publishes, so the chain of what actually caused what is recorded from the first
+triggered run rather than reconstructed later.
 
 ## Out of scope, named
 
@@ -178,7 +181,11 @@ columns (`triggerEventId`, `triggerEventName`) are exactly the trail it will nee
   parse-error rule), the matcher DSL evaluator (pure, exhaustively unit-tested: groups,
   AND/OR, dot-paths, each matcher, malformed docs), `GitConfigFetcher` tree-listing verb,
   candidate-repo source (with the discovery task), provenance migration + entity/DTO,
-  unique-constraint dedupe, env injection, engine wiring behind the raw listener,
+  unique-constraint dedupe, env injection, engine wiring behind the raw listener, the
+  causation stamp (`RunAnnouncer.onRunSucceeded` gains a `String triggerEventId`;
+  `BuildSuccessfulAnnouncer` passes it to the `bus.publish(event, parent)` overload, so a
+  triggered run's own events name what caused them and a post-receive run passes null and
+  publishes a root — event-causation-plan.md, Decision 7),
   config-format docs including the loop footgun, @QuarkusTest suite (event in → run recorded
   with provenance; dedupe on redelivery; parse-failure isolation). Push both remotes,
   pipeline redeploys qits-ci
