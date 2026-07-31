@@ -288,6 +288,10 @@ services:
     group_add: ["${DOCKER_GID}"]
     environment:
       QUARKUS_DATASOURCE_CI_JDBC_URL: jdbc:h2:file:/data/ci/h2/ci
+      # The eventsourcing module (the outbox) owns its own datasource, whose shipped default sits
+      # under ${user.home} — which a container has not got, so H2 refuses the url at Flyway and the
+      # binary dies at boot. Every deployment of ci must spell this twin; so must the seed.
+      QUARKUS_DATASOURCE_EVENTSOURCING_JDBC_URL: jdbc:h2:file:/data/eventsourcing/h2/eventsourcing
       # ci's own fetch of the pushed ref, and the same base as seen from inside a step
       # container — steps join qits-net, so both resolve the git host directly.
       QITS_CI_GIT_HOST_URL: http://qits-artifacts:8080/artifacts
@@ -338,7 +342,7 @@ cat > /tmp/cd-run-args.properties <<RUNARGS
 # needs beyond its image. Whitespace-split, appended verbatim between cd's flags and the image.
 qits.cd.run-args.qits-gateway=-p ${PORT}:8080 -e QITS_GATEWAY_PROXY_HOSTS_ARTIFACTS=qits-artifacts -e QITS_GATEWAY_PROXY_HOSTS_CI=qits-ci -e QITS_GATEWAY_PROXY_HOSTS_CD=qits-cd -e QITS_GATEWAY_PROXY_HOSTS_OBSERVABILITY=qits-observability -e QITS_GATEWAY_PROXY_HOSTS_PROJECTS=qits-projects -e QITS_GATEWAY_PROXY_HOSTS_WORKSPACES=qits-workspaces -e QITS_GATEWAY_PROXY_HOSTS_STT=qits-stt -e QITS_GATEWAY_PROXY_HOSTS_EVENTS=qits-events
 qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive
-qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA}
+qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci -e QUARKUS_DATASOURCE_EVENTSOURCING_JDBC_URL=jdbc:h2:file:/data/eventsourcing/h2/eventsourcing -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA} -e QITS_EVENTS_URL=http://qits-events:8080
 qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT}
 qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speech
 qits.cd.run-args.qits-projects=-v qits-projects-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics
