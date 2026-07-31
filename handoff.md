@@ -68,13 +68,18 @@ How to verify any of it: `/ci/api/runs?repositoryId=<repo>` for the builds,
 
 ## Next feature, planned and ready to implement
 
-**`release-train-hops-plan.md`** (being written this evening by a Fable design agent — check it
-exists and is marked settled): the train's loop closes. SoftwareRelease event
-(`software-release-event-plan.md`, seeded) + event pipelines combine: upstream integrates →
-SoftwareRelease → consumer's ci-event pipeline bumps the dep and FORCE-pushes
-`maintenance/$artifact` (overwrites, no checks for now) → a NEW capability, **branch filtering on
-post-receive pipelines** (today they fire for every branch), binds a test pipeline to
-`maintenance/`-pushes → green tests call the integrate action → next SoftwareRelease → next hop.
+**`release-train-hops-plan.md`** (written this evening by a Fable design agent; being REVISED at
+last update — check its status line says settled-with-revision): the train's loop closes.
+SoftwareRelease event (`software-release-event-plan.md`, seeded) + event pipelines combine:
+upstream integrates → SoftwareRelease → consumer's ci-event pipeline bumps the dep (really runs
+npm — lockfile integrity can't be spliced; resolved-origin sed both directions) and FORCE-pushes
+`maintenance/<upstream-repo-id>` → the same repo's ONE ci-post-receive.yml carries an unscoped
+test step plus an integrate step scoped by the NEW capability — **step-level `branches:`
+matching** (user's call, replacing the originally-designed pipeline-level filter + file family):
+a step whose branch filter misses is SKIPPED, and step ordering gives integrate-only-after-green
+within a single run. Integrate needs one ADDITIVE branch-keyed endpoint
+(`POST /workspaces/api/branches/integrate` — Agent AE; release-flow's workspace-keyed contract
+untouched). Rollout: spa-home is the only equipped consumer until one green hop is observed.
 parentId is knowingly lost across the push boundary (solved differently, later).
 
 **The next session's job, in order:**
