@@ -183,8 +183,13 @@ Each node holds its own state signal — `'collapsed' | 'loading' | 'ready' | 'e
 in one repository's run fetch collapses to an inline retry on that row and leaves the rest of the
 tree standing. That is the point of the fan-out being per-node.
 
-**Deep links** are the one case that loads without a click. `/ci/runs/:runId` needs no ancestors at
-all (Decision 4), so it is a single request. The tree itself is only ever reached at `/ci/`.
+**Deep links** are the one case that loads without a click. `/ci/runs/:runId` needs no ancestors
+at all (Decision 4) — the run read stands alone. *(Amended after the E2E, settled with the user:
+the page additionally fetches the project list + per-project repositories, application-cached and
+in parallel, to render the `· project <name>` attribution — the original "single request" wording
+lost to correctness when O measured its consequence: a repo link that landed on the tree
+unexpanded under a wrong banner. A `/ci/?repo=` URL naming a repository no opened project claims
+buys the same cached lookup.)* The tree itself is only ever reached at `/ci/`.
 
 The cd tree follows the same rule: `/cd/` loads `GET /projects/api/projects` and
 `GET /cd/api/environments` (two requests — both are flat lists, and the second is what makes
