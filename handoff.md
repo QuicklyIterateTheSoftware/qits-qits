@@ -68,8 +68,10 @@ How to verify any of it: `/ci/api/runs?repositoryId=<repo>` for the builds,
 
 ## Next feature, planned and ready to implement
 
-**`release-train-hops-plan.md`** (written this evening by a Fable design agent; being REVISED at
-last update — check its status line says settled-with-revision): the train's loop closes.
+**`release-train-hops-plan.md`** (SETTLED-WITH-REVISION, committed 2ea99c5 — ready to implement,
+workstreams AD ∥ AE → AF → AG; note the rollback hazard it defuses: an old qits-ci ignoring the
+step-level key would integrate on EVERY push, hence AF gates on AD *deployed* and the step script
+self-asserts its branch): the train's loop closes.
 SoftwareRelease event (`software-release-event-plan.md`, seeded) + event pipelines combine:
 upstream integrates → SoftwareRelease → consumer's ci-event pipeline bumps the dep (really runs
 npm — lockfile integrity can't be spliced; resolved-origin sed both directions) and FORCE-pushes
