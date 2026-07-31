@@ -42,9 +42,18 @@ Release-flow implementation (`release-flow-plan.md`, settled: calver `YYYY.MMDD.
 `2026.731.193059`; main protected by `PreReceiveHook`; bypass = `-o qits.release` ff-only +
 `-o qits.token=<value>` vs `qits.repositories.git.push-token`, default unset = locked):
 
-- **Agent X** — qits-artifacts ProtectedRefHook, shipped INERT (default false). Verify: pushed?
-  deployed? inertness proven?
-- **Agent Y** — qits-workspaces VersionStamp + maven/npm splice bumpers, commits UNPUSHED (Z ships).
+- **Agent X — DONE** (~22:32): ProtectedRefHook live at qits-artifacts `b6a0745`, INERT and
+  proven so (native IT force-pushes main under shipped defaults and lands; zero hook decisions
+  since cutover). Push-options advertised; token semantics as settled (SmallRye reads
+  configured-empty as absent — indistinguishable from unset, both match nothing, recorded in
+  AGENTS.md). AC's flip is the remaining half.
+- **Agent Y — DONE** (~22:40): VersionStamp (UTC pinned, morning case `2026.731.93059` proven) +
+  splice bumpers at qits-workspaces `c4bb7cf`, UNPUSHED (Z ships it). Measured find: StAX char
+  offsets lie past the first 8KB buffer — pom splicing maps line/column instead. 59 new tests,
+  round-trip byte-identity as the load-bearing assertion.
+- **Agent Z — RUNNING** (launched ~22:45): integrate flow + endpoint on top of Y, ships Y + Z +
+  AA's webui gitlink (f5860ee) as one pipeline run. Carries AA's 409 contract (additive
+  reason+conflicts) and X's live facts.
 - **Agent AA — DONE** (~22:30): Integrate UI at qits-spa-workspaces `f5860ee`, pushed GitHub +
   mirror (mirror run green). Six outcome surfaces; Z must emit `reason`+`conflicts` on its 409s
   (additive) and 4xx-not-500 for hook refusals — friction notes in AA's report, folded into Z's
