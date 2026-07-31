@@ -133,6 +133,11 @@ parentId is knowingly lost across the push boundary (solved differently, later).
   restart cd container, replay `POST /cd/api/events/build-succeeded`.
 - Gateway is :8080; :8081 is qits-artifacts direct. CI filter param is `repositoryId`; cd's is
   `environmentId`.
+- `main` is the git host's protected ref: integrate (`POST /workspaces/api/workspaces/{id}/integrate`)
+  is the door, and a direct `git push … main` needs `-o qits.token=local-dev` — the token
+  `qits-local-up.sh` configures (`QITS_PUSH_TOKEN`, carried into qits-artifacts' run-args). A
+  deployment with no token configured has no escape hatch: unset matches nothing and so does empty.
+  Creates are never guarded, so seeding a fresh repo still needs no option.
 - Never run qits-local-up.sh casually (recreate branch kills the cd-managed core); never DELETE the
   `qits` project (it deletes the platform's own git origins).
 - Superproject: many local commits, **none pushed** (user hasn't asked). Submodule gitlinks lag by

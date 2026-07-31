@@ -14,7 +14,7 @@ Two sets to keep straight:
 | set | members | managed by | updated by |
 |---|---|---|---|
 | **cd-managed** | all nine: observability, stt, projects, workspaces, events, gateway, ci, artifacts, **and qits-cd itself** | qits-cd's `qits` environment (branch `main`, network `qits-net`) — cd container names, sha-addressed registry images | a git push |
-| **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, cd's run-args file (the `qits-cd-config` volume) | the bootstrap | a bootstrap rerun |
+| **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, cd's run-args file (the `qits-cd-config` volume — the git host's push token among them) | the bootstrap | a bootstrap rerun |
 
 Every component is an application of the `qits` environment, qits-cd included, and the steady
 state has **zero compose-managed containers** — the compose seed exists only for a first boot,
@@ -51,12 +51,28 @@ into this directory. Both are generated, machine-specific state and gitignored.
 
 ## Updating a pipeline-deployed service
 
-The everyday loop. Commit in the submodule, then push it to the platform's own git host — the
-gateway allowlists `/artifacts/git/**`, so this works straight from the host:
+The everyday loop, and it has two doors into `main`.
+
+**Integrate is the normal one.** `POST /workspaces/api/workspaces/<id>/integrate` merges the
+workspace's branch into `main`, stamps the calendar version onto the merge commit itself
+(`release(2026.731.193059): …`) and pushes that commit to the git host — an ordinary push, so
+everything in the paragraph below happens exactly as it always did.
+
+**A direct push is the escape hatch, and the deployment decides whether it exists.** `main` is a
+protected ref on the git host, so updating it needs a push option carrying this host's configured
+push token:
 
     cd services/qits-observability
     git commit ...
-    git push http://localhost:8080/artifacts/git/qits-observability main
+    git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability main
+
+`local-dev` is what `qits-local-up.sh` configures; `QITS_PUSH_TOKEN` changes it. A deployment that
+configures **no** token has no escape hatch at all — unset matches nothing, and neither does empty,
+so there is deliberately no "leave it blank and it opens". The option travels inside the pack
+protocol rather than in a header, so the same command works through the gateway (`:8080`), against
+`qits-artifacts:8080` on qits-net, and against the host-mapped `:8081`. Creating a ref is never
+guarded, only updating or deleting the default one — which is why the bootstrap's first push of a
+fresh repo needs nothing.
 
 That push IS the deployment: post-receive → qits-ci runs the repo's
 `.config/qits/ci-post-receive.yml` (build `docker/Dockerfile`, push
