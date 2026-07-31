@@ -56,9 +56,20 @@ Release-flow implementation (`release-flow-plan.md`, settled: calver `YYYY.MMDD.
   hook refusals are 409s, never 500s); `ReleaseAnnouncer` port is the SoftwareRelease seam
   (`RepositoryView` still lacks projectId — widen when the event lands). The live integrate
   proof is AC's. OpenAPI declares no 4xx anywhere — declaring the reason enum is a follow-up.
-- **Agent AB — RUNNING** (~23:25): deployment wiring — push token into qits-local-up.sh + live
-  cd-config, `QITS_ARTIFACTS_URL` explicit, docs learn integrate + token. Then AC flips
-  protection and proves the whole flow live.
+- **Agent AB — DONE** (~23:35): token wired (fixed `local-dev`, env-overridable via
+  `QITS_PUSH_TOKEN`) into script + live cd-config; docs teach both doors; also fixed a fatal
+  pre-existing `${user.home}` bad-substitution in the compose heredoc that would have killed the
+  next bootstrap. Committed 357c163.
+- **Agent AC — DONE (~23:35, RELEASE-FLOW COMPLETE):** protection ON and durable (the missing
+  heredoc flag fixed post-report, d782d14). Gate proven live both doors + against the packaged
+  binary with token unset (default-locked holds); `qits.release` cannot force. **The platform's
+  first two releases exist**: `release(2026.731.213235)` (qits-spa-workspaces, npm, 3 JSON
+  fields) and `release(2026.731.213345)` (qits-stt, maven, 3 XML elements) — two-parent merge
+  commits, ordinary CI runs, BuildSuccessful events, qits-stt redeployed off its release. Small
+  contract notes for later: retry-integrate of a RESOLVED workspace is 404 (the 409
+  ALREADY_INTEGRATED path needs an ACTIVE workspace — plan/AA prose slightly overpromise);
+  AA's classifier: the ONLY refusal text containing "fast-forward" is the qits.release non-ff
+  one — key on it for NOT_FAST_FORWARD only.
 - **Agent AA — DONE** (~22:30): Integrate UI at qits-spa-workspaces `f5860ee`, pushed GitHub +
   mirror (mirror run green). Six outcome surfaces; Z must emit `reason`+`conflicts` on its 409s
   (additive) and 4xx-not-500 for hook refusals — friction notes in AA's report, folded into Z's
