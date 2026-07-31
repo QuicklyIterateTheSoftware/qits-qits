@@ -295,6 +295,9 @@ services:
       # which is the shipped default everywhere else, and which this bootstrap cannot live with
       # (it pushes main nine times before an integrate endpoint exists to go through).
       QITS_REPOSITORIES_GIT_PUSH_TOKEN: "${PUSH_TOKEN}"
+      # Protection stays ON here too: the bootstrap's own pushes carry the token above, and a
+      # rerun that silently disarmed the seatbelt AC flipped live would be the quiet failure.
+      QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH: "true"
     volumes:
       - qits-artifacts-data:/data
       - qits-repositories:/data/repositories
@@ -366,7 +369,7 @@ qits.cd.run-args.qits-gateway=-p ${PORT}:8080 -e QITS_GATEWAY_PROXY_HOSTS_ARTIFA
 # The push token rides here so it is already in place when the default branch's protection is
 # switched on: turning protection on is then one property on the artifacts side, not a two-part
 # change that could leave a running platform locked out of its own bootstrap.
-qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive -e QITS_REPOSITORIES_GIT_PUSH_TOKEN=${PUSH_TOKEN}
+qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive -e QITS_REPOSITORIES_GIT_PUSH_TOKEN=${PUSH_TOKEN} -e QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true
 qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA} -e QITS_EVENTS_URL=http://qits-events:8080
 qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT}
 qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speech
