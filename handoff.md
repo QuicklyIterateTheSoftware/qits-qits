@@ -192,11 +192,16 @@ now produces a second same-sha deployment (any green run announces to cd).
 
 ## In flight right now (update on each landing)
 
-- **BP** — files tree (qits-spa-workspaces)
+- **BQ** — chat + prompt + restored speech (qits-spa-workspaces; BP landed `9b30c6e`, 180 tests,
+  budget `2 + D`, the expansion distinction asserted at both altitudes)
 - **GC-BC** — npm strategy + tombstone (qits-artifacts)
 - **events-ui / observability-ui** design agents (superproject docs)
-- Queued on repos freeing: **BQ** (SPA, after BP), **BW** (qits-artifacts, after BC), then the
+- Queued on repos freeing: **BR** (SPA, after BQ), **BW** (qits-artifacts, after BC), then the
   chains above in their stated orders.
+- New parked line from BP: the daemon doc under-describes `/files` (the root call returns the FULL
+  eager tree, not one level; and `listDirectory` stubs every subdirectory) — a doc sentence for
+  the daemon repo's next pass. BP's derived framework-depth rule (descend while exactly one
+  subdirectory holds members, fork stops, cap 6) is a recorded judgment call.
 
 ## Next up (decisions and follow-ups awaiting the user)
 
