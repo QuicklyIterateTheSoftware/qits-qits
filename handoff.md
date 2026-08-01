@@ -210,17 +210,19 @@ now produces a second same-sha deployment (any green run announces to cd).
   with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
   USER'S REVIEW at GET /artifacts/api/gc/plan** — oci 4.48 GiB + npm 31 KB, all grace-withheld
   until ~Aug 6; the sweep trigger is not built until the review says go)
-- **CH** — observability backend read surface (qits-observability; the observability-ui plan
-  landed and settled, all ⚖ as recommended: read surface added, unscoped telemetry re-bucketed by
-  service.name with cap 2000, opaque ?source= keys, server-side trace list, no MCP/SSE/sparkline.
-  Its key finding: ALL live telemetry currently lands in an unreachable `_unscoped` bucket —
-  nothing stamps the resource attributes. The plan's letters re-numbered to CH–CM.)
+- ~~CH~~ — observability read surface LANDED (`7d61d07`, deployed ACTIVE): re-bucketing live —
+  eight real service.name buckets within seconds, a real nested waterfall trace verified; all
+  four SPA rulings honored (explicit nulls); schema wart fixed. NEW USER DECISION: no service
+  exports metrics (quarkus.otel.metrics.enabled defaults false in all ten) — enable via a
+  ten-repo fan-out, or ship the metrics screen honest-empty.
 - ~~CI~~ — observability SPA foundation + Overview LANDED (`e7e5782`, GitHub-only; 35 tests;
   Overview budget 2+0 with zero-cost expansion asserted). Four contract seams it found were ruled
   and sent to CH as binding (thresholdMs + service on /traces; rootMissing always; nullable
   window/scope fields). The spa-side CI recipe file is reassigned to the embed workstream (CM).
-- Queued: **BR** (SPA, after BQ), **CD** (events log page, after CC), **BX** (miss path, after BW),
-  **CJ–CM** (observability pages + embed, after CH/CI).
+- **CJ** — observability traces screens (qits-spa-observability, against CH's frozen live surface)
+- Queued: BQ two-box follow-up + **BS** (SPA-workspaces, after BR), **CF** (events chain page,
+  after CE), **BX** (miss path, after BW), **CK/CL/CM** (observability errors+logs, metrics,
+  embed).
 - New parked line from BP: the daemon doc under-describes `/files` (the root call returns the FULL
   eager tree, not one level; and `listDirectory` stubs every subdirectory) — a doc sentence for
   the daemon repo's next pass. BP's derived framework-depth rule (descend while exactly one
