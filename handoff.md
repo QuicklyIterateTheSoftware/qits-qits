@@ -192,7 +192,11 @@ now produces a second same-sha deployment (any green run announces to cd).
 
 ## In flight right now (update on each landing)
 
-- **BS** — files viewer + filter dialog + line picking (qits-spa-workspaces; the BQ two-box
+- **BT** — agents + web view + the severable element picker (qits-spa-workspaces; BS landed the
+  viewer `3c14886`, 387 tests — precedence asserted as the resurrection case, gitignore locality
+  proven by counter-test, PickedContext receives {path,range,excerpt}. Parked: a `size` field on
+  the daemon's FileContent would fix the binary/2MB copy; a one-line ?path= clear belongs in the
+  shell. BT wires both FileNavigation consumers. Earlier: the BQ two-box
   rework landed `9eda206`, 312 tests, prettier clean — transcript box restored, promotion is
   append-and-empty, the mic-less browser keeps the typed-transcript feature. Earlier:
   BR landed `88f0e05`, 308 tests: services + actions with health-absence rendered honestly, the
