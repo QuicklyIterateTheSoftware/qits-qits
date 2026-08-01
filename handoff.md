@@ -72,10 +72,9 @@ came out whole. A JVM suite cannot see that class of defect, so it was open unti
 ### What the split changes for a reader of the old docs
 
 - The event AJ and AG observed as `SoftwareRelease` is `SCMRelease` now. The pre-rename plans
-  (release-train-hops, software-release-event; release-flow pending its verification verdict)
-  were verified and retired 2026-08-01 rather than rewritten; their rescued arguments live in
-  docs/*-notes.md (their success stories were true and also masked the race — both facts stay
-  on the record there).
+  (release-flow, release-train-hops, software-release-event) were all verified and retired
+  2026-08-01 rather than rewritten; their rescued arguments live in docs/*-notes.md (their
+  success stories were true and also masked the race — both facts stay on the record there).
 - **The train stops one event earlier in kind.** It used to stop at a repository that matched
   nothing. It stops at a repository with **no release pipeline**: the artifact statement is never
   made, so there is nothing to match.
@@ -147,7 +146,13 @@ Nothing is half-finished. The queue, in order of how ready each item is:
   "a gateway route" is what the design forbids); workspace-daemon AGENTS.md:110 (names
   SameOriginUpgradeCheck as open — the gateway resolved it, the class does not exist);
   qits-workspaces AGENTS.md tests note ("real-docker ITs are not in this repo" — DaemonApiGateIT
-  is, self-skipping).
+  is, self-skipping); qits-workspaces VersionStamp.java:36 + NpmVersionBumper.java:42 citing the
+  retired release-flow plan (redirect to docs/release-flow-notes.md); three stale strays the
+  release-flow verifier found — qits-workspaces GitExecutor.java:101 ("the overload the integrate
+  flow's push uses" — no production caller since gitmirror), qits-artifacts
+  microprofile-config.properties:127 (still teaches the bare-config override and "owns no table"
+  — it owns three, the override is a row), qits-artifacts README:154 (names /integrate as the
+  release door — it is /release).
 - **OPEN DEFECT, harvested from the retired final-workspaces plan**: the browser↔qits-workspaces
   hop of a proxied websocket has NO backpressure (vertx-http-proxy: no pause, no drainHandler).
   Details in docs/workspace-daemon-notes.md — fix rides the next qits-workspaces change.
