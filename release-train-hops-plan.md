@@ -44,7 +44,63 @@ pipeline** — a new **step-level branch filter** scopes the integrate step to t
 runs after the regular tests and, on green, calls integrate, which releases the consumer and
 publishes the next `SoftwareRelease`.
 
-Status: DESIGN, SETTLED WITH REVISION (2026-07-31) — both ⚖ decisions were answered by the user;
+Status: **SHIPPED AND OBSERVED (2026-08-01)** — all four workstreams landed and one full hop ran
+live, end to end, in 67 seconds. AD qits-ci `6922da6`, AE qits-workspaces `416d814`, AF
+qits-spa-home `2633238`, AG the run below.
+
+The measured chain, in the order it happened (ids from the APIs):
+
+    workspace 1651 ag-train-hop on qits-spa-ui-components, branch task/ag-train-hop
+    release  → 2026.801.63140  dc2047f5c21995c4084174f7acee732136f2a9fd
+    event    → SoftwareRelease 064158b0-837f-40aa-aa3c-d287d34f929e  06:31:40.546Z
+               {"branch":"task/ag-train-hop","repository":"qits-spa-ui-components",
+                "version":"2026.801.63140"}
+    upstream CI run 2ba7eb5b (main@dc2047f5) SUCCESS
+               → publish-if-absent put @qits/ui-components@2026.801.63140 in the registry;
+                 dist-tags.latest moved 0.0.4 → 2026.801.63140 (the CalVer switchover, by design)
+    bump run 32acd2b9 on qits-spa-home  EVENT / SoftwareRelease / triggerEventId 064158b0
+               its BuildSuccessful 59934bf8 carries parentId 064158b0 (walked via ?parentId=)
+               → force-pushed maintenance/qits-spa-ui-components at
+                 0fe77803d3f8ceefd95ddc6a529b77daac48dd8c — exactly one commit over main,
+                 bump(@qits/ui-components@2026.801.63140): follow the qits-spa-ui-components release
+                 committed as qits release train <release-train@qits.local>;
+                 all 720 lockfile `resolved` origins localhost:8081
+    maintenance run 8c3081c9 — ONE run, TWO step rows:
+               step 0 SUCCESS (the regular tests, unscoped)
+               step 1 SUCCESS "released 2026.801.63247 as 421a70fe… from
+                               maintenance/qits-spa-ui-components"
+    qits-spa-home main tip 421a70feec267bdc35f335940e35f1cbff9af995
+               release(2026.801.63247): bump(@qits/ui-components@2026.801.63140): follow the …
+               parents 2633238c + 0fe77803, pin ^2026.801.63140, source branch deleted
+    event    → SoftwareRelease f81ecac8-028a-4b11-adce-4634982265e7 (qits-spa-home, 2026.801.63247)
+               ?parentId= is EMPTY and no run anywhere carries it as triggerEventId —
+               the train stopped at the declared edge, structurally
+    the filter observed in BOTH directions: on the ordinary main push that followed
+               (run de530cb7) step 1 is SKIPPED with output `[step not bound to branch main]`
+
+Causation came out as designed: **two chains, not one.** 064158b0 → 59934bf8 is the whole first
+chain; the force-push is the boundary; the maintenance run and f81ecac8 are fresh roots. Recorded as
+correct, not as a gap.
+
+The second probe, by hand: a superseded hop (an unreachable sha force-pushed away while its run sat
+QUEUED) was **discarded, no row** — qits-ci logged `Commit b834265d… is no longer reachable in
+qits-spa-home — no CI run recorded`. Re-pushing the already-released bump commit gave the
+409 path: run 922c51ea SUCCESS, step 1 `maintenance/qits-spa-ui-components is already released -
+nothing to do`, `main` byte-identical. Note the 409 path leaves the branch in place (nothing was
+released, so nothing was cleaned up); the next hop's force-push overwrites it.
+
+**One contract doubt, found by that probe and reported rather than adjusted.** The maintenance step
+takes its release summary from `git log -1 --format=%s`, and `/branches/release` caps `summary` at
+100 characters. A `bump(…)` subject is ~83 and fits, but the *release* subject it composes into —
+`release(2026.801.63247): bump(@qits/ui-components@2026.801.63140): follow the qits-spa-ui-components release`
+— is **108**. The real train never re-reads its own release subject, so this is unreachable in the
+designed flow; it bites only a maintenance branch cut from a release commit, which is what the probe
+did, and it surfaces as a plain 400 constraint violation with no `reason` (the step prints it and
+goes red, as its comment promises). The headroom arithmetic in "The commit convention" below
+measured the bump subject and not the composition.
+
+Status before today, kept for the record: DESIGN, SETTLED WITH REVISION (2026-07-31) — both ⚖
+decisions were answered by the user;
 the first came back as a counter-proposal (branch matching moves from the pipeline to the **step**)
 and this document is revised to that shape throughout. Implementation stays deliberately queued
 behind two things: **release-flow-plan.md's Z/AB/AC** (X and Y are on their mains — measured below

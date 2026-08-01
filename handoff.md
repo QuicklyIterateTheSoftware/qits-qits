@@ -43,37 +43,68 @@ build-out story; everything it left in flight landed, and today's work sits on t
    `epic/aj-proof` parent `05638f5c` with `main` untouched and no second event; integrate on a
    main-parented workspace → 409 `RELEASE_REQUIRED`.
 
+6. **The release train rolls** (`release-train-hops-plan.md`, **SHIPPED AND OBSERVED**) — the loop
+   the last five features each built one arc of is closed. Four workstreams:
+   - **AD** qits-ci `6922da6` — step-level `branches:` (`exact`/`prefix`, OR'd; absent = every
+     branch; `[]` and malformed are `CONFIG_ERROR`; the key is a parse error in a `ci-event-*.yml`).
+     An unbound step is one **SKIPPED** row with output `[step not bound to branch <branch>]`, fails
+     nothing and blocks nothing. Plus `QITS_WORKSPACES_URL` in every step container.
+   - **AE** qits-workspaces `416d814` — `POST /workspaces/api/branches/release?repositoryId=<repo>`
+     `{branch, summary}`, the branch-keyed third spelling of the one door. The flow was already
+     keyed `(repoId, branch)` inside, so it is a thin resolver and no mechanics were copied.
+   - **AF** qits-spa-home `2633238` — the bump pipeline
+     (`.config/qits/ci-event-upstream-ui-components.yml`) and the maintenance leg in
+     `ci-post-receive.yml`.
+   - **AG** — one live hop, end to end, in **67 seconds**:
+
+         release qits-spa-ui-components  2026.801.63140 / dc2047f5
+           → SoftwareRelease 064158b0
+           → upstream CI publishes @qits/ui-components@2026.801.63140 to the registry
+           → bump run 32acd2b9 (EVENT, parentId 064158b0 on its BuildSuccessful 59934bf8)
+             force-pushes maintenance/qits-spa-ui-components @ 0fe77803, one bump() commit,
+             all 720 lockfile origins localhost:8081
+           → maintenance run 8c3081c9: ONE run, TWO steps — tests SUCCESS, release SUCCESS
+             "released 2026.801.63247 as 421a70fe… from maintenance/qits-spa-ui-components"
+           → qits-spa-home main 421a70fe, two parents, pin ^2026.801.63140
+           → SoftwareRelease f81ecac8 — matched by nothing, no run, train stopped
+             (?parentId= empty; no run carries it)
+
+     The filter was seen in both directions: the ordinary `main` push that followed (run de530cb7)
+     recorded step 1 SKIPPED with the branch note. Causation came out as two chains with the
+     force-push as the boundary — designed, not a gap. Probes: a superseded sha force-pushed away
+     while QUEUED was **discarded with no row**; re-pushing the already-released bump commit gave
+     409 `ALREADY_INTEGRATED` → green step, `main` untouched.
+
+   **The CalVer switchover happened, deliberately** (settled decision 2 of `release-flow-plan.md`):
+   `@qits/ui-components` went `0.0.4` → `2026.801.63140` and `dist-tags.latest` moved with it. The
+   other seven SPAs still pin `^0.0.4` and so still resolve to `0.0.4` — that is by design until
+   their own train files exist.
+
 How to verify any of it: `/ci/api/runs?repositoryId=<repo>` for the builds,
 `/cd/api/deployments?environmentId=9fc2480c-3ff9-4f24-9bfe-67abe64afb06` for deployments,
 `/events/api/events` for the bus, `docker ps` for containers, and each shipped sha vs
 `git ls-remote` on both remotes.
 
-## Next feature, planned and ready to implement
+## Next up
 
-**`release-train-hops-plan.md`** (SETTLED, with a 2026-08-01 addendum) — the train's loop closes:
-upstream releases → `SoftwareRelease` → the consumer's ci-event pipeline bumps the dependency
-(really runs npm; a lockfile's integrity cannot be spliced) and force-pushes
-`maintenance/<upstream-repo-id>` → the consumer's ordinary post-receive pipeline runs its tests and,
-on green, releases itself → the next `SoftwareRelease`. The new capability the plan needs is
-**step-level `branches:` matching** in qits-ci; a step whose filter misses is SKIPPED, and step
-order gives release-only-after-green inside one run.
+No feature is queued. Everything planned has shipped, so the next session picks from the parked
+list below. The three items nearest the surface, in order of how ready they are:
 
-**Workstreams, in order: AD ∥ AE → AF → AG.**
-
-- **AD** — step-level `branches:` in qits-ci.
-- **AE** — the branch-keyed endpoint, and the addendum renamed it: **`POST
-  /workspaces/api/branches/release`**, not `/branches/integrate`. A maintenance hop merges into
-  `main`, so it is a *release*; `/branches/integrate` now means branch → parent branch and would
-  409 `RELEASE_REQUIRED`.
-- **AF** — the two pipeline files in qits-spa-home; its maintenance step calls `/branches/release`.
-  Gates on **AD deployed** (an old qits-ci ignoring the step-level key would release on every push
-  — the rollback hazard the plan defuses; the step script also self-asserts its branch).
-- **AG** — the live hop.
-
-The canary trigger in qits-spa-workspaces
-(`.config/qits/ci-event-upstream-ui-components.yml`) can flip from `BuildSuccessful` to
-`SoftwareRelease` now that the payload carries a version — match on `repository`, never on `branch`
-(the branch is the source branch, e.g. `maintenance/…`).
+- **The other seven SPAs' train files** — now a **mechanical fan-out awaiting the user's go**: copy
+  qits-spa-home's two files, change one `exact:` value, and bump the `^0.0.4` pin. Settled decision
+  2 of the hops plan held one hop back deliberately; the hop is observed, so the gate is the user's
+  say-so, not a plan. Note it fans one ui-components release into seven bump runs, seven maintenance
+  pushes and seven releases on one serialized worker.
+- **The canary flip in qits-spa-workspaces** — `.config/qits/ci-event-upstream-ui-components.yml`
+  still triggers on `BuildSuccessful` from qits-spa-ui-components (it fired once during the live
+  hop, run `42b65df3`, harmlessly). Flip it to `SoftwareRelease` now that the payload carries a
+  version, and match on `repository`, never on `branch` (the branch is the *source* branch).
+- **The `summary` length composition**, reported by AG and not adjusted: the maintenance step reuses
+  `git log -1 --format=%s` as the release summary, `/branches/release` caps it at 100, and a release
+  subject that quotes a bump subject is 108. Unreachable in the designed flow (the train never
+  re-reads its own release subject); it bites a maintenance branch cut from a release commit, as a
+  plain 400 with no `reason`. Decide whether the cap moves, the step truncates, or it stays a
+  documented edge.
 
 ## Parked follow-ups (deliberate, not forgotten)
 
@@ -83,7 +114,8 @@ The canary trigger in qits-spa-workspaces
   rollout — queue when CI is quiet.
 - Tofu chevrons (`▸▾`) in the explorers on hosts without glyph coverage — CSS triangle would fix.
 - `CausationStampingTest` flake in qits-eventstream (~1 in 3: StaleObjectStateException,
-  double-delete of an outbox row).
+  double-delete of an outbox row). **`OutboxFlowTest` in the same repo flakes too** — AD saw it
+  about 1 run in 5; same submodule, likely the same outbox race.
 - qits-ci README still promises `jq` in step images; `node-base` has none (plan doc corrected,
   README not — ride the next qits-ci change).
 - qits-spa-ci / qits-spa-cd have CI recipes but no repos on the platform git host (their pipelines
@@ -96,9 +128,13 @@ The canary trigger in qits-spa-workspaces
 
 ## Operational truths that bite (full versions in auto-memory + repo AGENTS.md files)
 
-- **Two doors, and they are not interchangeable.** `POST /workspaces/api/workspaces/{id}/release`
-  is the only thing that writes `main`; `POST …/{id}/integrate` merges into the branch's *parent*
-  and refuses a `main` parent with 409 `RELEASE_REQUIRED`. A direct `git push … main` needs
+- **Three endpoints, two doors, and they are not interchangeable.** Release is the only thing that
+  writes `main`, and it has two spellings — `POST /workspaces/api/workspaces/{id}/release` and
+  `POST /workspaces/api/branches/release?repositoryId=<repo>` `{branch, summary}` for a branch no
+  workspace owns. Both stamp, bump, publish `SoftwareRelease`, resolve any ACTIVE workspace on the
+  branch INTEGRATED and **delete the source branch on success**. `POST …/{id}/integrate` is the
+  other door: it merges into the branch's *parent* and refuses a `main` parent with 409
+  `RELEASE_REQUIRED`. A direct `git push … main` needs
   `-o qits.token=local-dev` — the token `qits-local-up.sh` configures (`QITS_PUSH_TOKEN`, carried
   into qits-artifacts' run-args). A deployment with no token configured has no escape hatch: unset
   matches nothing and so does empty. Creates are never guarded, so seeding a fresh repo — or
@@ -109,7 +145,13 @@ The canary trigger in qits-spa-workspaces
   the hook's business).
 - Replays of `POST /ci/api/events/post-receive` are NOT idempotent; a missing run row while the
   worker is busy means QUEUED, not lost. Loss = FIFO violation with idle worker, or the successor's
-  "Marked N left RUNNING" line.
+  "Marked N left RUNNING" line. **A third cause now, and it is correct behaviour**: a run whose sha
+  was force-pushed away is discarded outright — no row, and a `… is no longer reachable … no CI run
+  recorded` line in the qits-ci log. Superseded hops clean up after themselves.
+- Post-receive steps can carry `branches:` (`exact`/`prefix`, entries OR'd). Absent means every
+  branch; an unbound step is a SKIPPED row with output `[step not bound to branch <branch>]` that
+  fails nothing and blocks nothing after it. The key is a **parse error** in a `ci-event-*.yml`.
+  Every step container also gets `QITS_WORKSPACES_URL` now.
 - qits-cd write-wedge: green runs, no deployment row, "database has been closed" in cd logs →
   restart cd container, replay `POST /cd/api/events/build-succeeded`.
 - qits-cd caches its run-args config at boot. After editing `application.properties` on the

@@ -34,6 +34,14 @@ Live proof of the split, 2026-08-01 on qits-stt: release → `2026.801.55529`, m
 on an `epic/aj-proof`-parented workspace → `05638f5c` on the epic branch, `main` byte-identical, no
 event; integrate on a main-parented workspace → 409 `RELEASE_REQUIRED`.
 
+**A third spelling of the same door shipped on top** (release-train-hops-plan.md's Agent AE,
+qits-workspaces `416d814`): `POST /workspaces/api/branches/release?repositoryId=<repoId>`
+`{branch, summary}` → the identical `{version, commitSha, branch}`, for a branch no workspace owns.
+AE's keying finding, recorded here because it is this plan's record: the flow was **already keyed by
+`(repoId, branch)` internally** — the thin resolver the hops plan asked for was real, so
+`landOnBranch` was extracted and the workspace endpoint became one line over it. **Zero mechanics
+were copied**, and the two endpoints cannot drift.
+
 The body below is the historical design and is left as written.
 
 ---
