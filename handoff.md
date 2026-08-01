@@ -202,9 +202,9 @@ now produces a second same-sha deployment (any green run announces to cd).
   cursor spelling regression-pinned; live walk 142/142 whole): honored/clamped limit,
   composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
   ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
-- **CD** — events log page (qits-spa-events; CC landed `c665207` — foundation + transport with
-  the tail semantics pre-asserted; the repo is GitHub-only, ships via the qits-events gitlink.
-  CC's envelope/cursor findings relayed to CB as binding.)
+- **CE** — events live tail (qits-spa-events; CD landed the log page `a19dd83`, 78 tests, budget
+  2+1-socket asserted, three bespoke gists, cursor-re-entry contract documented for the tail.
+  CB is live, so the filters work against the real server already.)
 - **BW** — mirror type + `oci_mirror_upstream` entity (qits-artifacts; **GC-BC landed `83d7b57`**:
   npm strategy live in the dry-run — 3 superseded prereleases dead / ~31 KB, tombstone V6 shipped
   with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
