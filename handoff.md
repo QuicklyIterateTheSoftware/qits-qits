@@ -195,7 +195,9 @@ now produces a second same-sha deployment (any green run announces to cd).
 - **BQ** — chat + prompt + restored speech (qits-spa-workspaces; BP landed `9b30c6e`, 180 tests)
 - **CB** — events backend queries (qits-events; the events-ui plan settled, all ⚖ as recommended:
   chain page, ?q= substring, push-the-row tail, decoupled sequencing)
-- **CC** — events SPA foundation (qits-spa-events)
+- **CD** — events log page (qits-spa-events; CC landed `c665207` — foundation + transport with
+  the tail semantics pre-asserted; the repo is GitHub-only, ships via the qits-events gitlink.
+  CC's envelope/cursor findings relayed to CB as binding.)
 - **BW** — mirror type + `oci_mirror_upstream` entity (qits-artifacts; **GC-BC landed `83d7b57`**:
   npm strategy live in the dry-run — 3 superseded prereleases dead / ~31 KB, tombstone V6 shipped
   with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
