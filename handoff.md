@@ -297,6 +297,37 @@ now produces a second same-sha deployment (any green run announces to cd).
 - **N1–N3 fix** IN FLIGHT (workspace seam: row id through the event path, declared id in the
   recorder, restart-safe proxy semantics; daemon image rebuild; live restart probe).
 
+## SESSION ENDED WITH THREE AGENTS IN FLIGHT — VERIFY, DON'T TRUST
+
+The user stopped the session while these were mid-work. Their reports were NOT received; each may
+have finished, partially landed, or died after its last push. FIRST JOB NEXT SESSION — verify
+each by its artifacts, exactly like the morning-after protocol that opened today:
+
+1. **GC sweep executor** (services/qits-artifacts): was implementing POST /artifacts/api/gc/sweep
+   + the two CI-media stub strategies; last seen with JVM verify green, native verify running,
+   then commit → quiet-gap push → THE FIRST LIVE SWEEP (expected result: ZERO deletions — all
+   821 sweepable blobs are grace-withheld until ~Aug 6; the untouchable pool 130,419,952 B must
+   be byte-identical). Check: git ls-remote both remotes vs 17cfe53; the run/deployment for any
+   new sha; GET /artifacts/api/gc/plan (six strategy lines + two stubs?); whether POST /gc/sweep
+   answers; the store summary unchanged. If it never pushed, the work sits in the local
+   submodule checkout.
+2. **N4 fix** (services/qits-ci): the tracking-ref CAS race (a silent WARN drops a post-receive;
+   refs/qits-ci/<branch> "incorrect old value provided"). Fix shape: bounded retry, then
+   QUEUED-not-dropped. Check: ls-remote vs 6b84fdb/cad748fe-era head; if landed, the live
+   double-push probe (two rapid pushes → two run rows, no replay). Until verified, treat every
+   release as possibly leaving main unbuilt — check for a missing run row after any release and
+   replay POST /ci/api/events/post-receive (the tour's healed example: run efaae6df).
+3. **N1–N3 fix** (daemons/qits-workspace-daemon + services/qits-workspaces): service_event
+   workspaceRowId null; bootstrap rows name-vs-declared-id; web-view proxy prefix-stripping lost
+   after auto-restart (+ root path 404). Check: both repos' heads vs cbd9a71→f52b897-era /
+   d02f7040→112ac52-era; whether qits/workspace-daemon:latest + qits/workspace:latest were
+   rebuilt again (docker images timestamps); the re-verify is one throwaway workspace with a web
+   service + bootstrap step, kill the service process, confirm the framed path still resolves
+   after the auto-restart.
+
+The four defects' full evidence is in the tour scorecard above. Everything else in this handoff
+is landed and verified. Superproject: all local commits, none pushed, as ever.
+
 ## Session close (as of the go): every prior chain closed
 
 Three new UIs live and browser-proven (events, observability, workspace detail — the last
