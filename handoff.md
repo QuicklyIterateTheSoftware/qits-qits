@@ -193,8 +193,9 @@ now produces a second same-sha deployment (any green run announces to cd).
 ## In flight right now (update on each landing)
 
 - **BQ** — chat + prompt + restored speech (qits-spa-workspaces; BP landed `9b30c6e`, 180 tests)
-- **CB** — events backend queries (qits-events; the events-ui plan settled, all ⚖ as recommended:
-  chain page, ?q= substring, push-the-row tail, decoupled sequencing)
+- ~~CB~~ — events backend queries LANDED (`5d3f48f`, deployed ACTIVE): honored/clamped limit,
+  composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
+  ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
 - **CD** — events log page (qits-spa-events; CC landed `c665207` — foundation + transport with
   the tail semantics pre-asserted; the repo is GitHub-only, ships via the qits-events gitlink.
   CC's envelope/cursor findings relayed to CB as binding.)
