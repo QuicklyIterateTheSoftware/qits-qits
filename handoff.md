@@ -192,12 +192,18 @@ now produces a second same-sha deployment (any green run announces to cd).
 
 ## In flight right now (update on each landing)
 
-- **BQ** — chat + prompt + restored speech (qits-spa-workspaces; BP landed `9b30c6e`, 180 tests,
-  budget `2 + D`, the expansion distinction asserted at both altitudes)
-- **GC-BC** — npm strategy + tombstone (qits-artifacts)
-- **events-ui / observability-ui** design agents (superproject docs)
-- Queued on repos freeing: **BR** (SPA, after BQ), **BW** (qits-artifacts, after BC), then the
-  chains above in their stated orders.
+- **BQ** — chat + prompt + restored speech (qits-spa-workspaces; BP landed `9b30c6e`, 180 tests)
+- **CB** — events backend queries (qits-events; the events-ui plan settled, all ⚖ as recommended:
+  chain page, ?q= substring, push-the-row tail, decoupled sequencing)
+- **CC** — events SPA foundation (qits-spa-events)
+- **BW** — mirror type + `oci_mirror_upstream` entity (qits-artifacts; **GC-BC landed `83d7b57`**:
+  npm strategy live in the dry-run — 3 superseded prereleases dead / ~31 KB, tombstone V6 shipped
+  with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
+  USER'S REVIEW at GET /artifacts/api/gc/plan** — oci 4.48 GiB + npm 31 KB, all grace-withheld
+  until ~Aug 6; the sweep trigger is not built until the review says go)
+- **observability-ui** design agent (superproject doc; its letters will re-number to CH+ — the
+  events plan consumed CB–CG)
+- Queued: **BR** (SPA, after BQ), **CD** (events log page, after CC), **BX** (miss path, after BW).
 - New parked line from BP: the daemon doc under-describes `/files` (the root call returns the FULL
   eager tree, not one level; and `listDirectory` stubs every subdirectory) — a doc sentence for
   the daemon repo's next pass. BP's derived framework-depth rule (descend while exactly one
