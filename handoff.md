@@ -233,8 +233,15 @@ now produces a second same-sha deployment (any green run announces to cd).
   cause. A general native trap recorded: blank-shipped String config kills the binary
   (Optional<String> is the rule). THE MIRROR WORKS — remaining: BY (the 12-repo FROM rewrite,
   HELD until CG's qits-events embed lands to avoid a push collision), BZ (rollout doc + proof).
-- **CA** — the upstream management panel (qits-spa-artifacts, GitHub-only; gitlink rides the next
-  qits-artifacts change).
+- ~~CA~~ — the upstream panel LANDED (`c20a78f`, 93 tests; /mirrors route, honest remove wording,
+  the store summary's "true union" label corrected to "hosted union"). Its gitlink advance rides
+  BY's qits-artifacts stop (message sent). TWO FINDINGS FOR THE USER: (1) mirror-upstream WRITES
+  ARE UNGUARDED LIVE — qits.artifacts.token ships blank (filter no-op) and the gateway's
+  PublicPaths allowlists /artifacts/api/ for ALL methods, so an unauthenticated caller can
+  register an outbound-fetch target; fix candidates: session-guard write methods at the gateway,
+  or accept until qits-idp lands (per the new no-interim-tokens posture). (2) two stray empty
+  oci-mirror repository rows (probe/probe2) from guard probing — no repository-removal API
+  exists; cosmetic residue.
 - (was BW queue note; GC-BC landed `83d7b57`:
   npm strategy live in the dry-run — 3 superseded prereleases dead / ~31 KB, tombstone V6 shipped
   with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
