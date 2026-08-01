@@ -273,7 +273,18 @@ now produces a second same-sha deployment (any green run announces to cd).
   Carried forward: config errors are SILENT on every route (worth a surface); the 20s bounded
   wait is visible in daemon-less Start streams.
 
-## Session close: every chain opened today is closed
+## Reopened by the user's go: the sweep and the grand tour
+
+- **GC sweep executor** IN FLIGHT (qits-artifacts): the user reviewed the dry-run and said GO —
+  the POST /gc/sweep executor (identity deletion per strategy, tombstones on npm, blob unlink
+  behind grace + re-census, row-less untouchable), the CI_SCREENSHOTS/CI_VIDEOS stub strategies
+  completing the five-type table, and the FIRST LIVE SWEEP — expected to reclaim ZERO (grace
+  holds everything until ~Aug 6), which is the safety proof.
+- **Full-platform E2E tour** IN FLIGHT: all eight SPAs, all five explorers, the complete
+  workspace lifecycle (incl. the D1 fixes observed live), one full release-train hop, the
+  mirror's warm pull, the GC plan — a scorecard distinguishing new defects from known parked.
+
+## Session close (as of the go): every prior chain closed
 
 Three new UIs live and browser-proven (events, observability, workspace detail — the last
 including the first working workspace provisioning this host has ever had), the pull-through
