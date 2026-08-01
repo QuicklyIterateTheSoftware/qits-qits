@@ -241,7 +241,12 @@ now produces a second same-sha deployment (any green run announces to cd).
   real workspace — no real agent launches).
 - **CL** — the metrics screen against REAL series + the §5 honesty/consolidation pass
   (qits-spa-observability).
-- **bootstrap-fix** — the seed-phase sed (superproject qits-local-up.sh).
+- ~~bootstrap-fix~~ — LANDED (`30005f3`): seed builds pipe their Dockerfiles through
+  seed_dockerfile (mirror prefixes → direct upstreams, stdin-only, context unchanged — mechanism
+  proven with a throwaway build); the three inline Hub refs stay direct by design; pipeline
+  builds keep the mirror. Header "known gaps" updated. Adjacent pre-existing flag: during the
+  bootstrap deploy loop, qits-ci/qits-cd builds follow qits-artifacts' cutover — a FROM hitting
+  the mirror mid-blink fails that build and needs a rerun.
 - (earlier: CE landed the tail `ebcbc63`, 103 tests —
   default-off with the budget kept honest, frame filtering EXACT against the server's own
   predicate clauses, frames held under a cursor window. Parked nicety: reconnect blanks
