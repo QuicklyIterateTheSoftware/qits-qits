@@ -192,7 +192,12 @@ now produces a second same-sha deployment (any green run announces to cd).
 
 ## In flight right now (update on each landing)
 
-- **BQ** — chat + prompt + restored speech (qits-spa-workspaces; BP landed `9b30c6e`, 180 tests)
+- **BR** — services + actions tabs (qits-spa-workspaces; BQ landed `a3ea608`, 269 tests — chat
+  with side-chain folding, prompt panel on BM's draft contract, and the SPEECH FLOW RESTORED:
+  recorder → level meter + pause detection → WAV → live qits-stt `{audioBase64}→{text}` →
+  serialized appends → refine. Shared seams for later workstreams: WorkspaceCommands,
+  PickedContext. One open reading flagged: one-box vs the spec's two-box transcript/prompt —
+  asked of the user.)
 - ~~CB~~ — events backend queries LANDED (`5d3f48f`, deployed ACTIVE): honored/clamped limit,
   composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
   ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
