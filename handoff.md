@@ -258,8 +258,32 @@ now produces a second same-sha deployment (any green run announces to cd).
   pick, D5 web-view stale-cached list vs stopped container, D6 no repo declares a workspace
   config + the SPA has no create-workspace surface, D7 the daemon's MCP/git URLs rely on
   control-socket-authority inference (unset config).
-- **D1+D2 fix** — IN FLIGHT (qits-workspaces coupler + env; daemon validation; host image
-  rebuild; API-level re-verify, no real agent launch).
+- ~~D1+D2 fix~~ — **LANDED AND RE-VERIFIED** (qits-workspaces `112ac52` deployed; daemon
+  `f52b897`, images rebuilt). D1's root cause was FOUR compounding defects, each proven live:
+  missing native enum reflection (RestartPolicy/HealthCheckKind deserialized configs as empty in
+  the binary only), a supervisor-monitor/socket-pipeline self-deadlock starving the config reply,
+  a restart race reading config before the daemon dialed home, and lazy subscribers dropping
+  reports (bootstrap 202s wrote nothing). Fixed at the root: definitions resolved once with a
+  bounded wait, sink fan-out on a dedicated thread, StartupEvent subscriptions, a persistent
+  bootstrap recorder as the single row writer, the NativeImageContractTest now walking enum
+  components. D2: slug grammar accepted daemon-side (UUIDs a subset), the REAL project UUID
+  injected (the old resolver never shipped — the var was structurally always empty), the
+  submodule rewrite guarded. Re-verified live: autostart visible host-side, the service proxy
+  serving the service's own answer, bootstrap rows recorded, project id in the container.
+  Carried forward: config errors are SILENT on every route (worth a surface); the 20s bounded
+  wait is visible in daemon-less Start streams.
+
+## Session close: every chain opened today is closed
+
+Three new UIs live and browser-proven (events, observability, workspace detail — the last
+including the first working workspace provisioning this host has ever had), the pull-through
+mirror shipped-and-observed with its offline posture proven, the GC dry-run complete and awaiting
+the user's review, the SCM-release split and its fan-outs live since morning, sixteen plans
+verified and retired with their knowledge rescued, and the storage-unification and
+daemon-identity chains parked at their documented next steps (AX + six-verb API + qits-projects
+conversion + AY; BH–BL). Open user decisions: the GC dry-run go/no-go, the mirror-write posture
+(gateway session-guard vs qits-idp), overview-ux's concept, and the parked smalls (gateway
+cache+compression, D3–D7, docker release idempotency, summary length).
 - ~~CL~~ — the metrics screen LANDED (`37d9689`, 186 tests, real series, no-chart asserted) +
   the consolidation pass (restart wording unified from FOUR copies, severity module adopted,
   §5 table spec'd everywhere). Measured: /telemetry/metrics ?name= is exact-match (client
