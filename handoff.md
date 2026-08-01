@@ -123,6 +123,14 @@ Nothing is half-finished. The queue, in order of how ready each item is:
 
 - **The other six SPAs' train files** — still a fan-out awaiting the user's go. Seven bump runs,
   seven maintenance pushes and seven releases on one serialized worker.
+- **Retired-plan pointers in submodule docs.** Four verified-shipped plans were deleted 2026-08-01
+  (event-triggers, dns, causation, eventsourcing; rescued arguments live in
+  docs/event-causation-notes.md and docs/eventstream-notes.md). Still pointing at them, to fix on
+  each repo's next real change (never a deploy of its own): qits-ci AGENTS.md:91 (its "kept alive
+  only by eventsourcing-plan.md" sentence is now false) and :351; qits-events AGENTS.md:131;
+  libs/qits-eventstream README:12 + QitsEvent.java:17 (plus the two vendored submodule copies);
+  qits-dns service/pom.xml:90 (stale SimpleResolver claim); main-environment-plan.md's four
+  "the dns plan" cites.
 - ~~The spa-workspaces trigger flip and the ui-components publish binding~~ — both closed by the
   fan-out workstream (qits-spa-workspaces `48114db` flips the canary to `SoftwareRelease`;
   qits-spa-ui-components `d43d710f` binds the publish step to `main`).
