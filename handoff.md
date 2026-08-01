@@ -196,9 +196,10 @@ now produces a second same-sha deployment (any green run announces to cd).
   with side-chain folding, prompt panel on BM's draft contract, and the SPEECH FLOW RESTORED:
   recorder → level meter + pause detection → WAV → live qits-stt `{audioBase64}→{text}` →
   serialized appends → refine. Shared seams for later workstreams: WorkspaceCommands,
-  PickedContext. One open reading flagged: one-box vs the spec's two-box transcript/prompt —
-  asked of the user.)
-- ~~CB~~ — events backend queries LANDED (`5d3f48f`, deployed ACTIVE): honored/clamped limit,
+  PickedContext. The user ruled TWO BOXES (the spec's original transcript→promote shape) — a
+  small BQ follow-up queued for when BR frees the repo.)
+- ~~CB~~ — events backend queries LANDED (final `9099c91`, deployed ACTIVE; envelope + literal
+  cursor spelling regression-pinned; live walk 142/142 whole): honored/clamped limit,
   composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
   ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
 - **CD** — events log page (qits-spa-events; CC landed `c665207` — foundation + transport with
