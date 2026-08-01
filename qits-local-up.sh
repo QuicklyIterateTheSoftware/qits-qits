@@ -57,8 +57,9 @@
 # at all simply leaves `qits.repositories.git.push-token` unset, and then nothing overrides.
 #
 # Known gaps, stated rather than hidden:
-#   - qits-dns and qits-spa-home ship no Dockerfile and are not part of either set. qits-projects
-#     announces to qits-dns fire-and-forget; its absence is one WARN per project creation.
+#   - qits-dns (which ships a Dockerfile) and qits-spa-home are not part of either set, so
+#     neither is deployed. qits-projects announces to qits-dns fire-and-forget; its absence is
+#     one WARN per project creation.
 #   - qits/workspace:latest layers the daemon onto a toolchain base this script cannot conjure;
 #     workspace containers need that image supplied separately.
 #   - The gateway is built with QITS_VARIANT=local: EXPLICITLY UNAUTHENTICATED. Never publish the
