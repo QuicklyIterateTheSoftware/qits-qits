@@ -215,8 +215,10 @@ now produces a second same-sha deployment (any green run announces to cd).
   service.name with cap 2000, opaque ?source= keys, server-side trace list, no MCP/SSE/sparkline.
   Its key finding: ALL live telemetry currently lands in an unreachable `_unscoped` bucket —
   nothing stamps the resource attributes. The plan's letters re-numbered to CH–CM.)
-- **CI** — observability SPA foundation + Overview (qits-spa-observability; GitHub-only, no CI
-  pipeline; the letter is a workstream id, not qits-ci)
+- ~~CI~~ — observability SPA foundation + Overview LANDED (`e7e5782`, GitHub-only; 35 tests;
+  Overview budget 2+0 with zero-cost expansion asserted). Four contract seams it found were ruled
+  and sent to CH as binding (thresholdMs + service on /traces; rootMissing always; nullable
+  window/scope fields). The spa-side CI recipe file is reassigned to the embed workstream (CM).
 - Queued: **BR** (SPA, after BQ), **CD** (events log page, after CC), **BX** (miss path, after BW),
   **CJ–CM** (observability pages + embed, after CH/CI).
 - New parked line from BP: the daemon doc under-describes `/files` (the root call returns the FULL
