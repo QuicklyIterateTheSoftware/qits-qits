@@ -9,8 +9,9 @@ still stands, with one rename running through it — see below.
 
 ## The headline: the release event split in two
 
-`scm-release-split-plan.md`, **SHIPPED AND OBSERVED**. The plan doc carries the full measured chain
-with every id; this is the shape.
+The SCM-release split, **SHIPPED AND OBSERVED** (plan verified fully implemented and retired
+2026-08-01; the measured chain and rescued arguments live in docs/scm-release-split-notes.md);
+this is the shape.
 
 One event used to fire when the release *push* was accepted and every consumer read it as "the
 package exists". Between those two statements sits a whole build. This morning's hop worked on
@@ -125,7 +126,7 @@ Nothing is half-finished. The queue, in order of how ready each item is:
   seven maintenance pushes and seven releases on one serialized worker.
 - **Retired-plan pointers in submodule docs.** Nine verified-shipped plans were deleted 2026-08-01
   (explorers, event-triggers, dns, causation, eventsourcing, software-release-event,
-  migration-deployables, main-environment, scm-release-split pending its verdict; rescued
+  migration-deployables, main-environment, npm-registry, scm-release-split; rescued
   arguments live in docs/*-notes.md). Still pointing at them, to fix on each repo's next real
   change (never a deploy of its own): qits-ci AGENTS.md:91 (its "kept alive only by
   eventsourcing-plan.md" sentence is now false) and :351; qits-events AGENTS.md:131;
@@ -135,7 +136,8 @@ Nothing is half-finished. The queue, in order of how ready each item is:
   workspaces) + qits-observability README:173; two stale prose strays (observability
   service/pom.xml:35 "still library JARs", qits-stt README:107 "not yet a deployable");
   ~25 cites of main-environment-plan.md across 20 qits-projects files (rationale restated in
-  code everywhere — pointers to strike, not knowledge to migrate).
+  code everywhere — pointers to strike, not knowledge to migrate); qits-workspaces AGENTS.md:522
+  and libs/qits-spa-ui-components README:140 citing scm-release-split-plan.md.
 - **qits-dns is built but deployed nowhere, and no plan owns that.** Verified 2026-08-01: no
   container, no compose entry, not in qits-local-up.sh's sets, no gateway route. Consequence today
   is nil (the only project stores no dns record, so the registrar never fires), but it is orphaned
