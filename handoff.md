@@ -140,7 +140,17 @@ Nothing is half-finished. The queue, in order of how ready each item is:
   code everywhere — pointers to strike, not knowledge to migrate); qits-workspaces AGENTS.md:522
   and libs/qits-spa-ui-components README:140 citing scm-release-split-plan.md;
   frontends/qits-spa-home README:168 + ci-post-receive.yml:88 still saying the release "publishes
-  a SoftwareRelease" (post-split it is SCMRelease).
+  a SoftwareRelease" (post-split it is SCMRelease); qits-workspaces DaemonApiGateIT.java:35 citing
+  the retired final-workspaces plan; StepChunk.java:10 in BOTH protocol copies (daemon repo first,
+  then the vendored qits-ci copy, or diff -r goes red) + CiDaemonRegistry.java:148 citing the
+  retired finish-ci plan; qits-workspaces README:271 (future tense for shipped daemon routing, and
+  "a gateway route" is what the design forbids); workspace-daemon AGENTS.md:110 (names
+  SameOriginUpgradeCheck as open — the gateway resolved it, the class does not exist);
+  qits-workspaces AGENTS.md tests note ("real-docker ITs are not in this repo" — DaemonApiGateIT
+  is, self-skipping).
+- **OPEN DEFECT, harvested from the retired final-workspaces plan**: the browser↔qits-workspaces
+  hop of a proxied websocket has NO backpressure (vertx-http-proxy: no pause, no drainHandler).
+  Details in docs/workspace-daemon-notes.md — fix rides the next qits-workspaces change.
 - **qits-dns is built but deployed nowhere, and no plan owns that.** Verified 2026-08-01: no
   container, no compose entry, not in qits-local-up.sh's sets, no gateway route. Consequence today
   is nil (the only project stores no dns record, so the registrar never fires), but it is orphaned

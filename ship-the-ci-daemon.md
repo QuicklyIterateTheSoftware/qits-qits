@@ -1,9 +1,10 @@
 # Ship the ci daemon — outline
 
-Status: **open.** Written 2026-07-29, the day phases A–C of
-[`finish-ci-feature.md`](finish-ci-feature.md) landed. This is what the retired A–C implementation
-document left behind: the feature is implemented, tested, and demonstrated on a live stack, and it
-still cannot be deployed by anyone but the person who built it. An outline to extend, not a design.
+Status: **open.** Written 2026-07-29, the day phases A–C of the finish-ci-feature plan landed
+(that plan was verified fully shipped and retired 2026-08-01; the CI system's contracts live in
+qits-ci's README/AGENTS.md). This is what that work left behind: the feature is implemented,
+tested, and demonstrated on a live stack, and it still cannot be deployed by anyone but the
+person who built it. An outline to extend, not a design.
 
 ---
 

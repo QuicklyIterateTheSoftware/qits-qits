@@ -761,11 +761,11 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
 8. **`daemons/` is not an archetype directory.** `RepositoryArchetype` defines
    `services`/`libs`/`integrations`/`apps` only. Either add `daemons` or move the
    submodule.
-9. **Gateway enum vs target set** — **mostly done.** `QitsService` is now
-   `ARTIFACTS, OBSERVABILITY, WORKSPACES, PROJECTS, STT, CI, CD`. Still open: how the
-   daemon's `agents`/`commands` REST surface is addressed — there is no `DAEMON` constant,
-   and routing it under `/workspaces` would conflate two repos. `qits-gateway` is
-   deliberately absent from its own enum.
+9. ~~**Gateway enum vs target set**~~ — **resolved 2026-07-29** (the final-workspaces plan,
+   verified and retired 2026-08-01). There is deliberately no `DAEMON` constant: the daemon's
+   REST surface rides `/workspaces/container/{id}/**` through qits-workspaces' reverse proxy,
+   so the host never learns an address from a container and the gateway routes one service.
+   Documented in qits-workspaces' AGENTS.md and the daemon repo's README.
 10. **Missing AGENTS.md** in `libs/qits-userflows`. Every other populated submodule has one,
     with `CLAUDE.md` a **symlink** to it. (`qits-workspaces` was listed here and does have one;
     `daemons/qits-workspace-daemon` gained both in `@646e541`.)
@@ -817,15 +817,11 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
     the gate.
 15. ~~**Compiled `.class` files are committed**~~ — **false when written and still false.**
     `target/` is gitignored in the daemon repo and `git ls-files | grep target/` returns zero.
-16. **The daemon's REST surface has no address.** This is item 9's open half, and it now
-    matters: twelve operations and two websockets the frontend calls live only in the daemon —
-    plus the six `services`/`bootstrap-commands` capabilities whose host routes were deleted when
-    the path conventions landed. Two things are missing. There
-    is no gateway constant for the daemon — routing it under `/workspaces` would conflate two
-    repos — and `WorkspaceContainerFactory` injects fourteen `QITS_WORKSPACE_DAEMON_*` env vars
-    but **not** `QITS_WORKSPACE_DAEMON_API_TOKEN`, so `WorkspaceApi.start` fail-closes and the
-    HTTP API does not bind at all in a host-created container. Both need settling together;
-    neither is a daemon-side change.
+16. ~~**The daemon's REST surface has no address.**~~ — **resolved 2026-07-29** with item 9:
+    the fifteenth env var (`QITS_WORKSPACE_DAEMON_API_TOKEN`) is injected so `WorkspaceApi`
+    binds, and the whole surface (including the re-exposed `services`/`bootstrap-commands`)
+    answers at `/workspaces/container/{id}/**` via the bearer-injecting reverse proxy, with
+    websocket upgrades riding along. See qits-workspaces' AGENTS.md.
 17. **The durability trade.** Nothing in the daemon's `CommandStore`, `CommandLogBuffer` or
     `AgentSessionStore` outlives the container (§3.3). Consequences, all deliberate:
     - the Commands list and command logs are **empty** for a workspace whose container was
@@ -846,12 +842,10 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
 18. **Chat sessions no longer open seeded with recent service events.** `ServiceEventSpool.drain`
     was dropped rather than ported (§3.3): `ServiceSupervisor` is in the daemon repo but has no
     spool. Rebuild it there, or accept it and strike this item.
-19. **The three protocol copies have diverged for the first time.** The daemon repo and
-    `qits-workspaces` are at `CAPABILITY_VERSION` 3 and byte-identical; `../qits` stays at 2. It
-    is safe today — the shipped daemon image is still built from the monolith's *own*
-    `workspace-daemon` module (`docker/qits/Dockerfile:58`), not the submodule, so an old backend
-    never sees a v3 frame, and `DaemonControlSocket` drops an undecodable frame rather than
-    failing the connection. It stops being safe the moment the submodule's image ships.
+19. **The protocol copies** — current state 2026-08-01: `CAPABILITY_VERSION` is **4** (the
+    tunnel transport bump), the daemon repo and `qits-workspaces` copies verified
+    byte-identical, and the mirror-and-`diff` rule is written down in qits-workspaces'
+    AGENTS.md. The monolith copy is no longer a concern (the monolith topology is gone).
 20. **A daemon-suite flake, seen once.** One `./mvnw verify` in eight reported a single error
     that six targeted reruns and two further full verifies did not reproduce, and which left no
     surefire report behind. Not diagnosed. Watch it in CI before trusting the gate — the same
@@ -868,7 +862,11 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
     and it identifies its caller by a *path parameter*. Anyone on `qits-net` can claim to be any
     workspace's daemon. Edge auth neither touches nor fixes this. Related: the WebSocket gate fires
     at upgrade only, so a socket open for hours outlives token expiry — true before the split and
-    after, no regression, but not something the edge fixes either.
+    after, no regression, but not something the edge fixes either. **The shipped mechanism this
+    item needs already exists one repo over**: qits-ci's daemon channel authenticates each
+    container with a per-container secret minted at launch and checked at handshake
+    (`CiDaemonLauncher`/`CiDaemonRegistry`; a wrong secret closes 1008) — the precedent to copy
+    when this item gets picked up.
 23. **Gateway session storage, once there is more than one gateway.**
     `quarkus.oidc.application-type=hybrid` puts an encrypted `q_session` cookie on the browser, so a
     single gateway is stateless and needs nothing. Two replicas need a shared
