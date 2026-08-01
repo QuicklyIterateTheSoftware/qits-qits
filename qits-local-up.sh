@@ -66,6 +66,10 @@
 #     image or the port beyond your machine.
 #   - Until qits-observability's deployment goes ACTIVE, every seed service logs an OTLP export
 #     warning per batch. It self-heals the moment the alias resolves.
+#   - Seed builds pull their base images STRAIGHT from quay.io and registry.access.redhat.com. The
+#     Dockerfiles name the platform's own image mirror, and this script rewrites those refs back
+#     (see seed_dockerfile), so a cold start needs reach to the upstreams and pays full price. Only
+#     builds through the pipeline, on a platform that is already up, are served from the cache.
 
 set -eu
 
@@ -143,6 +147,20 @@ for name in ci-daemon $DEPLOYABLES; do
 done
 
 # --- seed builds ---------------------------------------------------------------------------------
+# The committed Dockerfiles FROM the platform's own pull-through image mirror
+# (localhost:8081/{quay,redhat,hub}/…), which IS qits-artifacts — one of the four services this
+# phase hand-builds. A cold start cannot pull through the registry it is starting, so a seed build
+# gets the same Dockerfile with the mirror prefixes rewritten back to the direct upstreams, fed on
+# stdin. Nothing on disk changes: the context is untouched, and every steady-state build (CI's
+# post-receive, on a running platform) still goes through the mirror.
+# The Docker Hub refs written inline below (docker:cli, node:24-alpine) and the alpine/git runs
+# further down are direct for the same reason, and are meant to stay that way.
+seed_dockerfile() {
+  sed -e 's|localhost:8081/quay/|quay.io/|g' \
+      -e 's|localhost:8081/redhat/|registry.access.redhat.com/|g' \
+      -e 's|localhost:8081/hub/|docker.io/|g' "$1"
+}
+
 if [ "$SKIP_BUILD" != 1 ]; then
   say "building the seed images (GraalVM native — ~4 GB RAM each, this takes a while)"
   for name in $CORE; do
@@ -152,7 +170,8 @@ if [ "$SKIP_BUILD" != 1 ]; then
     # workstation variant.
     [ "$name" = gateway ] && extra="--build-arg QITS_VARIANT=local"
     # shellcheck disable=SC2086
-    docker build -t "qits/$name:latest" -f "$SRC/qits-$name/docker/Dockerfile" $extra "$SRC/qits-$name" \
+    seed_dockerfile "$SRC/qits-$name/docker/Dockerfile" \
+      | docker build -t "qits/$name:latest" -f - $extra "$SRC/qits-$name" \
       || die "build of qits/$name failed"
   done
 
@@ -186,8 +205,8 @@ if [ "$SKIP_BUILD" != 1 ]; then
   # image instead — docker cp carries the source in and the binary out, and container-build is
   # switched off because we are already in the container it would launch.
   say "build the qits-ci-daemon binary (musl static native)"
-  docker build -t qits/graalvmce-musl-builder:jdk-25 \
-    -f "$SRC/qits-ci-daemon/docker/Dockerfile.musl-builder" "$SRC/qits-ci-daemon/docker"
+  seed_dockerfile "$SRC/qits-ci-daemon/docker/Dockerfile.musl-builder" \
+    | docker build -t qits/graalvmce-musl-builder:jdk-25 -f - "$SRC/qits-ci-daemon/docker"
   # --entrypoint: the builder image entrypoints to native-image itself.
   cid=$(docker create --user root --entrypoint bash qits/graalvmce-musl-builder:jdk-25 \
     -c 'cd /qits-build && ./mvnw -B -ntp -pl ci-daemon -am package -Dnative -DskipTests -Dquarkus.native.container-build=false')
