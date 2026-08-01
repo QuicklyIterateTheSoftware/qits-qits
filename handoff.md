@@ -1,7 +1,8 @@
 # Handoff: 2026-08-01 evening → next session
 
 Start here. What shipped today, how to verify it landed, and where the work picks up. The map, not
-the territory — reasoning lives in the plan docs named inline.
+the territory — reasoning lives in the plan docs named inline. **Kept live during the session as
+workstreams land; the "In flight right now" section is the part to re-check first.**
 
 This morning's handoff is in git history (`git show 9bbee7c:handoff.md`): the integrate/release
 split, the release event, the finished-runs rail, and the release train's first live hop. All of it
@@ -96,29 +97,122 @@ until a hard reload. Doing it per service is a seven-repo rollout; doing it **at
 change and covers every SPA at once. That is the recommendation and nobody has taken it.
 **Until it is done, hard-reload before judging any SPA deploy.**
 
-## Next up
+## Also shipped: the release pipelines fanned out (was "AP", done)
 
-Nothing is half-finished. The queue, in order of how ready each item is:
+All eleven publishers carry `.config/qits/ci-event-release.yml` (8 more docker + the second npm,
+`qits-integrations-angular` `40c42611`); ui-components' publish step is `branches:`-bound to main
+(`d43d710f`) and spa-workspaces' canary listens to the true `SoftwareRelease` (`48114db8`). Every
+deployment cycled green, one at a time. Known consequence recorded: on a service repo, a release
+now produces a second same-sha deployment (any green run announces to cd).
 
-- **AP — fan the release pipelines out.** The two canaries proved the shape; the rest is mechanical
-  and needs no design: **8 more docker publishers plus `qits-integrations-angular`** (the second npm
-  publisher). One `.config/qits/ci-event-release.yml` per repository, with the publish lines moved
-  out of `ci-post-receive.yml` and an `artifacts:` declaration that is **true** — qits-ci cannot
-  check it. Note the single run worker: a fan-out release is serialized, not parallel.
-- **The decision docs, still uncommitted and undecided** — `workspace-detail-plan.md`,
-  `workspace-detail-spec.md`, `artifacts-explorer-plan.md`, `workspace-overview-ux.md`. They sit
-  untracked in the superproject working tree and want a decision before they want an implementer.
-- **The gateway `index.html` cache header** — see above. One change, seven SPAs' worth of benefit,
-  and it is user-facing.
-- **Typography tokens in ui-components.** The styling fix copied a stylesheet into four repos;
-  the durable form is tokens the library owns and every SPA imports.
-- **Tag GC.** Releases now create a permanent annotated tag per version on top of the per-sha images
-  and the `-main.g<sha>` prereleases. The intended retention rule (last build per branch while the
-  branch exists) was written for images; tags were not in scope and now exist.
-- **Docker release-step idempotency.** The npm release pipeline guards with
-  `npm view … || publish`, so a redelivered event costs seconds and goes green. The docker one has
-  **no such guard**: it would rebuild and re-push the same tag, which the registry accepts. Decide
-  whether that is fine (it is a rebuild of an immutable commit) or wants a manifest probe first.
+## The afternoon, in order (all live unless noted)
+
+1. **The artifacts explorer shipped end to end** — browse API (qits-artifacts, six read endpoints,
+   manifest-parsed sizes) + the SPA (`qits-spa-artifacts` `aa51d3b`, repository-first tree, the
+   labeled three-figure store summary, commit-sha tags deep-linking to `/ci/`). Live at
+   `/artifacts/` (hard-reload). The census reconciles the store **to the byte**; gzip on (7.7×).
+   Its plan doc was deleted after implementation.
+2. **Git-host storage unification, most of the way** (`git-host-storage-unification-plan.md`,
+   verdict PLAUSIBLE-WITH-PRECONDITIONS, all ⚖ settled: reftable; no GC recorded; mirror cache in
+   its own module; both backends behind config; artifacts Flyway lineage):
+   - **AT** qits-workspaces `e6f6b14` — the service no longer touches the shared filesystem: new
+     `gitmirror` module (no Quarkus, simple API, extractable to a daemon later), every ref write a
+     push, worktrees on a private mirror, the tag dance simplified. **The payoff observed live: a
+     branch creation now produces a CI run where it produced silence.** Zero six-verb call sites
+     here — they all live in qits-projects.
+   - **AV** qits-artifacts `6f2af8c` — the `git-storage` module: DFS + reftable over two
+     self-declared ports (PackBlobStore, PackCatalog), 18 offline tests incl. atomic refusal and
+     the GC-amplification assertion.
+   - **AW** qits-artifacts `bf9294d` — the wiring: adapters, `V4` pack catalog + `V5` protection
+     row (the bare-config override is a table now, both backends), the `GitRepositoryProvider`
+     seam behind `qits.repositories.git.storage` (default `file`; a typo fails boot), GitHostSuite
+     runs 23 cases against EACH backend, and a packaged-binary DFS probe round-tripped clone/push
+     with zero bares on the volume.
+   - **Remaining**: AX (both-backend native matrix — blocked on a create-verb route), the six-verb
+     API on qits-artifacts (scoped entirely by qits-projects' ~35 call sites), the qits-projects
+     conversion, then AY (importer + one-repo-at-a-time rollout, **no bare ever deleted**,
+     qits-artifacts last).
+3. **Artifacts GC underway** (`artifacts-gc-plan.md`, all ⚖ settled: npm-proxy parked; docker
+   keep-set = calver tags + cd ACTIVE pins + previous distinct sha, fetched fail-closed; row-less
+   blobs UNTOUCHABLE this draft — daemon orphans deferred; **nothing deletes until the user
+   reviews the dry-run**):
+   - **AZ/BA** `da604b0` — the substrate: `LiveBlobCensus` (one census, shared with the explorer),
+     `BlobStore.delete` package-private with a **7-day grace window** + pre-unlink re-census, the
+     `GcStrategy` seam, and `GET /artifacts/api/gc/plan` (dry-run reports).
+   - **BB** `a1d4030` — the oci strategy, live in the plan: **dead 270 / kept 21 / 4.48 GiB
+     reclaimable (81.6% of the OCI union)** — all withheld by the grace window until ~Aug 6 (the
+     store is two days old). Kept-by-rule spot-checked. cd pins fetched by enumerating ALL
+     environments; `commitSha` is the field.
+   - **BC** — the npm strategy + the republish **tombstone** (a GC'd version can never be
+     silently republished), in flight at handoff-update time.
+4. **The daemon-identity plan settled** (`daemon-artifact-identity-plan.md`; ⚖: type name
+   **`binary`** (user's call), **version-addressed** pin URL (user's call), qits-ci pin endpoint
+   fail-closed, release-train tie-in yes). Key corrections it measured: the ci-daemon has NO
+   pipeline (only a bootstrap curl publishes it; neither daemon repo is on the platform git host),
+   and the workspace daemon ships INSIDE `qits/workspace:latest` on the host docker daemon —
+   nothing in the store at all. Workstreams BH–BL queued behind the GC chain.
+5. **The pull-through mirror plan settled** (`proxy-pulling-normal-images.md`, SETTLED, uncommitted):
+   generalized lazy pull-through, npmjs-style — the `oci_mirror_upstream` entity (domain → slug:
+   docker.io→hub, quay.io→quay, registry.access.redhat.com→redhat; prefilled; CRUD-managed, UI
+   panel to follow), append-only cache, anonymous upstreams (recorded: `docker login` never
+   traverses a pull-through hop — private registries need a server-side credential, a future
+   entity column). The one-time FROM rewrite is 24 lines in 12 repos; bootstrap's three Hub refs
+   stay direct. Workstreams **BW→BX→BY→BZ, CA** (explorer panel) queued.
+6. **The workspace detail screen, wave 1 done** (`workspace-detail-plan.md`, all ten ⚖ settled —
+   the user refined two: lifecycle verbs are CONDITIONAL (release iff parent is main, integrate
+   iff target is not), and **speech stays as far as the original existed** (recorder → qits-stt →
+   refine), overriding the plan's kill recommendation. Letters AH–AQ renumbered **BM–BV**):
+   - **BM** qits-workspaces `72cdeb3` — `GET /workspaces/{id}` (+ `repositoryMainBranch`), prompt
+     draft/attachments, bootstrap-runs reader; ⚖9: `ENDED` survives in the rollup (30-min TTL,
+     BUSY>WAITING>IDLE>ENDED); and the **websocket backpressure defect FIXED** (upgrades bypass
+     vertx-http-proxy entirely; discriminating test). Endpoint shapes frozen in its report.
+   - **BN** workspace-daemon `d2f17ae` (GitHub only; ships in `qits/workspace:latest`, host-built —
+     picking it up needs a host image rebuild + per-workspace recreate, scheduled with BU) — the
+     hand-written 24-operation API contract + both socket protocols, guarded by
+     `OpenApiContractTest`; `/services` enriched (`restartCount`, `webView`). **Health machinery
+     does not exist in the daemon** — declared checks are parsed but never run; no `health` field
+     shipped; the prober is a named follow-up and the services panel builds for absence.
+   - **BO** qits-spa-workspaces `278bb47` — the shell: detail route (`?tab=`), status strip with
+     conditional verbs, activity bar (renders ENDED), tab host (latch-and-hide, in-session
+     reorder), SSE client (invalidate-on-connect, zero timers asserted), daemon transport skeleton.
+   - **BP** (files tree) in flight; then BQ (chat + prompt + restored speech) → BR (services +
+     actions) → BS (files viewer) → BT (agents + web view + severable element picker) → BU (gitlink
+     embed + ship + browser pass). BV = phase two.
+7. **Sixteen plan documents verified and retired** by read-only verifier agents (ci-cd-explorer,
+   event-triggers, dns, causation, eventsourcing, software-release-event, migration-deployables,
+   main-environment, npm-registry, scm-release-split, final-workspaces, finish-ci, release-flow,
+   release-train-hops, image-publishing, plus artifacts-explorer post-implementation). Every
+   unique argument was rescued into **docs/*-notes.md** (causation, eventstream, ci-cd-explorer,
+   npm-registry, release-flow, release-train, scm-release-split, workspace-daemon);
+   `migration-plan.md`'s §9 ledger finally learned what shipped (items 9/16/19 closed, 22 gained
+   the ci-daemon precedent). The one real gap found: run-page live-output auto-scroll (parked).
+8. **Events + observability UI designs in flight** — two Opus agents writing `events-ui-plan.md`
+   (letters CB+; knows `?limit=` is ignored and causation is the centerpiece) and
+   `observability-ui-plan.md` (letters CG+; the store's ephemerality must be surfaced honestly).
+
+## In flight right now (update on each landing)
+
+- **BP** — files tree (qits-spa-workspaces)
+- **GC-BC** — npm strategy + tombstone (qits-artifacts)
+- **events-ui / observability-ui** design agents (superproject docs)
+- Queued on repos freeing: **BQ** (SPA, after BP), **BW** (qits-artifacts, after BC), then the
+  chains above in their stated orders.
+
+## Next up (decisions and follow-ups awaiting the user)
+
+- **Review the GC dry-run** (`GET /artifacts/api/gc/plan`) once BC lands — the gate before any
+  sweep; the grace window means nothing is reclaimable before ~Aug 6 regardless.
+- **`workspace-overview-ux.md`** — still awaiting the concept choice (workspace-detail is being
+  implemented; artifacts-explorer shipped).
+- **The gateway `index.html` cache header** — one change at the gateway, seven SPAs' benefit,
+  user-facing. Until then hard-reload before judging any SPA deploy.
+- **Typography tokens in ui-components** — the durable form of the styling fix; wants the train
+  fan-out (six SPAs) so consumers actually pick up lib releases.
+- **The daemon health prober** — BN measured the machinery absent; shape specced in its report.
+- **Docker release-step idempotency** (rebuild-and-repush on redelivery vs a manifest probe) and
+  the **summary-length composition** (108 vs the 100 cap) — both still undecided.
+- **Tag GC** — release tags are permanent refs now; the GC plan's git strategy never deletes refs
+  by design, so if tag pruning is ever wanted it is its own decision.
 
 ## Parked follow-ups (deliberate, not forgotten)
 
@@ -208,6 +302,14 @@ Nothing is half-finished. The queue, in order of how ready each item is:
 - Gateway is :8080; :8081 is qits-artifacts direct (and the reason every repo's test port is 0).
   CI filter param is `repositoryId`; cd's is `environmentId`. `/events/api/events` ignores `limit`
   and returns the whole history.
+- **GC never runs on its own.** `GET /artifacts/api/gc/plan` is a dry-run report; the delete
+  primitive is package-private with a 7-day grace window and a pre-unlink re-census; row-less
+  blobs (the 130 MB orphan pool incl. the live ci-daemon binary) are untouchable by construction.
+- **The git host has two storage backends.** `qits.repositories.git.storage` = `file` (default) |
+  `dfs`; an unknown value fails the boot on purpose. DFS repos cannot yet be created from outside
+  the process (the create verb has no route until the six-verb API lands).
+- `ENDED` agent activity expires from the rollup after 30 minutes
+  (`qits.workspace.agent-activity.ended-ttl-ms`); precedence BUSY>WAITING>IDLE>ENDED.
 - Never run `qits-local-up.sh` casually (the recreate branch kills the cd-managed core); never DELETE
   the `qits` project (it deletes the platform's own git origins).
 - Superproject: many local commits, **none pushed** (the user has not asked). Submodule gitlinks lag
