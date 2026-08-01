@@ -208,9 +208,10 @@ now produces a second same-sha deployment (any green run announces to cd).
   cursor spelling regression-pinned; live walk 142/142 whole): honored/clamped limit,
   composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
   ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
-- **CE** — events live tail (qits-spa-events; CD landed the log page `a19dd83`, 78 tests, budget
-  2+1-socket asserted, three bespoke gists, cursor-re-entry contract documented for the tail.
-  CB is live, so the filters work against the real server already.)
+- **CF** — events chain page (qits-spa-events; CE landed the tail `ebcbc63`, 103 tests —
+  default-off with the budget kept honest, frame filtering EXACT against the server's own
+  predicate clauses, frames held under a cursor window. Parked nicety: reconnect blanks
+  accumulated load-more pages. Earlier: CD's log page `a19dd83`.)
 - **BX** — the mirror miss path (qits-artifacts; BW landed `f827ff2` V7: three namespaces live
   with honest empty-404s, pushes 405 by type, GC stub claiming oci-mirror, census extended with
   ociMirrorBytes. BX adds the lazy fetch: bearer-challenge anonymous client, digest-verified
