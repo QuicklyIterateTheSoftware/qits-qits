@@ -243,7 +243,11 @@ now produces a second same-sha deployment (any green run announces to cd).
   Overview budget 2+0 with zero-cost expansion asserted). Four contract seams it found were ruled
   and sent to CH as binding (thresholdMs + service on /traces; rootMissing always; nullable
   window/scope fields). The spa-side CI recipe file is reassigned to the embed workstream (CM).
-- **CK** — observability errors + logs screens (qits-spa-observability; CJ landed `bee9a5f`,
+- ~~CK~~ — errors + logs LANDED (`f291dae`, 144 tests: odd wire shapes fixture-proven, seven
+  empty-state reasons per screen, follow-mode off = zero timers). USER RULED metrics: ENABLE
+  EXPORTS FIRST — combined with the held BY into ONE ten-repo fan-out (metrics property + FROM
+  rewrite per repo, one redeploy each), dispatching when CG clears qits-events. CL (metrics
+  screen + the honesty consolidation pass) follows the fan-out. (Earlier: CJ `bee9a5f`,
   89 tests — the waterfall live-verified with a hand-encoded OTLP fixture: nesting percentages,
   orphans never re-parented, sub-ms slivers honest, the lens genuinely reordering. Its fixture
   bucket `_service/qits-fixture` clears on the next restart.)
