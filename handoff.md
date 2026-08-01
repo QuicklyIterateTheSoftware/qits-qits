@@ -71,10 +71,11 @@ came out whole. A JVM suite cannot see that class of defect, so it was open unti
 
 ### What the split changes for a reader of the old docs
 
-- The event AJ and AG observed as `SoftwareRelease` is `SCMRelease` now. `release-flow-plan.md`,
-  `release-train-hops-plan.md` and `software-release-event-plan.md` all pre-date the rename; the
-  split plan says so and they were not rewritten (their success stories are true and also masked the
-  race — both facts stay on the record).
+- The event AJ and AG observed as `SoftwareRelease` is `SCMRelease` now. The pre-rename plans
+  (release-train-hops, software-release-event; release-flow pending its verification verdict)
+  were verified and retired 2026-08-01 rather than rewritten; their rescued arguments live in
+  docs/*-notes.md (their success stories were true and also masked the race — both facts stay
+  on the record there).
 - **The train stops one event earlier in kind.** It used to stop at a repository that matched
   nothing. It stops at a repository with **no release pipeline**: the artifact statement is never
   made, so there is nothing to match.
@@ -137,7 +138,9 @@ Nothing is half-finished. The queue, in order of how ready each item is:
   service/pom.xml:35 "still library JARs", qits-stt README:107 "not yet a deployable");
   ~25 cites of main-environment-plan.md across 20 qits-projects files (rationale restated in
   code everywhere — pointers to strike, not knowledge to migrate); qits-workspaces AGENTS.md:522
-  and libs/qits-spa-ui-components README:140 citing scm-release-split-plan.md.
+  and libs/qits-spa-ui-components README:140 citing scm-release-split-plan.md;
+  frontends/qits-spa-home README:168 + ci-post-receive.yml:88 still saying the release "publishes
+  a SoftwareRelease" (post-split it is SCMRelease).
 - **qits-dns is built but deployed nowhere, and no plan owns that.** Verified 2026-08-01: no
   container, no compose entry, not in qits-local-up.sh's sets, no gateway route. Consequence today
   is nil (the only project stores no dns record, so the registrar never fires), but it is orphaned

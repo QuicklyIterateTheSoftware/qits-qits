@@ -31,6 +31,17 @@ id are a different feature with its own read model — one nullable `parentId` e
 release train needs. Unifying causation with OTel trace context is the obvious-looking move this
 note exists to stop.
 
+## The push boundary is a chain boundary (ruled, not a gap)
+
+From the retired release-train-hops plan: a force-push is not an event, so the maintenance run it
+triggers is a causation ROOT, and the release event that run produces is a fresh root too. One
+full train hop is therefore recorded as two short chains, not one long one — ruled correct at
+design time, with the user deciding cross-push causation will be solved differently later.
+Consequently: no step script exports parent ids, no header rides the release call, and nothing
+may foreclose that future design by smuggling causation across the push. (The N+1 fork shape
+WITHIN one run — one SCMRelease → BuildSuccessful + one SoftwareRelease per artifact — is the
+separate, shipped behavior; see docs/scm-release-split-notes.md.)
+
 ## Two graphs, and they are duals
 
 The trigger DAG feature (future) is a graph of *declarations*: which repo's trigger file listens
