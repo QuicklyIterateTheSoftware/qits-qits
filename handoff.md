@@ -205,7 +205,11 @@ now produces a second same-sha deployment (any green run announces to cd).
 - **CE** — events live tail (qits-spa-events; CD landed the log page `a19dd83`, 78 tests, budget
   2+1-socket asserted, three bespoke gists, cursor-re-entry contract documented for the tail.
   CB is live, so the filters work against the real server already.)
-- **BW** — mirror type + `oci_mirror_upstream` entity (qits-artifacts; **GC-BC landed `83d7b57`**:
+- **BX** — the mirror miss path (qits-artifacts; BW landed `f827ff2` V7: three namespaces live
+  with honest empty-404s, pushes 405 by type, GC stub claiming oci-mirror, census extended with
+  ociMirrorBytes. BX adds the lazy fetch: bearer-challenge anonymous client, digest-verified
+  streaming, tags TTL+revalidate+serve-stale; live proof = the double docker pull.)
+- (was BW queue note; GC-BC landed `83d7b57`:
   npm strategy live in the dry-run — 3 superseded prereleases dead / ~31 KB, tombstone V6 shipped
   with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
   USER'S REVIEW at GET /artifacts/api/gc/plan** — oci 4.48 GiB + npm 31 KB, all grace-withheld
