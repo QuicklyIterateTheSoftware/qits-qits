@@ -192,7 +192,11 @@ now produces a second same-sha deployment (any green run announces to cd).
 
 ## In flight right now (update on each landing)
 
-- **BR** — services + actions tabs (qits-spa-workspaces; BQ landed `a3ea608`, 269 tests — chat
+- **BQ follow-up** — the two-box speech rework + its own prettier drift (qits-spa-workspaces;
+  BR landed `88f0e05`, 308 tests: services + actions with health-absence rendered honestly, the
+  recycled-label and dead-history traps counted-and-named; the spec's targetless "Logs link"
+  became a per-service Events scope — a real logs link is daemon work, parked. BQ had landed
+  `a3ea608`, 269 tests — chat
   with side-chain folding, prompt panel on BM's draft contract, and the SPEECH FLOW RESTORED:
   recorder → level meter + pause detection → WAV → live qits-stt `{audioBase64}→{text}` →
   serialized appends → refine. Shared seams for later workstreams: WorkspaceCommands,
