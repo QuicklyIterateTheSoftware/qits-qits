@@ -192,7 +192,14 @@ now produces a second same-sha deployment (any green run announces to cd).
 
 ## In flight right now (update on each landing)
 
-- **BT** — agents + web view + the severable element picker (qits-spa-workspaces; BS landed the
+- ~~BT~~ — the last tabs LANDED (`a75a924`, 466 tests): four-branch resolution asserted by what
+  it refuses to do, the sign-in replay double-keyed and capped, THE PICKER MADE THE CUT (own
+  commit), both FileNavigation wirings done, a hand-written VT100 subset behind an xterm-ready
+  seam, bundle 505 kB with the budget deliberately moved to 550. One stale claim for BU: the
+  badge copy predates BM's ENDED TTL. **BU is HELD until BY clears qits-workspaces** (push
+  collision), then: gitlink → a75a924 (+ the badge fix), the qits/workspace:latest HOST rebuild
+  (delivers BN's enrichment — mind the "toolchain base this script cannot conjure" note), and
+  the full browser pass. CL follows BY too (metrics data). (Earlier: BS landed the
   viewer `3c14886`, 387 tests — precedence asserted as the resurrection case, gitignore locality
   proven by counter-test, PickedContext receives {path,range,excerpt}. Parked: a `size` field on
   the daemon's FileContent would fix the binary/2MB copy; a one-line ?path= clear belongs in the
