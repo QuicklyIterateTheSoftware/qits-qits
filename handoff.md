@@ -245,8 +245,21 @@ now produces a second same-sha deployment (any green run announces to cd).
   Everything container-free PASSED incl. the free negative test (every surface legible with no
   daemon). Also found: gateway serves the SPA bundle UNCOMPRESSED; the web-view panel lacks an
   error branch; async.ts double-period (copied to spa-cd too, parked); UUID repo labels.
-- **BV** — the closer IN FLIGHT: the two SPA fixes, the resolver env into script + live cd
-  config (cd restart), the re-embed, and the container-dependent half of the browser pass.
+- ~~BV~~ — **PROVISIONING FIXED AND THE FULL SCREEN PROVEN LIVE** (`a984672` SPA fixes,
+  `389f4aa` script, live cd config + restart, `d02f7040` embed; resolver now logs
+  qits-gateway): workspace 1901 provisioned, files/viewer/pick, the two-box speech refine LIVE
+  against the daemon, enriched services incl. a real restart count, actions history, the picker
+  with honest non-Angular fallback, guarded discard, clean teardown, zero idle requests. TWO
+  BLOCKERS FOUND (a fix agent is on them): **D1** the host never learns daemon-supervised
+  services (coupler chain dead → Web view 404s for every daemon service, no service events, no
+  bootstrap-run rows) and **D2** agent launch requires UUID repo ids (the platform's ids are
+  slugs) + QITS_WORKSPACE_DAEMON_PROJECT_ID ships empty. Parked smalls: D3 status-strip
+  double-period (async.ts's sibling; also in spa-cd), D4 draft-restore wipes a fresh element
+  pick, D5 web-view stale-cached list vs stopped container, D6 no repo declares a workspace
+  config + the SPA has no create-workspace surface, D7 the daemon's MCP/git URLs rely on
+  control-socket-authority inference (unset config).
+- **D1+D2 fix** — IN FLIGHT (qits-workspaces coupler + env; daemon validation; host image
+  rebuild; API-level re-verify, no real agent launch).
 - ~~CL~~ — the metrics screen LANDED (`37d9689`, 186 tests, real series, no-chart asserted) +
   the consolidation pass (restart wording unified from FOUR copies, severity module adopted,
   §5 table spec'd everywhere). Measured: /telemetry/metrics ?name= is exact-match (client
