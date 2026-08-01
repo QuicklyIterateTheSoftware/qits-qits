@@ -272,9 +272,14 @@ now produces a second same-sha deployment (any green run announces to cd).
   clean. One minor client defect parked: the source strip labels all-sources totals with a
   nonexistent bucket's raw key on hand-edited URLs (source-strip.ts scope()/figures() fallback
   mismatch).
-- **BZ** — the mirror's closer IN FLIGHT: the layer-forcing proof (rmi both base tags → rebuild
-  qits-stt → the real fill through the mirror → the offline zero-fetch check), the deployment
-  doc, and the plan's SHIPPED AND OBSERVED closure.
+- ~~BZ~~ — **THE MIRROR FEATURE IS CLOSED, SHIPPED AND OBSERVED** (superproject `8cdf1c5`): the
+  forcing proof filled 592 MB through the mirror cold and the offline check ran green with ZERO
+  upstream requests (counter frozen, 204 MB layer served from mirror disk in 0.21 s). The proof
+  required clearing docker's three-deep layer retention (an orphaned mandrel image, 33 GB
+  dangling, 96 GB buildkit cache) — the "rmi alone proves nothing" trap is now in
+  local-platform.md's new operator section, which also fixed its stale SoftwareRelease naming.
+  qits-stt's parked README line fixed in the trigger commit. graalvmce stays manifest-only until
+  a bootstrap rerun (the one remaining cold fetch ahead).
 - ~~bootstrap-fix~~ — LANDED (`30005f3`): seed builds pipe their Dockerfiles through
   seed_dockerfile (mirror prefixes → direct upstreams, stdin-only, context unchanged — mechanism
   proven with a throwaway build); the three inline Hub refs stay direct by design; pipeline
