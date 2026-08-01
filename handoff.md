@@ -201,9 +201,15 @@ now produces a second same-sha deployment (any green run announces to cd).
   with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
   USER'S REVIEW at GET /artifacts/api/gc/plan** — oci 4.48 GiB + npm 31 KB, all grace-withheld
   until ~Aug 6; the sweep trigger is not built until the review says go)
-- **observability-ui** design agent (superproject doc; its letters will re-number to CH+ — the
-  events plan consumed CB–CG)
-- Queued: **BR** (SPA, after BQ), **CD** (events log page, after CC), **BX** (miss path, after BW).
+- **CH** — observability backend read surface (qits-observability; the observability-ui plan
+  landed and settled, all ⚖ as recommended: read surface added, unscoped telemetry re-bucketed by
+  service.name with cap 2000, opaque ?source= keys, server-side trace list, no MCP/SSE/sparkline.
+  Its key finding: ALL live telemetry currently lands in an unreachable `_unscoped` bucket —
+  nothing stamps the resource attributes. The plan's letters re-numbered to CH–CM.)
+- **CI** — observability SPA foundation + Overview (qits-spa-observability; GitHub-only, no CI
+  pipeline; the letter is a workstream id, not qits-ci)
+- Queued: **BR** (SPA, after BQ), **CD** (events log page, after CC), **BX** (miss path, after BW),
+  **CJ–CM** (observability pages + embed, after CH/CI).
 - New parked line from BP: the daemon doc under-describes `/files` (the root call returns the FULL
   eager tree, not one level; and `listDirectory` stubs every subdirectory) — a doc sentence for
   the daemon repo's next pass. BP's derived framework-depth rule (descend while exactly one
