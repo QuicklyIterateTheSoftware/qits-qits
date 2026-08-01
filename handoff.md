@@ -236,11 +236,24 @@ now produces a second same-sha deployment (any green run announces to cd).
   agent is on qits-local-up.sh (sed-to-direct for seed builds only). (3) qits-stt's GitHub main
   lagged the platform by 4 release commits — healed by rebase + force-with-lease. (4) qits-dns
   got its FROM/metrics on GitHub only (no pipeline — the standing orphan).
-- **BU** — workspace embed + daemon rebuild + browser pass (dispatched: badge-copy fix, gitlink,
-  the qits/workspace:latest host rebuild delivering BN's enrichment, the full screen pass with a
-  real workspace — no real agent launches).
-- **CL** — the metrics screen against REAL series + the §5 honesty/consolidation pass
-  (qits-spa-observability).
+- ~~BU~~ — the workspace embed LANDED (`21de566`, deployment ACTIVE, 505/550 kB) and the daemon
+  image REBUILT (zero cold fetches — BY's warm cache) — with TWO escalations: (1) **workspace
+  provisioning is broken platform-wide** — qits.workspace.git-host unset → auto resolves to
+  qits-workspaces' OWN container IP, every container→platform URL 404s; fix proven read-only
+  (QITS_WORKSPACE_GIT_HOST=qits-gateway). (2) the PREVIOUS qits/workspace:latest contained NO
+  daemon at all (bash entrypoint) — preserved as :toolchain-base-20260720, now rebuilt correctly.
+  Everything container-free PASSED incl. the free negative test (every surface legible with no
+  daemon). Also found: gateway serves the SPA bundle UNCOMPRESSED; the web-view panel lacks an
+  error branch; async.ts double-period (copied to spa-cd too, parked); UUID repo labels.
+- **BV** — the closer IN FLIGHT: the two SPA fixes, the resolver env into script + live cd
+  config (cd restart), the re-embed, and the container-dependent half of the browser pass.
+- ~~CL~~ — the metrics screen LANDED (`37d9689`, 186 tests, real series, no-chart asserted) +
+  the consolidation pass (restart wording unified from FOUR copies, severity module adopted,
+  §5 table spec'd everywhere). Measured: /telemetry/metrics ?name= is exact-match (client
+  filter documented); seriesKey excludes serviceName (warned at ≥2 services/bucket); limit
+  accepted-and-ignored (the §4.6 bug class); qits-dns has no bucket (the standing orphan).
+- **CM** — the observability embed + browser pass IN FLIGHT (four workstreams ride the gitlink;
+  the deploy empties the store by design, making the restart wording freshly true).
 - ~~bootstrap-fix~~ — LANDED (`30005f3`): seed builds pipe their Dockerfiles through
   seed_dockerfile (mirror prefixes → direct upstreams, stdin-only, context unchanged — mechanism
   proven with a throwaway build); the three inline Hub refs stay direct by design; pipeline
