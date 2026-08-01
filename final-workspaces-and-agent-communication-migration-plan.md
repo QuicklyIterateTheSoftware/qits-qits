@@ -5,7 +5,8 @@ Amended in place where implementation contradicted the design — every such ame
 says why, because a plan document that quietly agrees with the code it produced is worth nothing.
 Resolves [`migration-plan.md`](migration-plan.md) §9 items 9 (the daemon half) and 16, and shrinks
 item 21. This is the fifth migration document. `migration-plan.md` maps files,
-`migration-deployables-plan.md` maps what runs — this one maps **how the pieces reach each other**
+the deployables plan (retired 2026-08-01, verified fully shipped; its substance lives in each
+service repo's pom/AGENTS.md) mapped what runs — this one maps **how the pieces reach each other**
 across the one boundary the split left unaddressed.
 
 ---
