@@ -152,7 +152,9 @@ Nothing is half-finished. The queue, in order of how ready each item is:
   flow's push uses" — no production caller since gitmirror), qits-artifacts
   microprofile-config.properties:127 (still teaches the bare-config override and "owns no table"
   — it owns three, the override is a row), qits-artifacts README:154 (names /integrate as the
-  release door — it is /release).
+  release door — it is /release), qits-artifacts README:921 (still claims steps get no docker
+  socket "by design" and builds keep failing — false since image-publishing shipped; all nine
+  services are built exactly that way).
 - **OPEN DEFECT, harvested from the retired final-workspaces plan**: the browser↔qits-workspaces
   hop of a proxied websocket has NO backpressure (vertx-http-proxy: no pause, no drainHandler).
   Details in docs/workspace-daemon-notes.md — fix rides the next qits-workspaces change.
