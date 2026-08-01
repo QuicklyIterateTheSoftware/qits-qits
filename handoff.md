@@ -208,7 +208,12 @@ now produces a second same-sha deployment (any green run announces to cd).
   cursor spelling regression-pinned; live walk 142/142 whole): honored/clamped limit,
   composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
   ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
-- **CF** — events chain page (qits-spa-events; CE landed the tail `ebcbc63`, 103 tests —
+- **CG** — events embed + browser pass (qits-events gitlink → `d0813d2`, then the plan's
+  verification script through the real gateway). CF landed the chain page `d0813d2`, 130 tests,
+  budget verified request-for-request live (1+2+5=8 on the npm train's deepest leaf), all four
+  walk caps rendered honestly — and it caught+fixed a real defect in CC's EventsApi.get (the
+  {event:…} envelope was typed away; every field would have read undefined).
+- (earlier: CE landed the tail `ebcbc63`, 103 tests —
   default-off with the budget kept honest, frame filtering EXACT against the server's own
   predicate clauses, frames held under a cursor window. Parked nicety: reconnect blanks
   accumulated load-more pages. Earlier: CD's log page `a19dd83`.)
