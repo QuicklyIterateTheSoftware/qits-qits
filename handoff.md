@@ -226,10 +226,22 @@ now produces a second same-sha deployment (any green run announces to cd).
   parent honest, console clean. One cosmetic defect parked: log-page lede duplicates "newest
   first" (ride the next spa-events change). CF earlier landed the chain page `d0813d2` and
   caught+fixed CC's typed-away {event:…} envelope.
-- **BY** — the combined fan-out IN FLIGHT: FROM rewrite (12 repos → localhost:8081/<slug>/…) +
-  quarkus.otel.metrics.enabled=true (ten services), one commit+redeploy per repo, qits-stt first
-  as cold proof, second repo's zero-fetch warm build as the feature observation, qits-artifacts
-  alone with an empty queue.
+- ~~BY~~ — the fan-out LANDED, all 12 repos green: **metrics flow from all nine services (34–36
+  series each, was 0)**; the mirror serves every service build — qits-stt paid two manifest
+  fetches cold, THE SEVEN BUILDS AFTER FETCHED NOTHING UPSTREAM. CA's panel rode the artifacts
+  cutover (`17cfe53`, gitlink c20a78f). Frictions: (1) the 1.5–2.5 GiB layer fill was DEFERRED —
+  the host daemon already held the base layers, so the mirror has manifests but no layer bytes
+  for the big builders; BZ's proof step decides whether to force it. (2) COLD-START REGRESSION
+  found: the bootstrap seed-builds five rewritten Dockerfiles before the mirror exists — a fix
+  agent is on qits-local-up.sh (sed-to-direct for seed builds only). (3) qits-stt's GitHub main
+  lagged the platform by 4 release commits — healed by rebase + force-with-lease. (4) qits-dns
+  got its FROM/metrics on GitHub only (no pipeline — the standing orphan).
+- **BU** — workspace embed + daemon rebuild + browser pass (dispatched: badge-copy fix, gitlink,
+  the qits/workspace:latest host rebuild delivering BN's enrichment, the full screen pass with a
+  real workspace — no real agent launches).
+- **CL** — the metrics screen against REAL series + the §5 honesty/consolidation pass
+  (qits-spa-observability).
+- **bootstrap-fix** — the seed-phase sed (superproject qits-local-up.sh).
 - (earlier: CE landed the tail `ebcbc63`, 103 tests —
   default-off with the budget kept honest, frame filtering EXACT against the server's own
   predicate clauses, frames held under a cursor window. Parked nicety: reconnect blanks
