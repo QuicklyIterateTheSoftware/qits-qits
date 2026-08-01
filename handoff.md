@@ -252,8 +252,16 @@ now produces a second same-sha deployment (any green run announces to cd).
   §5 table spec'd everywhere). Measured: /telemetry/metrics ?name= is exact-match (client
   filter documented); seriesKey excludes serviceName (warned at ≥2 services/bucket); limit
   accepted-and-ignored (the §4.6 bug class); qits-dns has no bucket (the standing orphan).
-- **CM** — the observability embed + browser pass IN FLIGHT (four workstreams ride the gitlink;
-  the deploy empties the store by design, making the restart wording freshly true).
+- ~~CM~~ — **THE OBSERVABILITY UI IS COMPLETE AND BROWSER-PROVEN** (`95f3a9e` embed, deployment
+  ACTIVE, 383 kB bundle, PackagedSurfaceIT landed): the refill watched live (9 sources in 65s),
+  the restart wording captured while true, the error path proven with a live fixture (waterfall
+  + stack trace + correlated logs), follow-mode cadence and silence both wire-observed, console
+  clean. One minor client defect parked: the source strip labels all-sources totals with a
+  nonexistent bucket's raw key on hand-edited URLs (source-strip.ts scope()/figures() fallback
+  mismatch).
+- **BZ** — the mirror's closer IN FLIGHT: the layer-forcing proof (rmi both base tags → rebuild
+  qits-stt → the real fill through the mirror → the offline zero-fetch check), the deployment
+  doc, and the plan's SHIPPED AND OBSERVED closure.
 - ~~bootstrap-fix~~ — LANDED (`30005f3`): seed builds pipe their Dockerfiles through
   seed_dockerfile (mirror prefixes → direct upstreams, stdin-only, context unchanged — mechanism
   proven with a throwaway build); the three inline Hub refs stay direct by design; pipeline
