@@ -280,9 +280,22 @@ now produces a second same-sha deployment (any green run announces to cd).
   behind grace + re-census, row-less untouchable), the CI_SCREENSHOTS/CI_VIDEOS stub strategies
   completing the five-type table, and the FIRST LIVE SWEEP — expected to reclaim ZERO (grace
   holds everything until ~Aug 6), which is the safety proof.
-- **Full-platform E2E tour** IN FLIGHT: all eight SPAs, all five explorers, the complete
-  workspace lifecycle (incl. the D1 fixes observed live), one full release-train hop, the
-  mirror's warm pull, the GC plan — a scorecard distinguishing new defects from known parked.
+- ~~Full-platform E2E tour~~ — **DONE, 12/12 PASS in 31 minutes**: uniform SPAs, every explorer
+  live with byte-reconciling data, the workspace lifecycle end to end (D1 fixes holding — live
+  restart push, framed web view), a full release-train hop UI-door-to-stop in 95 s (ui-components
+  `2026.801.173225` → spa-home `2026.801.173400`), the mirror warm, GC withheld-by-grace, clean
+  teardown. FOUR NEW DEFECTS, fix agents dispatched:
+  **N4** (qits-ci) a post-receive silently DROPPED on a tracking-ref CAS race — and a release
+  makes the race likely (two pushes in a second); a released main can go unbuilt with only a
+  WARN. **N3** (daemon) web-view proxy loses prefix-stripping after a service auto-restart
+  (likely D1-fix regression) + the root path 404s fresh. **N1** (host) service_event rows persist
+  workspaceRowId null — the SPA's own guard disowns the workspace's events. **N2** (host
+  recorder) bootstrap rows store the step NAME where the declared ID belongs — the join never
+  matches. Known-parked all confirmed as such en route.
+- **N4 fix** IN FLIGHT (qits-ci: bounded CAS retry, QUEUED-not-dropped fallback, live
+  double-push probe).
+- **N1–N3 fix** IN FLIGHT (workspace seam: row id through the event path, declared id in the
+  recorder, restart-safe proxy semantics; daemon image rebuild; live restart probe).
 
 ## Session close (as of the go): every prior chain closed
 
