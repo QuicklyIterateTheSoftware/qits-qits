@@ -155,9 +155,9 @@ Nothing is half-finished. The queue, in order of how ready each item is:
   release door — it is /release), qits-artifacts README:921 (still claims steps get no docker
   socket "by design" and builds keep failing — false since image-publishing shipped; all nine
   services are built exactly that way).
-- **OPEN DEFECT, harvested from the retired final-workspaces plan**: the browser↔qits-workspaces
-  hop of a proxied websocket has NO backpressure (vertx-http-proxy: no pause, no drainHandler).
-  Details in docs/workspace-daemon-notes.md — fix rides the next qits-workspaces change.
+- ~~The websocket backpressure defect~~ — FIXED same day (qits-workspaces `365ea90`, workstream
+  BM): upgrades bypass vertx-http-proxy entirely, raw NetSocket piping with full flow control,
+  proven by a discriminating test. Record kept in docs/workspace-daemon-notes.md.
 - **qits-dns is built but deployed nowhere, and no plan owns that.** Verified 2026-08-01: no
   container, no compose entry, not in qits-local-up.sh's sets, no gateway route. Consequence today
   is nil (the only project stores no dns record, so the registrar never fires), but it is orphaned

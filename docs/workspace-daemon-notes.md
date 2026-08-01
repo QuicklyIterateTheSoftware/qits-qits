@@ -5,14 +5,14 @@ plan was verified fully implemented and retired 2026-08-01. The shipped shape is
 qits-workspaces' AGENTS.md, the daemon repo's README/AGENTS.md, and the code javadoc. These
 items had no other home.
 
-## OPEN DEFECT: no backpressure on the browser↔qits-workspaces upgraded socket
+## ~~OPEN DEFECT: no backpressure on the browser↔qits-workspaces upgraded socket~~ — FIXED
 
-`vertx-http-proxy` gives the browser↔qits-workspaces hop of a proxied websocket NO backpressure
-at all — no `pause`, no `drainHandler`, and a failure arm that prints a stack trace. Recorded at
-stage 1, explicitly "neither caused nor fixed" by stage 2 (whose own tunnel hop DOES pause/replay
-correctly). A fast producer in the container (a chatty dev server, a runaway log stream) can
-balloon qits-workspaces' memory on that hop. Fix belongs in `ContainerProxyRoute` (or wherever
-the vertx-http-proxy usage lives) — ride the next qits-workspaces change and delete this entry.
+Fixed 2026-08-01 (qits-workspaces `365ea90`): websocket upgrades no longer traverse
+`vertx-http-proxy` at all — `proxyUpgrade` builds the outbound request itself and pipes the two
+NetSockets raw with pause/resume + drainHandler both directions, close/end/exception propagated,
+refused handshakes forwarded with the daemon's own status. A discriminating test proves the bound
+(the reverted library path fails it in 0.2s). Kept here as the record of why the route does its
+own upgrade instead of using the library's.
 
 ## Why the container surface is NOT multiplexed onto the control socket
 
