@@ -56,8 +56,8 @@ The everyday loop, and it has two doors into `main`.
 **Release is the normal one.** `POST /workspaces/api/workspaces/<id>/release` merges the
 workspace's branch into `main`, stamps the calendar version onto the merge commit itself
 (`release(2026.801.55529): …`) and pushes that commit to the git host — an ordinary push, so
-everything in the paragraph below happens exactly as it always did. It also publishes a
-`SoftwareRelease` event on the bus.
+everything in the paragraph below happens exactly as it always did. It also publishes an
+`SCMRelease` event on the bus.
 
 Its sibling `POST /workspaces/api/workspaces/<id>/integrate` merges into the branch's **parent**
 branch instead — a `task/…` landing on its `epic/…` — with no version, no bump and no event. Aimed
@@ -113,6 +113,37 @@ the stopped predecessor or a bootstrap rerun.
 The one flow that still needs a bootstrap rerun **without** `QITS_SKIP_BUILD`: it rebuilds the
 binary, uploads the new blob, and regenerates the run-args file pinning the new digest — after
 which qits-ci must be redeployed (any push to it) to pick the new env up.
+
+## The base images pull through the platform's own mirror
+
+Every committed Dockerfile `FROM`s `localhost:8081/quay/…` or `localhost:8081/redhat/…`:
+qits-artifacts is a pull-through cache for the upstream registries, one namespace per registered
+upstream (`quay`, `redhat`, `hub`). The first pull of a reference fetches from its upstream,
+verifies the digest and keeps the bytes forever; every later pull is served from disk. Once a
+base image has been pulled once, every later build succeeds with the internet down — an expired
+tag serves stale, and only a never-cached reference fails (502, naming the upstream). Manage the
+upstreams in the explorer at `/artifacts/` → Mirrors, or over
+`/artifacts/api/mirror-upstreams`; deleting one stops future fetching but keeps the cache.
+
+Three facts an operator needs:
+
+- **The bootstrap is the one exception.** Seed builds run before qits-artifacts exists, so
+  `qits-local-up.sh` pipes their Dockerfiles through `seed_dockerfile`, which rewrites the
+  mirror prefixes back to the direct upstream refs. Pipeline builds keep the mirror — and a
+  `FROM` that hits the mirror while qits-artifacts is mid-cutover fails that build; rerun it.
+- **Every upstream is anonymous.** A `docker login` on the daemon never travels through a
+  pull-through hop — the mirror dials upstream as itself. A private upstream needs a
+  server-side credential, a future column on the upstream row; its first planned use is a
+  Docker Hub PAT on the first observed 429.
+- **The cache only grows.** Append-only by decision (proxy-pulling-normal-images.md ⚖2) until
+  access tracking lands. `GET /artifacts/api/gc/plan` reports the `oci-mirror` type all-kept
+  ("append-only pending access tracking"), and `ociMirrorBytes` in
+  `/artifacts/api/store/summary` is the current size.
+
+One host-side trap, measured while proving the fill: the docker daemon keeps base layers alive
+long after `docker rmi` — dangling intermediate images and the buildkit cache both pin them —
+so "remove the tag and rebuild" does not force a re-pull until those go too. Nothing about the
+platform needs that; it only matters when deliberately testing the mirror's offline posture.
 
 ## Changing what a deployed application gets at runtime
 
