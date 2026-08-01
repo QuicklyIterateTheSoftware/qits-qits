@@ -212,11 +212,17 @@ now produces a second same-sha deployment (any green run announces to cd).
   cursor spelling regression-pinned; live walk 142/142 whole): honored/clamped limit,
   composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
   ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
-- **CG** — events embed + browser pass (qits-events gitlink → `d0813d2`, then the plan's
-  verification script through the real gateway). CF landed the chain page `d0813d2`, 130 tests,
-  budget verified request-for-request live (1+2+5=8 on the npm train's deepest leaf), all four
-  walk caps rendered honestly — and it caught+fixed a real defect in CC's EventsApi.get (the
-  {event:…} envelope was typed away; every field would have read undefined).
+- ~~CG~~ — **THE EVENTS EXPLORER IS COMPLETE AND BROWSER-PROVEN** (`aef2df1` embed, deployment
+  ACTIVE, 291 kB bundle): every verification step passed live — the 2+1-socket budget observed,
+  server-side filters matching backend counts, the cursor walk whole with the fork tie held, all
+  five tail marker states, the c5edabb5 fork drawn as a fork at 1+2+5=8 requests, the dangling
+  parent honest, console clean. One cosmetic defect parked: log-page lede duplicates "newest
+  first" (ride the next spa-events change). CF earlier landed the chain page `d0813d2` and
+  caught+fixed CC's typed-away {event:…} envelope.
+- **BY** — the combined fan-out IN FLIGHT: FROM rewrite (12 repos → localhost:8081/<slug>/…) +
+  quarkus.otel.metrics.enabled=true (ten services), one commit+redeploy per repo, qits-stt first
+  as cold proof, second repo's zero-fetch warm build as the feature observation, qits-artifacts
+  alone with an empty queue.
 - (earlier: CE landed the tail `ebcbc63`, 103 tests —
   default-off with the budget kept honest, frame filtering EXACT against the server's own
   predicate clauses, frames held under a cursor window. Parked nicety: reconnect blanks
