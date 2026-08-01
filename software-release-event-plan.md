@@ -1,10 +1,37 @@
 # SoftwareRelease: the event a release publishes
 
-Status: SEED (2026-07-31) — scoped by the user, deliberately queued behind two things that must
-settle first: **release-flow-plan.md** (the versionbump-merge-push flow this event announces) and
-the **qits-eventstream switchover** in qits-ci (the library this event rides; extracted and
-renamed at libs/qits-eventstream, consumer switchover pending). Detailed design happens when both
-are done; this document pins the intent so nothing drifts in the meantime.
+Status: **SHIPPED (2026-08-01)** — live in qits-workspaces, observed on the bus. The seed below is
+what was specified; it shipped as specified, with one sharpening the split made necessary: the
+publisher is **`/release`**, not integrate. A plain integrate (branch → parent branch) publishes
+nothing, by construction — see release-flow-plan.md's 2026-08-01 addendum.
+
+**First live event**, `GET /events/api/events` on the local platform:
+
+    id          1faa0164-7747-4cf9-9bb5-a996c0db6898
+    name        SoftwareRelease
+    occurredAt  2026-08-01T05:55:29.355478Z
+    parentId    null                                  (a human-initiated release is a chain root)
+    payload     {"branch":"task/aj-release-proof",
+                 "projectId":"53c78589-6af3-4221-b3ef-315c867b0863",
+                 "repository":"qits-stt",
+                 "version":"2026.801.55529"}
+
+Released commit `eed05301` on qits-stt's `main`. `projectId` is the `qits` project — the join
+`RepositoryView` gained when this landed. The same proof ran an integrate on the same repo
+immediately afterwards and the SoftwareRelease count stayed at one.
+
+Shipped shape: `SoftwareReleaseAnnouncer` (in the deployable's `bus/` package) implements the
+domain's `ReleaseAnnouncer` port; the event class lives in the service's own `workspaces-events`
+module; the deployment declares `QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL` and `QITS_EVENTS_URL`
+alongside qits-ci's (qits-local-up.sh and the live `qits-cd-config` volume, 2026-08-01).
+
+The original seed follows.
+
+Status at seeding: SEED (2026-07-31) — scoped by the user, deliberately queued behind two things
+that must settle first: **release-flow-plan.md** (the versionbump-merge-push flow this event
+announces) and the **qits-eventstream switchover** in qits-ci (the library this event rides;
+extracted and renamed at libs/qits-eventstream, consumer switchover pending). Detailed design
+happens when both are done; this document pins the intent so nothing drifts in the meantime.
 
 ## The feature, as specified
 

@@ -49,10 +49,10 @@
 #                       push the default branch directly once protection is on
 #                       (default local-dev)
 #
-# On that last one: releasing is a thing the platform does — qits-workspaces' integrate endpoint
+# On that last one: releasing is a thing the platform does — qits-workspaces' release endpoint
 # merges, stamps a version and pushes, and the git host protects each repo's default branch against
 # everything else. This bootstrap is the standing exception: it pushes nine repos to main by
-# definition, before any workspaces service exists to integrate through. So it configures a token
+# definition, before any workspaces service exists to release through. So it configures a token
 # and presents it. The value is a knob and NOT a secret — a deployment that wants no escape hatch
 # at all simply leaves `qits.repositories.git.push-token` unset, and then nothing overrides.
 #
@@ -293,7 +293,7 @@ services:
       # The default branch's escape hatch: a push carrying -o qits.token=<this> is let through
       # even when protection is on. Unset would mean no value matches and nothing overrides —
       # which is the shipped default everywhere else, and which this bootstrap cannot live with
-      # (it pushes main nine times before an integrate endpoint exists to go through).
+      # (it pushes main nine times before a release endpoint exists to go through).
       QITS_REPOSITORIES_GIT_PUSH_TOKEN: "${PUSH_TOKEN}"
       # Protection stays ON here too: the bootstrap's own pushes carry the token above, and a
       # rerun that silently disarmed the seatbelt AC flipped live would be the quiet failure.
@@ -374,12 +374,17 @@ qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/
 qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT}
 qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speech
 qits.cd.run-args.qits-projects=-v qits-projects-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics
-# QITS_ARTIFACTS_URL is where integrate PUSHES the release commit — the git host, over HTTP, so
+# QITS_ARTIFACTS_URL is where release PUSHES the release commit — the git host, over HTTP, so
 # the ordinary post-receive fires and the ordinary pipeline builds it. The value equals the
 # service's own shipped default; it is spelled here because every other cross-service address in
 # this file is spelled here, and an address a deployment inherits silently is an address nobody
 # knows to change.
-qits.cd.run-args.qits-workspaces=-v qits-workspaces-data:/data -v qits-repositories:/data/repositories -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_WORKSPACES_JDBC_URL=jdbc:h2:file:/data/workspaces/h2/workspaces -e QITS_PROJECTS_URL=http://qits-projects:8080 -e QITS_ARTIFACTS_URL=http://qits-artifacts:8080
+# The eventstream twin (same pair qits-ci carries above): a release publishes SoftwareRelease
+# through the shared bus client, whose outbox owns its own datasource. The shipped default sits
+# under a home directory a container has not got, so every deployment spells the url; the file
+# stays under /data, which is already the mounted volume. QITS_EVENTS_URL is where the outbox
+# drains to.
+qits.cd.run-args.qits-workspaces=-v qits-workspaces-data:/data -v qits-repositories:/data/repositories -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_WORKSPACES_JDBC_URL=jdbc:h2:file:/data/workspaces/h2/workspaces -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_PROJECTS_URL=http://qits-projects:8080 -e QITS_ARTIFACTS_URL=http://qits-artifacts:8080 -e QITS_EVENTS_URL=http://qits-events:8080
 qits.cd.run-args.qits-events=-v qits-events-data:/data -e QUARKUS_DATASOURCE_EVENTS_JDBC_URL=jdbc:h2:file:/data/events/h2/events
 RUNARGS
 docker volume create qits-cd-config >/dev/null
@@ -514,7 +519,7 @@ PIPELINE
       commit -q -m "Opt into CI: publish this repo's image from a green push"
   fi
 
-  # -o qits.token: the bootstrap's standing exception to "integrate is the only door into main".
+  # -o qits.token: the bootstrap's standing exception to "release is the only door into main".
   # The very first push of a repo creates the ref and needs nothing (creates are allowed by
   # design — an empty repo has no default branch to protect), but every rerun updates it, and an
   # update is exactly what protection guards. The option rides inside the pack protocol, so it
@@ -574,7 +579,7 @@ echo "gateway:   http://localhost:${PORT}/            (variant: local, UNAUTHENT
 echo "registry:  localhost:${REGISTRY_PORT} (host daemon only)"
 echo "git host:  http://localhost:${PORT}/artifacts/git/<repoId>"
 echo "dev loop:  commit in a repo, rerun with QITS_SKIP_BUILD=1 — the push redeploys it"
-echo "main:      released by integrate; a direct push needs -o qits.token=${PUSH_TOKEN}"
+echo "main:      written by /workspaces/{id}/release; a direct push needs -o qits.token=${PUSH_TOKEN}"
 [ -d /out ] && echo "seed compose + state saved to /out"
 warn "not part of either set (no image exists): qits-dns, qits-spa-home"
 warn "workspace containers need a qits/workspace:latest base image supplied separately"

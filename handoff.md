@@ -1,135 +1,94 @@
-# Handoff: 2026-07-31 → next session
+# Handoff: 2026-08-01 → next session
 
-Start here. What shipped today, what is mid-flight RIGHT NOW, how to verify it landed, and where
-the work picks up. The map, not the territory — reasoning lives in the plan docs named inline.
-**This file is being updated live through the evening of 2026-07-31 as in-flight agents report;
-the "In flight" section is the part to re-check first.**
+Start here. What shipped today, how to verify it landed, and where the work picks up. The map, not
+the territory — reasoning lives in the plan docs named inline.
 
-## Shipped today, in order (all live on the local platform unless noted)
+Yesterday's handoff is in git history (`git show 40efd9a:handoff.md`) if you need the release-flow
+build-out story; everything it left in flight landed, and today's work sits on top.
 
-1. **qits-events + qits-spa-events** — new Quinoa service at `/events/`, full bring-up
-   (docs/project-setup-quinoa-angular.md followed; gateway needed an enum entry — the route table's
-   key set is closed, `QitsService.EVENTS`).
-2. **The left nav learned its doors** — `@qits/ui-components` 0.0.3 (Events) and, this evening,
-   0.0.4 (CD): each a lib release + all-SPA bump train + gitlink advances. Eight apps, eight links.
-3. **The event bus** (`eventsourcing-plan.md`) — idempotent `PUT /events/api/events/{id}`,
-   `/events/stream` websocket, publisher with outbox + retry, `BuildSuccessful` published on every
-   green build and consumed by qits-ci itself. Native-image war stories are in qits-ci's AGENTS.md.
-4. **Causation** (`event-causation-plan.md`) — nullable `parentId` stamped by the bus
-   (`CausationScope`), in the PUT equality, walkable via `?parentId=`.
-5. **CI event triggers** (`ci-event-triggers-plan.md`) — `.config/qits/ci-event-*.yml`, matcher DSL
-   (exact/prefix/exists, OR-of-AND-groups), engine on the raw-listener seam, provenance columns +
-   dedupe constraint, `QITS_EVENT_*` env into steps. Live canary: qits-spa-workspaces triggers on
-   qits-spa-ui-components green builds; the first automatic causation edge is a production row.
-6. **The ci + cd explorers** (`ci-cd-explorer-plan.md`) — project-centric trees at `/ci/` and
-   `/cd/`, run detail with live tail + cancel, deployment tables with `runId` click-through
-   (cd's V2 stores what its intake used to drop). The platform onboarded itself into qits-projects
-   (`qits` project; `Repository.id` = git-host dir name is THE join key; legacy mirror dupes
-   removed). Both explorers browser-E2E'd: PASS.
-7. **ci UX round** — QUEUED runs are real rows (created at accept; re-enqueued across restarts —
-   the lossy-intake trap is HALF dead: queued survives cutover, in-flight RUNNING still dies),
-   `/ci/api/runs/active` rail, `/ci/api/repositories/summary` badges, projects default-open,
-   attribution correct from first render, gzip on (4×).
-8. **qits-eventstream extracted** — the bus client left qits-ci: `libs/qits-eventstream`
-   (history preserved, renamed eventsourcing→eventstream incl. datasource/env/keys), consumed by
-   qits-ci as a submodule at `eventstream/`, deployed on the renamed datasource
-   (`QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL`). Old `/data/eventsourcing` H2 file orphaned (was
-   empty), not deleted.
+## Shipped today, in order (all live on the local platform)
 
-## In flight at last update (~22:30 local) — VERIFY THESE FIRST NEXT SESSION
+1. **The integrate/release split** (`release-flow-plan.md`, 2026-08-01 addendum) — the parked
+   design question from yesterday, answered. `main` is written by **release alone**:
+   - `POST /workspaces/api/workspaces/{id}/release` `{summary}` → `{version, commitSha, branch}` —
+     branch → `main`, target not a parameter, calver stamp + manifest bump + one two-parent
+     `release(<version>): <summary>` commit, pushed with `-o qits.release`.
+   - `POST /workspaces/api/workspaces/{id}/integrate` `{summary}` → `{commitSha, branch,
+     targetBranch}` — branch → **its parent branch**, a plain `integrate(<source>): <summary>`
+     merge. No stamp, no bump, no event, no `version` in the response.
+   - Wrong door (integrate whose parent resolves to `main`, or a merge endpoint aimed at `main`) →
+     **409 `reason: RELEASE_REQUIRED`**, naming the endpoint that does write it. The whole 409
+     reason enum is now declared in the OpenAPI via `api/ApiError`.
 
-Release-flow implementation (`release-flow-plan.md`, settled: calver `YYYY.MMDD.HHMMSS` e.g.
-`2026.731.193059`; main protected by `PreReceiveHook`; bypass = `-o qits.release` ff-only +
-`-o qits.token=<value>` vs `qits.repositories.git.push-token`, default unset = locked):
+   qits-workspaces `3728fcd` (webui gitlink advanced at `27670e6`).
+2. **`SoftwareRelease` is live** (`software-release-event-plan.md`, **SHIPPED**) — a release, never
+   an integrate, publishes `{projectId, repository, branch, version}` the instant the push is
+   accepted, through the qits-eventstream submodule. First observed event on the bus:
 
-- **Agent X — DONE** (~22:32): ProtectedRefHook live at qits-artifacts `b6a0745`, INERT and
-  proven so (native IT force-pushes main under shipped defaults and lands; zero hook decisions
-  since cutover). Push-options advertised; token semantics as settled (SmallRye reads
-  configured-empty as absent — indistinguishable from unset, both match nothing, recorded in
-  AGENTS.md). AC's flip is the remaining half.
-- **Agent Y — DONE** (~22:40): VersionStamp (UTC pinned, morning case `2026.731.93059` proven) +
-  splice bumpers at qits-workspaces `c4bb7cf`, UNPUSHED (Z ships it). Measured find: StAX char
-  offsets lie past the first 8KB buffer — pom splicing maps line/column instead. 59 new tests,
-  round-trip byte-identity as the load-bearing assertion.
-- **Agent Z — DONE** (~23:17): integrate flow live at qits-workspaces `7cb9baa` (ships Y + AA's
-  UI too). Endpoint answers; 409s carry `reason`+`conflicts` (fifth reason: PUSH_REJECTED —
-  hook refusals are 409s, never 500s); `ReleaseAnnouncer` port is the SoftwareRelease seam
-  (`RepositoryView` still lacks projectId — widen when the event lands). The live integrate
-  proof is AC's. OpenAPI declares no 4xx anywhere — declaring the reason enum is a follow-up.
-- **Agent AB — DONE** (~23:35): token wired (fixed `local-dev`, env-overridable via
-  `QITS_PUSH_TOKEN`) into script + live cd-config; docs teach both doors; also fixed a fatal
-  pre-existing `${user.home}` bad-substitution in the compose heredoc that would have killed the
-  next bootstrap. Committed 357c163.
-- **Agent AC — DONE (~23:35, RELEASE-FLOW COMPLETE):** protection ON and durable (the missing
-  heredoc flag fixed post-report, d782d14). Gate proven live both doors + against the packaged
-  binary with token unset (default-locked holds); `qits.release` cannot force. **The platform's
-  first two releases exist**: `release(2026.731.213235)` (qits-spa-workspaces, npm, 3 JSON
-  fields) and `release(2026.731.213345)` (qits-stt, maven, 3 XML elements) — two-parent merge
-  commits, ordinary CI runs, BuildSuccessful events, qits-stt redeployed off its release. Small
-  contract notes for later: retry-integrate of a RESOLVED workspace is 404 (the 409
-  ALREADY_INTEGRATED path needs an ACTIVE workspace — plan/AA prose slightly overpromise);
-  AA's classifier: the ONLY refusal text containing "fast-forward" is the qits.release non-ff
-  one — key on it for NOT_FAST_FORWARD only.
-- **Agent AA — DONE** (~22:30): Integrate UI at qits-spa-workspaces `f5860ee`, pushed GitHub +
-  mirror (mirror run green). Six outcome surfaces; Z must emit `reason`+`conflicts` on its 409s
-  (additive) and 4xx-not-500 for hook refusals — friction notes in AA's report, folded into Z's
-  brief. Gitlink advance into qits-workspaces rides Z's ship step.
-- **Then queued**: Z (integrate flow + endpoint, after Y) → AB (deployment wiring: token into
-  qits-local-up.sh + live cd-config; teach the pushers) → AC (flip protection on, prove
-  default-locked live).
+       1faa0164-7747-4cf9-9bb5-a996c0db6898  SoftwareRelease  2026-08-01T05:55:29.355478Z
+       {"branch":"task/aj-release-proof","projectId":"53c78589-6af3-4221-b3ef-315c867b0863",
+        "repository":"qits-stt","version":"2026.801.55529"}
+
+3. **The UI shows one door per workspace** — qits-spa-workspaces `eee3113`: Release when the parent
+   is `main`, Integrate otherwise, and a `RELEASE_REQUIRED` 409 surfaces a "Release into main
+   instead" affordance.
+4. **qits-ci finished-runs** — `GET /ci/api/runs/finished?limit=N` beside `/active`, and the spa-ci
+   rail that stacks finished runs above what is in flight. qits-ci `c211a0dc`.
+5. **The wiring and the live proof** (this pass) — the qits-workspaces deployment now *declares*
+   `QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL` and `QITS_EVENTS_URL` (image defaults before, so this
+   changed no behaviour, only the record), in `qits-local-up.sh` and in the live `qits-cd-config`
+   volume; both proven present on the container the next deploy started. Then the split was proven
+   end to end on qits-stt: release `2026.801.55529` / `eed05301` (two parents, three poms bumped,
+   ordinary CI run `b3814ea3`, deployment `e8b0ef62` ACTIVE, the event above); integrate onto an
+   `epic/aj-proof` parent `05638f5c` with `main` untouched and no second event; integrate on a
+   main-parented workspace → 409 `RELEASE_REQUIRED`.
 
 How to verify any of it: `/ci/api/runs?repositoryId=<repo>` for the builds,
 `/cd/api/deployments?environmentId=9fc2480c-3ff9-4f24-9bfe-67abe64afb06` for deployments,
-`docker ps` for containers, and each agent's committed sha vs `git ls-remote` on both remotes.
+`/events/api/events` for the bus, `docker ps` for containers, and each shipped sha vs
+`git ls-remote` on both remotes.
 
 ## Next feature, planned and ready to implement
 
-**`release-train-hops-plan.md`** (SETTLED-WITH-REVISION, committed 2ea99c5 — ready to implement,
-workstreams AD ∥ AE → AF → AG; note the rollback hazard it defuses: an old qits-ci ignoring the
-step-level key would integrate on EVERY push, hence AF gates on AD *deployed* and the step script
-self-asserts its branch): the train's loop closes.
-SoftwareRelease event (`software-release-event-plan.md`, seeded) + event pipelines combine:
-upstream integrates → SoftwareRelease → consumer's ci-event pipeline bumps the dep (really runs
-npm — lockfile integrity can't be spliced; resolved-origin sed both directions) and FORCE-pushes
-`maintenance/<upstream-repo-id>` → the same repo's ONE ci-post-receive.yml carries an unscoped
-test step plus an integrate step scoped by the NEW capability — **step-level `branches:`
-matching** (user's call, replacing the originally-designed pipeline-level filter + file family):
-a step whose branch filter misses is SKIPPED, and step ordering gives integrate-only-after-green
-within a single run. Integrate needs one ADDITIVE branch-keyed endpoint
-(`POST /workspaces/api/branches/integrate` — Agent AE; release-flow's workspace-keyed contract
-untouched). Rollout: spa-home is the only equipped consumer until one green hop is observed.
-parentId is knowingly lost across the push boundary (solved differently, later).
+**`release-train-hops-plan.md`** (SETTLED, with a 2026-08-01 addendum) — the train's loop closes:
+upstream releases → `SoftwareRelease` → the consumer's ci-event pipeline bumps the dependency
+(really runs npm; a lockfile's integrity cannot be spliced) and force-pushes
+`maintenance/<upstream-repo-id>` → the consumer's ordinary post-receive pipeline runs its tests and,
+on green, releases itself → the next `SoftwareRelease`. The new capability the plan needs is
+**step-level `branches:` matching** in qits-ci; a step whose filter misses is SKIPPED, and step
+order gives release-only-after-green inside one run.
 
-**The next session's job, in order:**
-1. Verify everything under "In flight" actually landed (agents sometimes die silently after their
-   final push — check remotes/pipelines, not just reports).
-2. Finish release-flow through AC if any workstream stalled.
-3. Implement the SoftwareRelease event (`software-release-event-plan.md`) — small, rides the
-   integrate flow's success seam.
-4. Implement `release-train-hops-plan.md` (Opus 5 workstreams lettered from AD).
+**Workstreams, in order: AD ∥ AE → AF → AG.**
+
+- **AD** — step-level `branches:` in qits-ci.
+- **AE** — the branch-keyed endpoint, and the addendum renamed it: **`POST
+  /workspaces/api/branches/release`**, not `/branches/integrate`. A maintenance hop merges into
+  `main`, so it is a *release*; `/branches/integrate` now means branch → parent branch and would
+  409 `RELEASE_REQUIRED`.
+- **AF** — the two pipeline files in qits-spa-home; its maintenance step calls `/branches/release`.
+  Gates on **AD deployed** (an old qits-ci ignoring the step-level key would release on every push
+  — the rollback hazard the plan defuses; the step script also self-asserts its branch).
+- **AG** — the live hop.
+
+The canary trigger in qits-spa-workspaces
+(`.config/qits/ci-event-upstream-ui-components.yml`) can flip from `BuildSuccessful` to
+`SoftwareRelease` now that the payload carries a version — match on `repository`, never on `branch`
+(the branch is the source branch, e.g. `maintenance/…`).
 
 ## Parked follow-ups (deliberate, not forgotten)
 
-- **RECONSIDER THE INTEGRATE/RELEASE API SHAPE — user-flagged 2026-07-31, decide AFTER picking up
-  this handoff, not before.** The release logic (versionbump + release(<version>) commit +
-  SoftwareRelease later) was folded into the *integrate* action. The user suspects that was a
-  mistake: the cleaner shape may be a dedicated **`/release`** endpoint — available only for
-  branches being integrated into main — with `/integrate` staying a plain merge (or retiring).
-  This touches release-flow-plan.md's frozen API (Z's `/workspaces/{id}/integrate`), AA's UI
-  wording, and the hops plan's branch-keyed endpoint (AE) — so it is a deliberate design pass,
-  not a rename: weigh it once Z/AB/AC have landed and the first live release exists to look at.
-
 - **index.html immutable-cache bug — USER-IMPACTING**: every SPA serves `index.html` with
   `immutable, max-age=86400`; returning browsers get blank/stale pages after every deploy until a
-  hard reload (measured twice today). Fix: document must revalidate, hashed bundles stay immutable;
-  a seven-service rollout — queue when CI is quiet.
+  hard reload. Fix: document must revalidate, hashed bundles stay immutable; a seven-service
+  rollout — queue when CI is quiet.
 - Tofu chevrons (`▸▾`) in the explorers on hosts without glyph coverage — CSS triangle would fix.
 - `CausationStampingTest` flake in qits-eventstream (~1 in 3: StaleObjectStateException,
   double-delete of an outbox row).
-- qits-ci README still promises `jq` in step images; `node-base` has none (plan doc corrected, README
-  not — ride the next qits-ci change).
+- qits-ci README still promises `jq` in step images; `node-base` has none (plan doc corrected,
+  README not — ride the next qits-ci change).
 - qits-spa-ci / qits-spa-cd have CI recipes but no repos on the platform git host (their pipelines
-  never run; seeding them is a one-liner when wanted).
+  never run; seeding them is a one-liner when wanted). Related: qits-ci's webui gitlink sits at
+  `24579ae` while qits-spa-ci's main is `28a4c45` — one commit of lag to ride the next qits-ci push.
 - Event-triggered QUEUED rows are discarded (not re-enqueued) at restart — closing it means
   persisting the event payload on the run row.
 - DAG cycle detection across trigger files; bus catch-up/replay — both designed-around, both future
@@ -137,18 +96,26 @@ parentId is knowingly lost across the push boundary (solved differently, later).
 
 ## Operational truths that bite (full versions in auto-memory + repo AGENTS.md files)
 
+- **Two doors, and they are not interchangeable.** `POST /workspaces/api/workspaces/{id}/release`
+  is the only thing that writes `main`; `POST …/{id}/integrate` merges into the branch's *parent*
+  and refuses a `main` parent with 409 `RELEASE_REQUIRED`. A direct `git push … main` needs
+  `-o qits.token=local-dev` — the token `qits-local-up.sh` configures (`QITS_PUSH_TOKEN`, carried
+  into qits-artifacts' run-args). A deployment with no token configured has no escape hatch: unset
+  matches nothing and so does empty. Creates are never guarded, so seeding a fresh repo — or
+  pushing a task branch — still needs no option.
+- `POST /workspaces/api/branches/cleanup` refuses a branch with unmerged commits, by design. A
+  proof branch that was integrated into a *parent* rather than released therefore cannot be cleaned
+  through the API door; `git push origin :refs/heads/<branch>` still works (non-default refs are not
+  the hook's business).
 - Replays of `POST /ci/api/events/post-receive` are NOT idempotent; a missing run row while the
   worker is busy means QUEUED, not lost. Loss = FIFO violation with idle worker, or the successor's
   "Marked N left RUNNING" line.
 - qits-cd write-wedge: green runs, no deployment row, "database has been closed" in cd logs →
   restart cd container, replay `POST /cd/api/events/build-succeeded`.
+- qits-cd caches its run-args config at boot. After editing `application.properties` on the
+  `qits-cd-config` volume, **restart the qits-cd container** or the next deploy uses the old values.
 - Gateway is :8080; :8081 is qits-artifacts direct. CI filter param is `repositoryId`; cd's is
   `environmentId`.
-- `main` is the git host's protected ref: integrate (`POST /workspaces/api/workspaces/{id}/integrate`)
-  is the door, and a direct `git push … main` needs `-o qits.token=local-dev` — the token
-  `qits-local-up.sh` configures (`QITS_PUSH_TOKEN`, carried into qits-artifacts' run-args). A
-  deployment with no token configured has no escape hatch: unset matches nothing and so does empty.
-  Creates are never guarded, so seeding a fresh repo still needs no option.
 - Never run qits-local-up.sh casually (recreate branch kills the cd-managed core); never DELETE the
   `qits` project (it deletes the platform's own git origins).
 - Superproject: many local commits, **none pushed** (user hasn't asked). Submodule gitlinks lag by

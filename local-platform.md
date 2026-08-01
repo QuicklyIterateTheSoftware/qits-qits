@@ -53,10 +53,16 @@ into this directory. Both are generated, machine-specific state and gitignored.
 
 The everyday loop, and it has two doors into `main`.
 
-**Integrate is the normal one.** `POST /workspaces/api/workspaces/<id>/integrate` merges the
+**Release is the normal one.** `POST /workspaces/api/workspaces/<id>/release` merges the
 workspace's branch into `main`, stamps the calendar version onto the merge commit itself
-(`release(2026.731.193059): …`) and pushes that commit to the git host — an ordinary push, so
-everything in the paragraph below happens exactly as it always did.
+(`release(2026.801.55529): …`) and pushes that commit to the git host — an ordinary push, so
+everything in the paragraph below happens exactly as it always did. It also publishes a
+`SoftwareRelease` event on the bus.
+
+Its sibling `POST /workspaces/api/workspaces/<id>/integrate` merges into the branch's **parent**
+branch instead — a `task/…` landing on its `epic/…` — with no version, no bump and no event. Aimed
+at a workspace whose parent is `main` it refuses with 409 `reason: RELEASE_REQUIRED`. Only release
+writes `main`.
 
 **A direct push is the escape hatch, and the deployment decides whether it exists.** `main` is a
 protected ref on the git host, so updating it needs a push option carrying this host's configured

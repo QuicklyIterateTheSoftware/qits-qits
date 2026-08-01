@@ -1,5 +1,43 @@
 # Releasing as a domain process: integrate, stamp, push
 
+## Addendum, 2026-08-01: two processes, and only one of them releases
+
+**SHIPPED. This addendum supersedes the body's API where the two disagree; everything else in the
+body — the protected ref, the push option, the nine-step flow, the calver stamp, the bumpers — is
+what shipped.** The body folds releasing into "integrate". The user flagged that as a mistake (the
+parked item in the 2026-07-31 handoff), and the design pass split it in two:
+
+- **`POST /workspaces/api/workspaces/{id}/release` `{summary}` → `{version, commitSha, branch}`.**
+  Merges the workspace's branch into the repository's default branch — **the target is not a
+  parameter, it is always `main`** — with the calver stamp, the manifest bump and one two-parent
+  `release(<version>): <summary>` commit, pushed with `-o qits.release`. **The one door into
+  `main`**, and the only versioned one.
+- **`POST /workspaces/api/workspaces/{id}/integrate` `{summary}` → `{commitSha, branch,
+  targetBranch}`.** Merges the workspace's branch into **its parent branch** — a `task/…` landing
+  on the `epic/…` it forked from — as one plain two-parent `integrate(<source>): <summary>` commit.
+  No version, no bump, no `qits.release`, no event; the response carries no `version` field for the
+  same reason. Releasing is what the epic then does with `/release`.
+
+Integrating a workspace whose parent resolves to `main` is refused **409 with `reason:
+RELEASE_REQUIRED`**, naming the endpoint that does write it; `/branches/merge` and
+`/workspaces/{id}/merge` raise the same reason on a main target. `reason` joins the 409 family
+(`CONFLICT`, `MERGE_CONFLICT`, `NOT_FAST_FORWARD`, `ALREADY_INTEGRATED`, `PUSH_REJECTED`) and the
+whole enum is now declared in `docs/openapi.yml` via `api/ApiError` — the body's "OpenAPI declares
+no 4xx anywhere" note is closed.
+
+**`SoftwareRelease` shipped with it** (software-release-event-plan.md, SHIPPED): a release — never
+an integrate — publishes `{projectId, repository, branch, version}` the instant the push is
+accepted. First live event `1faa0164-7747-4cf9-9bb5-a996c0db6898`.
+
+Live proof of the split, 2026-08-01 on qits-stt: release → `2026.801.55529`, merge commit
+`eed05301`, two parents, three poms bumped, ordinary CI run, `SoftwareRelease` on the bus; integrate
+on an `epic/aj-proof`-parented workspace → `05638f5c` on the epic branch, `main` byte-identical, no
+event; integrate on a main-parented workspace → 409 `RELEASE_REQUIRED`.
+
+The body below is the historical design and is left as written.
+
+---
+
 Today `main` is written by whoever types `git push`. This feature makes releasing a thing the
 platform *does* rather than a thing a person remembers to do: **`main` becomes protected, and the
 workspaces API's "integrate" becomes the one door into it.** Integrating a workspace merges its

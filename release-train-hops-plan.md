@@ -1,5 +1,38 @@
 # The release train's hops: a release walks into its consumers, and rolls on
 
+## Addendum, 2026-08-01: the hop is a release, so the endpoint is `/branches/release`
+
+Both dependencies this plan waited on have shipped, and one of them renamed the hop's endpoint.
+release-flow split its one action in two (release-flow-plan.md's 2026-08-01 addendum):
+**release** = branch → `main`, versioned, the only door; **integrate** = branch → the branch's
+*parent* branch, a plain merge that stamps nothing and publishes nothing. A maintenance hop merges
+into `main` and must produce a version and a `SoftwareRelease` — so a hop is a **release**.
+
+Amendments to the frozen contract, and nothing else in this plan moves:
+
+- **Agent AE builds `POST /workspaces/api/branches/release?repositoryId=<repoId>`**
+  `{branch, summary}` → `{version, commitSha, branch}` — not `/branches/integrate`. Same flow, same
+  409 family, same summary validation, same ACTIVE-workspace resolution and source-branch deletion,
+  same 404/400. It is the branch-keyed sibling of `/workspaces/{id}/release`, which is the endpoint
+  it now resolves over.
+- **Agent AF's maintenance step calls `/branches/release`**, and the step's own name and log wording
+  should say "release", not "integrate" — the run log is the hop's receipt and the word is now load-
+  bearing. `/branches/integrate` would be the *wrong* call: it targets the parent branch and 409s
+  `RELEASE_REQUIRED` when that parent is `main`.
+- The 409 family gained `reason` as a structural field, `RELEASE_REQUIRED` among the values, and the
+  enum is declared in qits-workspaces' `docs/openapi.yml`. The "409 already integrated → success"
+  rule keys on `reason: ALREADY_INTEGRATED`, not on message text.
+- `SoftwareRelease` is **SHIPPED and observed live** (first event
+  `1faa0164-7747-4cf9-9bb5-a996c0db6898`, payload
+  `{"branch":"task/aj-release-proof","projectId":"…","repository":"qits-stt","version":"2026.801.55529"}`).
+  The seed's field names and the "`repository` is the repo id string" / "never match on `branch`"
+  readings this plan pinned are all confirmed by the wire.
+
+Everything below is unchanged, including the workstream split (AD ∥ AE → AF → AG) and the rollback
+hazard AF gates on; read `/branches/integrate` in the body as `/branches/release`.
+
+---
+
 The follow-up that closes the loop the last four features each built one arc of. A repository
 releases (release-flow-plan.md's integrate), the release announces itself
 (software-release-event-plan.md's `SoftwareRelease`), a consumer's event pipeline hears it
