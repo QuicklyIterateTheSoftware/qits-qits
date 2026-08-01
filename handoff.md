@@ -123,14 +123,23 @@ Nothing is half-finished. The queue, in order of how ready each item is:
 
 - **The other six SPAs' train files** — still a fan-out awaiting the user's go. Seven bump runs,
   seven maintenance pushes and seven releases on one serialized worker.
-- **Retired-plan pointers in submodule docs.** Four verified-shipped plans were deleted 2026-08-01
-  (event-triggers, dns, causation, eventsourcing; rescued arguments live in
-  docs/event-causation-notes.md and docs/eventstream-notes.md). Still pointing at them, to fix on
-  each repo's next real change (never a deploy of its own): qits-ci AGENTS.md:91 (its "kept alive
-  only by eventsourcing-plan.md" sentence is now false) and :351; qits-events AGENTS.md:131;
+- **Retired-plan pointers in submodule docs.** Nine verified-shipped plans were deleted 2026-08-01
+  (explorers, event-triggers, dns, causation, eventsourcing, software-release-event,
+  migration-deployables, main-environment, scm-release-split pending its verdict; rescued
+  arguments live in docs/*-notes.md). Still pointing at them, to fix on each repo's next real
+  change (never a deploy of its own): qits-ci AGENTS.md:91 (its "kept alive only by
+  eventsourcing-plan.md" sentence is now false) and :351; qits-events AGENTS.md:131;
   libs/qits-eventstream README:12 + QitsEvent.java:17 (plus the two vendored submodule copies);
-  qits-dns service/pom.xml:90 (stale SimpleResolver claim); main-environment-plan.md's four
-  "the dns plan" cites.
+  qits-dns service/pom.xml:90 (stale SimpleResolver claim); seven service pom.xml headers citing
+  migration-deployables-plan.md (artifacts, cd, ci, observability ×2, projects ×2, stt ×2,
+  workspaces) + qits-observability README:173; two stale prose strays (observability
+  service/pom.xml:35 "still library JARs", qits-stt README:107 "not yet a deployable");
+  ~25 cites of main-environment-plan.md across 20 qits-projects files (rationale restated in
+  code everywhere — pointers to strike, not knowledge to migrate).
+- **qits-dns is built but deployed nowhere, and no plan owns that.** Verified 2026-08-01: no
+  container, no compose entry, not in qits-local-up.sh's sets, no gateway route. Consequence today
+  is nil (the only project stores no dns record, so the registrar never fires), but it is orphaned
+  platform debt — recorded here so it has an owner-shaped line, not just the bootstrap's warn.
 - ~~The spa-workspaces trigger flip and the ui-components publish binding~~ — both closed by the
   fan-out workstream (qits-spa-workspaces `48114db` flips the canary to `SoftwareRelease`;
   qits-spa-ui-components `d43d710f` binds the publish step to `main`).
