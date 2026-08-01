@@ -192,7 +192,9 @@ now produces a second same-sha deployment (any green run announces to cd).
 
 ## In flight right now (update on each landing)
 
-- **BQ follow-up** — the two-box speech rework + its own prettier drift (qits-spa-workspaces;
+- **BS** — files viewer + filter dialog + line picking (qits-spa-workspaces; the BQ two-box
+  rework landed `9eda206`, 312 tests, prettier clean — transcript box restored, promotion is
+  append-and-empty, the mic-less browser keeps the typed-transcript feature. Earlier:
   BR landed `88f0e05`, 308 tests: services + actions with health-absence rendered honestly, the
   recycled-label and dead-history traps counted-and-named; the spec's targetless "Logs link"
   became a per-service Events scope — a real logs link is daemon work, parked. BQ had landed
