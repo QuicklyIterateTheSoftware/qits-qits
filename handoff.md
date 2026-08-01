@@ -230,7 +230,10 @@ now produces a second same-sha deployment (any green run announces to cd).
   Overview budget 2+0 with zero-cost expansion asserted). Four contract seams it found were ruled
   and sent to CH as binding (thresholdMs + service on /traces; rootMissing always; nullable
   window/scope fields). The spa-side CI recipe file is reassigned to the embed workstream (CM).
-- **CJ** — observability traces screens (qits-spa-observability, against CH's frozen live surface)
+- **CK** — observability errors + logs screens (qits-spa-observability; CJ landed `bee9a5f`,
+  89 tests — the waterfall live-verified with a hand-encoded OTLP fixture: nesting percentages,
+  orphans never re-parented, sub-ms slivers honest, the lens genuinely reordering. Its fixture
+  bucket `_service/qits-fixture` clears on the next restart.)
 - Queued: BQ two-box follow-up + **BS** (SPA-workspaces, after BR), **CF** (events chain page,
   after CE), **BX** (miss path, after BW), **CK/CL/CM** (observability errors+logs, metrics,
   embed).
