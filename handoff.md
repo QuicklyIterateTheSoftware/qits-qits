@@ -123,15 +123,9 @@ Nothing is half-finished. The queue, in order of how ready each item is:
 
 - **The other six SPAs' train files** — still a fan-out awaiting the user's go. Seven bump runs,
   seven maintenance pushes and seven releases on one serialized worker.
-- **`qits-spa-workspaces` is still on the old trigger.** Its
-  `.config/qits/ci-event-upstream-ui-components.yml` fires on `BuildSuccessful` from
-  qits-spa-ui-components, so it woke **three times** today for builds that were not releases (runs
-  `09849e5f`, `78e62984`, `94a2cbb1`) and did nothing each time. Harmless, and now clearly wrong
-  — flip it to `SoftwareRelease` matching `repository`, the way spa-home already is.
-- **`ci-post-receive.yml` in ui-components has no `branches:` binding on its publish step**, so a
-  push to a *task* branch publishes a `-main.g<sha7>` prerelease under the `main` dist-tag. Observed
-  today (`2026.801.63140-main.gab854a1`). Harmless — `latest` is guarded and the tag is named `main`
-  — but the name is then a lie. One `branches: [{exact: main}]` fixes it.
+- ~~The spa-workspaces trigger flip and the ui-components publish binding~~ — both closed by the
+  fan-out workstream (qits-spa-workspaces `48114db` flips the canary to `SoftwareRelease`;
+  qits-spa-ui-components `d43d710f` binds the publish step to `main`).
 - The `summary` length composition (a release subject quoting a bump subject reaches 108 against a
   100-char cap) — unreachable in the designed flow, still undecided.
 - Tofu chevrons (`▸▾`) in the explorers on hosts without glyph coverage.
