@@ -51,28 +51,33 @@ All build-time service access must use `qits-net`; localhost is only for command
   internal Maven URL, use a repository-ID-specific settings mirror to bypass Maven's HTTP blocker,
   and build with `--network qits-net`.
 
-## In flight now
+## Final serial baseline
 
-- Workspaces final main/epic build at `e6b78f6` passed on `qits-net`, including resolving
-  `qits-eventstream` from qits-artifacts.
-- Release `epic/workspaces-qits-net-release` through the Workspaces REST endpoint, then require its
-  `SCMRelease` pipeline and deployment to pass. This creates a tag containing the Maven mirror fix;
-  replaying the older Workspaces release is insufficient because release pipelines check out tags.
-- Gateway received one last UI-home replay after full-history submodule fixes. Its handler/build/
-  release chain must finish and the deployed gateway must contain the newest UI-components release.
-- Current active CI state must be checked first with `GET /ci/api/runs/active`; do not assume a
-  queued/running run survived without checking its row.
+- CI active queue is empty.
+- Workspaces superseding release `2026.802.190025` passed on `qits-net`, including internal Maven
+  resolution. Its earlier `181806` release is obsolete because that tag predates the mirror fix.
+- Release images now publish both the human version and `$QITS_CI_SHA`. This is required because CD
+  deploys the commit-SHA coordinate; version-only images produced green pipelines followed by
+  truthful `IMAGE_MISSING` deployments.
+- Final release run/deployed SHA pairs, all green and healthy:
+  - artifacts `6183f0d5` / `088ad953`
+  - CD `6bb069aa` / `a3cfd816`
+  - CI `41544dcd` / `80ca0479`
+  - events `268e486a` / `2355e5b0`
+  - gateway `75a10346` / `a4337f96`
+  - observability `f5e34989` / `acc69aed`
+  - projects `b9cc9115` / `322c6210`
+  - workspaces `58105a3f` / `2e205567`
+- The deployed image tags exactly match platform `main` for all eight wrappers. IDP and STT are
+  also healthy; all application readiness/root checks used in the audit pass.
+- Platform-generated main commits were fast-forwarded into local/GitHub checkouts. Root gitlinks
+  must continue to be committed explicitly because `ignore=all` hides their drift.
 
-## After the queue is clean
+## Next work
 
-1. Reconcile every platform-generated release `main` and tag back into each local/GitHub repo;
-   never overwrite platform release commits.
-2. Push/deploy qits-ci `5d43c7c` (interrupted EVENT recovery), merging the current platform main.
-3. Verify all ten containers are healthy and the CI queue is empty.
-4. Verify final Maven/npm coordinates and all eight wrapper gitlinks/deployed image SHAs.
-5. Update this handoff with final run/event/version evidence and commit explicit root gitlinks.
-6. Only then integrate `../qits-qits-oci` (build dedupe + four concurrent builds) and run a shorter
-   regression train against this known-good serial baseline.
+Integrate `../qits-qits-oci` (build dedupe + four concurrent builds) and run a shorter regression
+train against this known-good serial baseline. Concurrency/dedupe was deliberately not introduced
+mid-test, so failures in the completed evidence remain attributable to release-train behavior.
 
 ## Preserve
 
