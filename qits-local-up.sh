@@ -7,8 +7,9 @@
 #     -v "$PWD":/out \
 #     docker:cli sh /out/qits-local-up.sh
 #
-# The architecture, in one line: hand-build the platform's build/deploy core once to get the ball
-# rolling — from then on the platform deploys ALL of its components through its own pipeline.
+# The architecture, in one line: hand-build the platform's build/deploy core once, publishing the
+# shared eventstream jar into the seed artifact registry on the way; from then on the platform
+# deploys all of its components through its own pipeline.
 #
 # Every deployable (observability, stt, projects, workspaces, events, gateway, artifacts, ci, cd)
 # is an application of qits-cd's "qits" main environment (branch main, network qits-net): pushed to
@@ -97,12 +98,19 @@ DEPLOYABLES="observability stt projects workspaces events gateway artifacts ci c
 ENV_NAME=qits
 ARTIFACTS=http://qits-artifacts:8080
 CD=http://qits-cd:8080
+CI=http://qits-ci:8080
 
 say()  { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m !! %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31mFATAL: %s\033[0m\n' "$*" >&2; exit 1; }
 
-repo_path() { case "$1" in ci-daemon) echo "daemons/qits-ci-daemon";; *) echo "services/qits-$1";; esac; }
+repo_path() { case "$1" in
+  ci-daemon) echo "daemons/qits-ci-daemon";;
+  eventstream) echo "libs/qits-eventstream";;
+  spa-ui-components) echo "libs/qits-spa-ui-components";;
+  integrations-angular) echo "integrations/qits-integrations-angular";;
+  *) echo "services/qits-$1";;
+esac; }
 
 # --- preflight -----------------------------------------------------------------------------------
 say "preflight"
@@ -134,7 +142,7 @@ DOCKER_GID=$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
 say "cloning sources into $SRC"
 mkdir -p "$SRC"
 # DEPLOYABLES covers the CORE names, so one pass clones everything.
-for name in ci-daemon $DEPLOYABLES; do
+for name in ci-daemon eventstream spa-ui-components integrations-angular $DEPLOYABLES; do
   repo="qits-$name"
   local_src="/out/$(repo_path "$name")"
   if [ -e "$local_src/.git" ]; then from="$local_src"; else from="$ORG_URL/$repo.git"; fi
@@ -164,14 +172,109 @@ seed_dockerfile() {
 if [ "$SKIP_BUILD" != 1 ]; then
   say "building the seed images (GraalVM native — ~4 GB RAM each, this takes a while)"
   for name in $CORE; do
+    if [ "$name" = ci ]; then
+      # qits-ci consumes qits-eventstream from the Maven repository it will use in steady state.
+      # Bring up artifacts alone, publish the dependency reproducibly, then let the CI image build.
+      say "starting seed artifacts for the Maven bootstrap"
+      docker network inspect qits-net >/dev/null 2>&1 || docker network create qits-net >/dev/null
+      docker network connect qits-net "$SELF" 2>/dev/null || true
+      docker volume create qits-artifacts-data >/dev/null
+      docker volume create qits-repositories >/dev/null
+      if ! docker ps --format '{{.Names}}' | grep -q '^qits-artifacts$'; then
+        docker rm -f qits-artifacts >/dev/null 2>&1 || true
+        docker run -d --name qits-artifacts --network qits-net \
+          -p "127.0.0.1:${REGISTRY_PORT}:8080" \
+          -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts \
+          -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs \
+          -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive \
+          -e QITS_REPOSITORIES_GIT_PUSH_TOKEN="$PUSH_TOKEN" \
+          -e QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true \
+          -v qits-artifacts-data:/data -v qits-repositories:/data/repositories \
+          qits/artifacts:latest >/dev/null
+      fi
+      i=0
+      until curl -fsS -o /dev/null "http://host.docker.internal:${REGISTRY_PORT}/artifacts/q/health/ready" 2>/dev/null \
+         || curl -fsS -o /dev/null "http://qits-artifacts:8080/artifacts/q/health/ready" 2>/dev/null; do
+        i=$((i + 5)); [ "$i" -gt 120 ] && die "qits-artifacts not ready after 120s"
+        sleep 5
+      done
+
+      say "publishing qits-eventstream 1.0.0 into seed artifacts"
+      maven_cid=$(docker create --network qits-net --user root --entrypoint sh maven:3.9-eclipse-temurin-25 \
+        -c 'cd /src && mvn -B -ntp deploy -DskipTests -DaltDeploymentRepository=qits::default::http://qits-artifacts:8080/artifacts/maven/maven')
+      docker cp "$SRC/qits-eventstream/." "$maven_cid:/src"
+      docker start -a "$maven_cid" || { docker rm -f "$maven_cid" >/dev/null; die "qits-eventstream publish failed"; }
+      docker rm "$maven_cid" >/dev/null
+
+      say "publishing the shared UI package into seed artifacts"
+      node_cid=$(docker create --network qits-net --user root --entrypoint sh node:24-alpine -c '
+        set -eu
+        apk add --no-cache git >/dev/null
+        git clone -q /src /src-004
+        cd /src-004
+        git checkout -q 9f9648482d6fe025cc7af9bd4496afab417f33f9
+        corepack enable
+        cat > /root/.npmrc <<EOF
+registry=https://registry.npmjs.org/
+@qits:registry=http://qits-artifacts:8080/artifacts/npm/npm/
+//qits-artifacts:8080/artifacts/npm/npm/:_authToken=qits-bootstrap
+EOF
+        pnpm install --frozen-lockfile
+        pnpm build
+        cd dist/qits-spa-ui-components
+        npm publish
+
+        cd /src
+        pnpm install --frozen-lockfile
+        pnpm build
+        cd dist/qits-spa-ui-components
+        npm publish
+      ')
+      docker cp "$SRC/qits-spa-ui-components/." "$node_cid:/src"
+      docker start -a "$node_cid" || { docker rm -f "$node_cid" >/dev/null; die "UI package publish failed"; }
+      docker rm "$node_cid" >/dev/null
+
+      say "publishing the Angular integration package into seed artifacts"
+      angular_cid=$(docker create --network qits-net --user root --entrypoint sh node:24-alpine -c '
+        set -eu
+        apk add --no-cache git >/dev/null
+        git clone -q /src /src-001
+        cd /src-001
+        git checkout -q 3f405717f14f0942399340d84db4ef0ca3769101
+        corepack enable
+        cat > /root/.npmrc <<EOF
+registry=https://registry.npmjs.org/
+@qits:registry=http://qits-artifacts:8080/artifacts/npm/npm/
+//qits-artifacts:8080/artifacts/npm/npm/:_authToken=qits-bootstrap
+EOF
+        pnpm install --frozen-lockfile
+        pnpm build
+        npm publish ./dist/qits-integrations-angular
+      ')
+      docker cp "$SRC/qits-integrations-angular/." "$angular_cid:/src"
+      docker start -a "$angular_cid" || { docker rm -f "$angular_cid" >/dev/null; die "Angular integration publish failed"; }
+      docker rm "$angular_cid" >/dev/null
+    fi
     say "build qits/$name:latest"
+    # Seed services only need their APIs. Their Dockerfiles intentionally consume an already-built
+    # SPA, but a clean checkout has no dist directory and the hosted npm registry does not exist
+    # until artifacts starts. Supply a deterministic placeholder; the normal post-receive pipeline
+    # later builds and deploys the real client from the same commit.
+    git -C "$SRC/qits-$name" submodule update --init --depth 1
+    case "$name" in
+      gateway) seed_ui=src/main/webui/dist/qits-spa-home/browser;;
+      *) seed_ui=service/src/main/webui/dist/qits-spa-$name/browser;;
+    esac
+    mkdir -p "$SRC/qits-$name/$seed_ui"
+    printf '<!doctype html><html><body>qits bootstrap</body></html>\n' \
+      > "$SRC/qits-$name/$seed_ui/index.html"
     extra=""
     # A shipped gateway must say whether it authenticates; `local` is the unauthenticated
     # workstation variant.
     [ "$name" = gateway ] && extra="--build-arg QITS_VARIANT=local"
     # shellcheck disable=SC2086
     seed_dockerfile "$SRC/qits-$name/docker/Dockerfile" \
-      | docker build -t "qits/$name:latest" -f - $extra "$SRC/qits-$name" \
+      | docker build --network host -t "qits/$name:latest" -f - $extra "$SRC/qits-$name" \
       || die "build of qits/$name failed"
   done
 
@@ -429,7 +532,9 @@ docker network inspect qits-net >/dev/null 2>&1 || docker network create qits-ne
 # handoff has made cd one of its own deployments.
 UP=""
 for name in cd gateway artifacts ci; do
-  if docker ps --format '{{.Names}}' | grep -q "^qits-cd-$ENV_NAME-qits-$name-"; then
+  if [ "$name" = artifacts ] && docker ps --format '{{.Names}}' | grep -q '^qits-artifacts$'; then
+    echo "  qits-artifacts is already serving the bootstrap repositories — compose leaves it alone"
+  elif docker ps --format '{{.Names}}' | grep -q "^qits-cd-$ENV_NAME-qits-$name-"; then
     echo "  qits-$name is cd-managed — compose leaves it alone"
   else
     UP="$UP qits-$name"
@@ -594,6 +699,14 @@ PIPELINE
           overall=1
           break ;;
       esac
+    fi
+    run_status=$(curl -fsS "$CI/ci/api/runs?repositoryId=$repo&limit=1" 2>/dev/null \
+      | jq -r --arg sha "$sha" '.runs[] | select(.commitSha == $sha) | .status' 2>/dev/null \
+      | head -1 || true)
+    if [ "$run_status" = FAILED ] || [ "$run_status" = CONFIG_ERROR ]; then
+      warn "$repo CI run ended $run_status before a deployment was created"
+      overall=1
+      break
     fi
     waited=$((waited + 10))
     [ "$waited" -ge "$DEPLOY_TIMEOUT" ] && { warn "$repo: no terminal deployment after ${DEPLOY_TIMEOUT}s (ci may still be building — watch docker ps and qits-ci logs)"; overall=1; break; }
