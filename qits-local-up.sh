@@ -281,18 +281,26 @@ if [ "$SKIP_BUILD" != 1 ]; then
       done
 
       say "publishing qits-eventstream 1.0.0 into seed artifacts"
-      maven_cid=$(docker create --network qits-net --user root --entrypoint sh maven:3.9-eclipse-temurin-25 \
-        -c 'cd /src && mvn -B -ntp deploy -DskipTests -DaltDeploymentRepository=qits::default::http://qits-artifacts:8080/artifacts/maven/maven')
-      docker cp "$SRC/qits-eventstream/." "$maven_cid:/src"
-      docker start -a "$maven_cid" || { docker rm -f "$maven_cid" >/dev/null; die "qits-eventstream publish failed"; }
-      docker rm "$maven_cid" >/dev/null
+      if curl -fsS -o /dev/null "$ARTIFACTS/artifacts/maven/maven/eu/wohlben/qits/qits-eventstream/1.0.0/qits-eventstream-1.0.0.jar"; then
+        echo "  qits-eventstream 1.0.0 already published"
+      else
+        maven_cid=$(docker create --network qits-net --user root --entrypoint sh maven:3.9-eclipse-temurin-25 \
+          -c 'cd /src && mvn -B -ntp deploy -DskipTests -DaltDeploymentRepository=qits::default::http://qits-artifacts:8080/artifacts/maven/maven')
+        docker cp "$SRC/qits-eventstream/." "$maven_cid:/src"
+        docker start -a "$maven_cid" || { docker rm -f "$maven_cid" >/dev/null; die "qits-eventstream publish failed"; }
+        docker rm "$maven_cid" >/dev/null
+      fi
 
       say "publishing qits-auth-core 1.0.0 into seed artifacts"
-      auth_cid=$(docker create --network qits-net --user root --entrypoint sh maven:3.9-eclipse-temurin-25 \
-        -c 'cd /src && mvn -B -ntp deploy -DskipTests -DaltDeploymentRepository=qits::default::http://qits-artifacts:8080/artifacts/maven/maven')
-      docker cp "$SRC/qits-integrations-quarkus/." "$auth_cid:/src"
-      docker start -a "$auth_cid" || { docker rm -f "$auth_cid" >/dev/null; die "qits-auth-core publish failed"; }
-      docker rm "$auth_cid" >/dev/null
+      if curl -fsS -o /dev/null "$ARTIFACTS/artifacts/maven/maven/eu/wohlben/qits/qits-auth-core/1.0.0/qits-auth-core-1.0.0.jar"; then
+        echo "  qits-auth-core 1.0.0 already published"
+      else
+        auth_cid=$(docker create --network qits-net --user root --entrypoint sh maven:3.9-eclipse-temurin-25 \
+          -c 'cd /src && mvn -B -ntp deploy -DskipTests -DaltDeploymentRepository=qits::default::http://qits-artifacts:8080/artifacts/maven/maven')
+        docker cp "$SRC/qits-integrations-quarkus/." "$auth_cid:/src"
+        docker start -a "$auth_cid" || { docker rm -f "$auth_cid" >/dev/null; die "qits-auth-core publish failed"; }
+        docker rm "$auth_cid" >/dev/null
+      fi
 
       say "publishing the shared UI package into seed artifacts"
       node_cid=$(docker create --network qits-net --user root --entrypoint sh node:24-alpine -c '
@@ -310,13 +318,14 @@ EOF
         pnpm install --frozen-lockfile
         pnpm build
         cd dist/qits-spa-ui-components
-        npm publish
+        npm view @qits/ui-components@0.0.4 version >/dev/null 2>&1 || npm publish
 
         cd /src
         pnpm install --frozen-lockfile
         pnpm build
         cd dist/qits-spa-ui-components
-        npm publish
+        version=$(node -p "require(\"./package.json\").version")
+        npm view "@qits/ui-components@$version" version >/dev/null 2>&1 || npm publish
       ')
       docker cp "$SRC/qits-spa-ui-components/." "$node_cid:/src"
       docker start -a "$node_cid" || { docker rm -f "$node_cid" >/dev/null; die "UI package publish failed"; }
@@ -337,7 +346,8 @@ registry=https://registry.npmjs.org/
 EOF
         pnpm install --frozen-lockfile
         pnpm build
-        npm publish ./dist/qits-integrations-angular
+        version=$(node -p "require(\"./dist/qits-integrations-angular/package.json\").version")
+        npm view "@qits/angular@$version" version >/dev/null 2>&1 || npm publish ./dist/qits-integrations-angular
       ')
       docker cp "$SRC/qits-integrations-angular/." "$angular_cid:/src"
       docker start -a "$angular_cid" || { docker rm -f "$angular_cid" >/dev/null; die "Angular integration publish failed"; }
