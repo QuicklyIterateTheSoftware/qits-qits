@@ -2,6 +2,16 @@
 
 Updated 2026-08-02. This file is the current restart point; older session material was removed.
 
+## Cold-bootstrap verification in progress
+
+- Goal: remove the complete local qits Docker environment and prove that one unassisted invocation
+  of the documented `docker run ... qits-local-up.sh` command ends with a healthy environment.
+- Preserve all source checkouts and the two user-owned untracked planning files. Remove generated
+  bootstrap state (`.qits-bootstrap.env`, `docker-compose.qits.yml`) together with qits containers,
+  volumes, network, and qits-owned local images so this is a genuine first run.
+- No manual repair is allowed after the bootstrap starts. Any failure must be recorded here and
+  fixed in source before restarting the cold test from zero.
+
 ## Integration in progress: qits-oci
 
 - Started from root `main` at `4903ea4`; user-owned untracked files remain untouched.
