@@ -27,9 +27,11 @@ Updated 2026-08-02. This file is the current restart point; older session materi
 - Workspaces then released `epic/local-oci-integration` as `2026.802.194225` / `036fe5b`. Its CI run
   `d3e002dd` passed. All ten registry probes (five image names × immutable CalVer and `latest`) return
   HTTP 200, and five sibling `SoftwareRelease` events hang from SCMRelease `f74ff547`.
-- Remaining checkpoint: commit the released OCI and Projects gitlinks plus this handoff explicitly,
-  push root `main`, and run the final health/status audit. The unrelated network-capture plan remains
-  only on the `qits-oci` worktree branch and is intentionally not integrated.
+- Root recorded the released OCI and Projects gitlinks in `d18973b` and is backed up on GitHub.
+  Final audit: all ten gateway/root/readiness probes return HTTP 200; all ten deployables are ACTIVE,
+  including CI `4590758` and Projects `0e7a1b2`; root and the changed submodule mains match GitHub.
+  Only the two preserved user-owned root files remain untracked. The unrelated network-capture plan
+  remains only on the `qits-oci` worktree branch and is intentionally not integrated.
 
 ## Objective
 
