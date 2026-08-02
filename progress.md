@@ -93,16 +93,22 @@ revert) → CQ Central pull-through → CR proxy packaged proof + adoption → C
 - **Artifact access tracking published and live:** SPA `bd77eb5`, artifacts `9fe23c0`; the persisted
   database migrated V8→V9 and live checks proved never-accessed filtering, tag/digest attribution,
   and one-hour write coalescing.
-- **IDP integration in progress:** phase-1 issuer plus bearer consumers are merged onto the newer
-  artifacts/CI/CD heads. The obsolete nested `qits-integrations-quarkus` gitlinks were removed;
-  `qits-auth-core:1.0.0` is a published Maven dependency. The bootstrap now owns a temporary Maven
-  seed for the first artifacts build, then republishes auth-core into the real registry. Unit and
-  packaged IDP gates pass; publication, ten-application rollout, and full live E2E remain.
+- **IDP integration published, deployed, and live-E2E verified (2026-08-02):** IDP `b5c0d24`,
+  artifacts `d3c37c5`, CI `a002b4a`, and CD `d4f22a1` are ACTIVE in the ten-application `qits`
+  environment. The obsolete nested `qits-integrations-quarkus` gitlinks are gone;
+  `qits-auth-core:1.0.0` is published reproducibly by `qits-local-up.sh`. Artifacts, CI, and CD image
+  builds resolve it directly over `qits-net`; a repository-id-specific Maven mirror permits only
+  this internal HTTP repository and leaves Maven's general HTTP blocker intact.
+- **Unattended bootstrap and auth E2E passed:** the temporary artifacts registry is replaced before
+  rollout so the real seed receives stable IDP credentials. Discovery, JWKS, valid issuance, bad
+  secret (401), unauthenticated CI/CD/artifacts writes (401), authenticated CD intake (202), the
+  artifacts→CI→CD pipeline, all ten readiness checks, registry manifests, and all served SPAs passed.
+  Restarting IDP preserved the JWKS exactly and a token minted before restart remained accepted.
+  `/stt/` is intentionally API-only (404); `/stt/q/health/ready` is 200.
 
 ## Open / watch-items
 
-- CM requires a running qits-artifacts → re-bootstrap slots between CK and CM.
-- Known recorded finding (not solved by the plan): `/artifacts/api` writes are unguarded
-  live (gateway PublicPaths allowlist + blank token) — the maven PUT surface inherits this.
-- When unwrapping: also revert the uncommitted `MavenVersionBumper.java` change and decide
-  the untracked `.claude/` dir in qits-workspaces; pin consumers at the literal `1.0.0`.
+- `qits-dns` and `qits-spa-home` still have no bootstrap image/application entry.
+- Workspace containers still require `qits/workspace:latest` to be supplied separately.
+- The local gateway variant is intentionally unauthenticated and must not be exposed externally;
+  machine endpoints behind it are independently bearer-enforced.
