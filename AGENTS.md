@@ -11,6 +11,7 @@ Submodules are grouped by the role a module plays, not by its technology:
     libs/          shared code consumed by other modules
     integrations/  framework-specific glue
     frontends/     anything served to a user at a URL
+    images/        build definitions for published platform OCI images
 
 Role-named directories outlive the tech inside them: an entry that stops being
 a SPA and becomes server-rendered still belongs in `frontends/`, so nothing has

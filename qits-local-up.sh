@@ -22,8 +22,9 @@
 # referee stops the old instance and arbitrates the health gate, and the successor's startup
 # sweep adopts the deployment row. cd's run-args therefore live on the qits-cd-config volume
 # (config/application.properties) rather than in compose env — the successor must inherit them.
-# Still hand-built: the ci-base step image and the ci-daemon binary — the two things the
-# pipeline cannot make for itself.
+# Still hand-built: the base step images and the ci-daemon binary — the things the pipeline cannot
+# make for itself on first boot. Their Dockerfiles live in qits-oci; only the bootstrap build is
+# local to this script.
 #
 # Everything durable — images, containers, volumes, qits-net — lands on the HOST daemon through
 # the mounted socket; this container is disposable. The generated compose file (the seed stack
@@ -137,7 +138,7 @@ DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts 
 # qits-workspaces can release them, and qits-ci can discover their event pipelines. Keep this list
 # separate from DEPLOYABLES; adding a library or SPA to the deployment loop would make cd wait for
 # an image and health endpoint that repository intentionally does not ship.
-RELEASE_TRAIN_REPOS="eventstream spa-ui-components userflows integrations-angular integrations-quarkus spa-home spa-projects spa-workspaces spa-artifacts spa-observability spa-events spa-ci spa-cd"
+RELEASE_TRAIN_REPOS="oci eventstream spa-ui-components userflows integrations-angular integrations-quarkus spa-home spa-projects spa-workspaces spa-artifacts spa-observability spa-events spa-ci spa-cd"
 PLATFORM_REPOS="$DEPLOYABLES $RELEASE_TRAIN_REPOS"
 
 # The static clients qits-idp seeds from config. The list is the contract's, and every one of them
@@ -161,6 +162,7 @@ die()  { printf '\033[1;31mFATAL: %s\033[0m\n' "$*" >&2; exit 1; }
 
 repo_path() { case "$1" in
   ci-daemon) echo "daemons/qits-ci-daemon";;
+  oci) echo "images/qits-oci";;
   eventstream|spa-ui-components|userflows) echo "libs/qits-$1";;
   spa-*) echo "frontends/qits-$1";;
   integrations-angular) echo "integrations/qits-integrations-angular";;
@@ -383,43 +385,29 @@ EOF
       || die "build of qits/$name failed"
   done
 
-  # The step image pipeline configs name. Contract: git, bash, wget-or-curl (the ci-daemon
-  # bootstrap), plus the docker CLI for docker:true publish steps. Nothing in the tree builds
-  # this yet, so the bootstrap does.
+  # The step images pipeline configs name. qits-oci is their single source of truth, but the first
+  # ci-base cannot be built by the pipeline that needs ci-base to run. Build all five directly from
+  # its checked-out Dockerfiles here; subsequent versions are ordinary qits-oci releases.
+  oci_dir="$SRC/qits-oci"
   say "build qits/build-images/ci-base:latest"
-  printf 'FROM docker:cli\nRUN apk add --no-cache git bash curl\n' \
-    | docker build -q -t qits/build-images/ci-base:latest - >/dev/null
+  docker build -q -t qits/build-images/ci-base:latest \
+    -f "$oci_dir/ci-base/Dockerfile" "$oci_dir" >/dev/null
 
-  # Maven library pipelines do not need the docker socket, but they do need the same clone-alone
-  # JDK contract as the repositories themselves plus jq for reading an SCMRelease payload. The
-  # image carries Maven because qits-userflows predates the wrapper convention.
   say "build qits/build-images/maven-base:latest"
-  printf 'FROM maven:3.9-eclipse-temurin-25-alpine\nRUN apk add --no-cache git bash curl jq\n' \
-    | docker build -q -t qits/build-images/maven-base:latest - >/dev/null
+  docker build -q -t qits/build-images/maven-base:latest \
+    -f "$oci_dir/maven-base/Dockerfile" "$oci_dir" >/dev/null
 
-  # qits-userflows' verification actually launches Playwright. The generic Maven image can compile
-  # it but cannot execute the bundled driver on musl and has no browser, so this one pins the same
-  # Playwright release as the library and supplies Maven for its pre-wrapper repository.
   say "build qits/build-images/userflows-base:latest"
-  printf 'FROM mcr.microsoft.com/playwright/java:v1.61.0-noble\nRUN apt-get update && apt-get install -y --no-install-recommends maven git jq curl && rm -rf /var/lib/apt/lists/*\n' \
-    | docker build -q -t qits/build-images/userflows-base:latest - >/dev/null
+  docker build -q -t qits/build-images/userflows-base:latest \
+    -f "$oci_dir/userflows-base/Dockerfile" "$oci_dir" >/dev/null
 
-  # The same for node pipelines. Same contract (git, bash, a downloader) on a node base, plus
-  # corepack for pnpm. No docker CLI: an npm publish goes to qits-artifacts over qits-net as
-  # ordinary HTTP, so such a step never declares docker:true.
   say "build qits/build-images/node-base:latest"
-  printf 'FROM node:24-alpine\nRUN apk add --no-cache git bash curl && corepack enable\n' \
-    | docker build -q -t qits/build-images/node-base:latest - >/dev/null
+  docker build -q -t qits/build-images/node-base:latest \
+    -f "$oci_dir/node-base/Dockerfile" "$oci_dir" >/dev/null
 
-  # node-base plus the docker CLI, for a frontend's publish step: the app builds in the step
-  # container (which is on qits-net and can reach the registry), and the docker build only COPYs
-  # the built dist into a runtime image. Build-time network is deliberately not relied on —
-  # buildkit RUN steps cannot reach qits-net, the VM-host loopback, or a host-gateway alias on
-  # every daemon this platform targets, so an image build that fetches packages is unbuildable
-  # on some of them by construction.
   say "build qits/build-images/node-docker-base:latest"
-  printf 'FROM node:24-alpine\nRUN apk add --no-cache git bash curl docker-cli && corepack enable\n' \
-    | docker build -q -t qits/build-images/node-docker-base:latest - >/dev/null
+  docker build -q -t qits/build-images/node-docker-base:latest \
+    -f "$oci_dir/node-docker-base/Dockerfile" "$oci_dir" >/dev/null
 
   # The ci-daemon: a fully static musl native binary. Its documented recipe runs mvnw on the host
   # with container-build=true; inside this container that would need bind mounts the socket

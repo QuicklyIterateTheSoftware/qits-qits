@@ -160,3 +160,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-oci"]
+	path = images/qits-oci
+	url = https://github.com/QuicklyIterateTheSoftware/qits-oci.git
+	ignore = all
+	update = merge
+	branch = main
