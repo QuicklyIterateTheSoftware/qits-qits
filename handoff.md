@@ -2,6 +2,35 @@
 
 Updated 2026-08-02. This file is the current restart point; older session material was removed.
 
+## Integration in progress: qits-oci
+
+- Started from root `main` at `4903ea4`; user-owned untracked files remain untouched.
+- Source worktree: `../qits-qits-oci`, branch `qits-oci` at `acbaeb0`.
+- The focused aggregator integration is commit `c35e252`; the following `acbaeb0` only adds
+  `network-capture-proxy-plan.md` and is being kept separate until its intended scope is confirmed
+  from repository history/state.
+- The source worktree's unstaged `handoff.md` is an integrator brief and has been read; it must not
+  overwrite this live operational handoff.
+- OCI repository was released through Workspaces as `2026.802.194225`; local platform and GitHub
+  `main`/tag now point at release commit `036fe5b`.
+- GitHub backup contains reconciled `qits-spa-ci/main` at `cebb63e` (84 tests + production build
+  green), `qits-ci/main` at `4590758` (255 JVM tests total and reactor verify green),
+  `qits-projects/main` at `0e7a1b2`, and released `qits-oci/main` at `036fe5b`.
+- Focused aggregator integration is merged on root `main` as `9ceedf5`, with gitlinks advanced to
+  those reconciled commits rather than the stale feature tips from the integrator brief.
+- All five bootstrap Dockerfiles built locally and all five `latest` tags exist.
+- CI `4590758` deployed ACTIVE locally; the prior deployment stayed healthy throughout its native
+  build. OCI initially exposed a missing catalog seam: the root bootstrap created the Git origin,
+  but Projects' stable platform manifest did not adopt it. Fixed in qits-projects `0e7a1b2`, with
+  14/14 focused self-seed tests green; that commit is deployed ACTIVE and the catalog now contains
+  stable repository id `qits-oci`.
+- Workspaces then released `epic/local-oci-integration` as `2026.802.194225` / `036fe5b`. Its CI run
+  `d3e002dd` passed. All ten registry probes (five image names × immutable CalVer and `latest`) return
+  HTTP 200, and five sibling `SoftwareRelease` events hang from SCMRelease `f74ff547`.
+- Remaining checkpoint: commit the released OCI and Projects gitlinks plus this handoff explicitly,
+  push root `main`, and run the final health/status audit. The unrelated network-capture plan remains
+  only on the `qits-oci` worktree branch and is intentionally not integrated.
+
 ## Objective
 
 Prove the complete local release train without manual artifact uploads:
