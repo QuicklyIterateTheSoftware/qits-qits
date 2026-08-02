@@ -57,8 +57,8 @@
 #
 # On that last one: releasing is a thing the platform does — qits-workspaces' release endpoint
 # merges, stamps a version and pushes, and the git host protects each repo's default branch against
-# everything else. This bootstrap is the standing exception: it pushes nine repos to main by
-# definition, before any workspaces service exists to release through. So it configures a token
+# everything else. This bootstrap is the standing exception: it seeds every platform repository's
+# main before any workspaces service exists to release through. So it configures a token
 # and presents it. The value is a knob and NOT a secret — a deployment that wants no escape hatch
 # at all simply leaves `qits.repositories.git.push-token` unset, and then nothing overrides.
 #
@@ -81,9 +81,9 @@
 #     takes the RECREATE branch below, which tears the environment's containers down — the
 #     cd-managed core included. Read qits-idp-local-wiring.md before rerunning against a platform
 #     that is already up.
-#   - qits-dns (which ships a Dockerfile) and qits-spa-home are not part of either set, so
-#     neither is deployed. qits-projects announces to qits-dns fire-and-forget; its absence is
-#     one WARN per project creation.
+#   - qits-dns ships a Dockerfile but is not a CD application here. qits-spa-home is seeded for its
+#     release train but is served by qits-gateway rather than deployed alone. qits-projects announces
+#     to qits-dns fire-and-forget; its absence is one WARN per project creation.
 #   - qits/workspace:latest layers the daemon onto a toolchain base this script cannot conjure;
 #     workspace containers need that image supplied separately.
 #   - The gateway is built with QITS_VARIANT=local: EXPLICITLY UNAUTHENTICATED. Never publish the
@@ -132,6 +132,13 @@ CORE="gateway artifacts ci cd idp"
 # the seed's own repos last, cd at the very end (its deployment is the self-update handoff: the cd
 # API blinks while the successor takes over and adopts the row).
 DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts ci cd"
+# Repositories that participate in release trains but are not applications of qits-cd. They still
+# need a bare on the platform git host and a main push: qits-projects can then inventory them,
+# qits-workspaces can release them, and qits-ci can discover their event pipelines. Keep this list
+# separate from DEPLOYABLES; adding a library or SPA to the deployment loop would make cd wait for
+# an image and health endpoint that repository intentionally does not ship.
+RELEASE_TRAIN_REPOS="eventstream spa-ui-components userflows integrations-angular integrations-quarkus spa-home spa-projects spa-workspaces spa-artifacts spa-observability spa-events spa-ci spa-cd"
+PLATFORM_REPOS="$DEPLOYABLES $RELEASE_TRAIN_REPOS"
 
 # The static clients qits-idp seeds from config. The list is the contract's, and every one of them
 # gets a secret here — a client without one is refused `invalid_client` exactly like a wrong one,
@@ -154,8 +161,8 @@ die()  { printf '\033[1;31mFATAL: %s\033[0m\n' "$*" >&2; exit 1; }
 
 repo_path() { case "$1" in
   ci-daemon) echo "daemons/qits-ci-daemon";;
-  eventstream) echo "libs/qits-eventstream";;
-  spa-ui-components) echo "libs/qits-spa-ui-components";;
+  eventstream|spa-ui-components|userflows) echo "libs/qits-$1";;
+  spa-*) echo "frontends/qits-$1";;
   integrations-angular) echo "integrations/qits-integrations-angular";;
   integrations-quarkus) echo "integrations/qits-integrations-quarkus";;
   *) echo "services/qits-$1";;
@@ -190,8 +197,8 @@ DOCKER_GID=$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
 # --- sources -------------------------------------------------------------------------------------
 say "cloning sources into $SRC"
 mkdir -p "$SRC"
-# DEPLOYABLES covers the CORE names, so one pass clones everything.
-for name in ci-daemon eventstream spa-ui-components integrations-angular integrations-quarkus $DEPLOYABLES; do
+# PLATFORM_REPOS covers every pipeline repository; ci-daemon is the one hand-published input.
+for name in ci-daemon $PLATFORM_REPOS; do
   repo="qits-$name"
   local_src="/out/$(repo_path "$name")"
   if [ -e "$local_src/.git" ]; then from="$local_src"; else from="$ORG_URL/$repo.git"; fi
@@ -797,7 +804,7 @@ fi
 # repoId doubles as the on-disk directory and the clone path; the charset allows readable names,
 # and readable beats capability-opaque on a workstation.
 say "seeding the platform's repositories on the git host"
-for name in $DEPLOYABLES; do
+for name in $PLATFORM_REPOS; do
   docker run --rm -v qits-repositories:/repos --entrypoint sh alpine/git -c \
     "git init -q --bare -b main /repos/qits-$name/origin && chown -R 1001:0 /repos/qits-$name"
   echo "  qits-$name -> /artifacts/git/qits-$name"
@@ -937,6 +944,22 @@ PIPELINE
     [ "$waited" -ge "$DEPLOY_TIMEOUT" ] && { warn "$repo: no terminal deployment after ${DEPLOY_TIMEOUT}s (ci may still be building — watch docker ps and qits-ci logs)"; overall=1; break; }
     sleep 10
   done
+done
+
+# Release-train repositories take the same protected-main bootstrap door, but stop at the git host.
+# Their own post-receive pipelines may publish packages; none is a qits-cd application, so there is
+# deliberately no deployment lookup, image replay, health wait or standard Docker pipeline overlay.
+say "pushing release-train repositories to the platform git host"
+for name in $RELEASE_TRAIN_REPOS; do
+  repo="qits-$name"
+  out=$(git -C "$SRC/$repo" push -o "qits.token=$PUSH_TOKEN" \
+    "$ARTIFACTS/artifacts/git/$repo" main 2>&1) \
+    || die "push of $repo failed: $out"
+  if echo "$out" | grep -qiE 'up.to.date'; then
+    echo "  $repo already at main"
+  else
+    echo "  $repo pushed $(git -C "$SRC/$repo" rev-parse --short HEAD)"
+  fi
 done
 
 # --- summary -------------------------------------------------------------------------------------
