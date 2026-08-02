@@ -724,14 +724,19 @@ docker run --rm -i -v qits-cd-config:/cfg --entrypoint sh alpine/git \
 
 say "starting the seed stack"
 docker network inspect qits-net >/dev/null 2>&1 || docker network create qits-net >/dev/null
+# The artifacts instance used while building seed images intentionally has no machine credentials:
+# the IDP does not exist yet. Replace it now so compose starts the real service with the generated
+# client secret; otherwise post-receive notifications silently reach CI without a bearer token.
+if docker ps -a --format '{{.Names}}' | grep -q '^qits-artifacts$'; then
+  echo "  replacing the bootstrap artifact registry with the authenticated seed service"
+  docker rm -f qits-artifacts >/dev/null
+fi
 # Only what cd does not already manage: a compose service whose application has a live cd-managed
 # container must NOT be resurrected next to it — cd's own container included, once a self-update
 # handoff has made cd one of its own deployments.
 UP=""
 for name in idp cd gateway artifacts ci; do
-  if [ "$name" = artifacts ] && docker ps --format '{{.Names}}' | grep -q '^qits-artifacts$'; then
-    echo "  qits-artifacts is already serving the bootstrap repositories — compose leaves it alone"
-  elif docker ps --format '{{.Names}}' | grep -q "^qits-cd-$ENV_NAME-qits-$name-"; then
+  if docker ps --format '{{.Names}}' | grep -q "^qits-cd-$ENV_NAME-qits-$name-"; then
     echo "  qits-$name is cd-managed — compose leaves it alone"
   else
     UP="$UP qits-$name"
