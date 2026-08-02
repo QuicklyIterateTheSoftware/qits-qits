@@ -390,6 +390,20 @@ EOF
   printf 'FROM docker:cli\nRUN apk add --no-cache git bash curl\n' \
     | docker build -q -t qits/build-images/ci-base:latest - >/dev/null
 
+  # Maven library pipelines do not need the docker socket, but they do need the same clone-alone
+  # JDK contract as the repositories themselves plus jq for reading an SCMRelease payload. The
+  # image carries Maven because qits-userflows predates the wrapper convention.
+  say "build qits/build-images/maven-base:latest"
+  printf 'FROM maven:3.9-eclipse-temurin-25-alpine\nRUN apk add --no-cache git bash curl jq\n' \
+    | docker build -q -t qits/build-images/maven-base:latest - >/dev/null
+
+  # qits-userflows' verification actually launches Playwright. The generic Maven image can compile
+  # it but cannot execute the bundled driver on musl and has no browser, so this one pins the same
+  # Playwright release as the library and supplies Maven for its pre-wrapper repository.
+  say "build qits/build-images/userflows-base:latest"
+  printf 'FROM mcr.microsoft.com/playwright/java:v1.61.0-noble\nRUN apt-get update && apt-get install -y --no-install-recommends maven git jq curl && rm -rf /var/lib/apt/lists/*\n' \
+    | docker build -q -t qits/build-images/userflows-base:latest - >/dev/null
+
   # The same for node pipelines. Same contract (git, bash, a downloader) on a node base, plus
   # corepack for pnpm. No docker CLI: an npm publish goes to qits-artifacts over qits-net as
   # ordinary HTTP, so such a step never declares docker:true.
