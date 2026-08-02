@@ -154,3 +154,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-idp"]
+	path = services/qits-idp
+	url = https://github.com/QuicklyIterateTheSoftware/qits-idp.git
+	ignore = all
+	update = merge
+	branch = main

@@ -90,6 +90,14 @@ revert) → CQ Central pull-through → CR proxy packaged proof + adoption → C
   artifacts process alone; direct npmjs fetch for bootstrap-only source builds; CI failure detection
   prevents hour-long phantom deployment waits; qits-ci V5 and qits-cd V3 remove H2 2.4.240's
   session-bound enum checks (the same defect family already observed in qits-workspaces).
+- **Artifact access tracking published and live:** SPA `bd77eb5`, artifacts `9fe23c0`; the persisted
+  database migrated V8→V9 and live checks proved never-accessed filtering, tag/digest attribution,
+  and one-hour write coalescing.
+- **IDP integration in progress:** phase-1 issuer plus bearer consumers are merged onto the newer
+  artifacts/CI/CD heads. The obsolete nested `qits-integrations-quarkus` gitlinks were removed;
+  `qits-auth-core:1.0.0` is a published Maven dependency. The bootstrap now owns a temporary Maven
+  seed for the first artifacts build, then republishes auth-core into the real registry. Unit and
+  packaged IDP gates pass; publication, ten-application rollout, and full live E2E remain.
 
 ## Open / watch-items
 
