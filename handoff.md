@@ -1,538 +1,81 @@
-# Handoff: 2026-08-01 evening → next session
+# Handoff: full local release-train E2E
 
-Start here. What shipped today, how to verify it landed, and where the work picks up. The map, not
-the territory — reasoning lives in the plan docs named inline. **Kept live during the session as
-workstreams land; the "In flight right now" section is the part to re-check first.**
+Updated 2026-08-02. This file is the current restart point; older session material was removed.
 
-This morning's handoff is in git history (`git show 9bbee7c:handoff.md`): the integrate/release
-split, the release event, the finished-runs rail, and the release train's first live hop. All of it
-still stands, with one rename running through it — see below.
+## Objective
 
-## The headline: the release event split in two
+Prove the complete local release train without manual artifact uploads:
 
-The SCM-release split, **SHIPPED AND OBSERVED** (plan verified fully implemented and retired
-2026-08-01; the measured chain and rescued arguments live in docs/scm-release-split-notes.md);
-this is the shape.
+1. release an `epic/*` library branch through Workspaces;
+2. build/publish Maven or npm artifacts from the library's `SCMRelease`;
+3. emit `SoftwareRelease`;
+4. consumers bump on `maintenance/<library>`, build, and auto-release;
+5. frontend `SCMRelease` updates its service wrapper gitlink;
+6. wrapper maintenance builds auto-release and the wrapper release pipeline deploys.
 
-One event used to fire when the release *push* was accepted and every consumer read it as "the
-package exists". Between those two statements sits a whole build. This morning's hop worked on
-timing, not design. Now there are two events, each meaning one thing:
+All build-time service access must use `qits-net`; localhost is only for commands run from WSL.
 
-- **`SCMRelease`** — qits-workspaces, the instant the push is accepted. Payload unchanged
-  (`{projectId, repository, branch, version}`). It means source control has this version.
-- **`SoftwareRelease`** — qits-ci, when a repository's **release pipeline** goes green. Payload is
-  `{repository, version, packageType, packageName}` and it is emitted **once per declared
-  artifact**. It means the artifact is in qits-artifacts and you can install it.
+## Proven live
 
-Between them sits a release pipeline each repository owns: check out the released tag, build,
-publish. The framework still knows nothing about publishing — `artifacts:` in the pipeline file is a
-**declaration**, and qits-ci announces on the strength of it.
+- `qits-userflows` Maven release `2026.802.153255`: release pipeline green; POM/JAR HTTP 200;
+  correctly emitted `SoftwareRelease`.
+- `qits-eventstream` Maven release `2026.802.154015`: published POM/JAR; qits-ci and
+  qits-workspaces both bumped, built maintenance branches, and auto-released.
+- `qits-auth-core` Maven release `2026.802.154953`: published POM/JAR; qits-artifacts, qits-cd,
+  and qits-ci all bumped, built maintenance branches, and auto-released.
+- `@qits/angular` npm release `2026.802.154030`: published and drove qits-spa-home release.
+- `@qits/ui-components` npm release `2026.802.154237`: published and drove all eight frontend
+  consumers through dependency-bump maintenance releases.
+- All eight wrapper handlers eventually created real maintenance gitlink commits. Seven wrappers
+  completed their final release pipelines/deployments: artifacts, CD, CI, events, gateway,
+  observability, and projects.
+- CI queued-event durability was live-proven across CI self-deployment: queued event YAML/payload
+  survived and resumed. Commit `5d43c7c` additionally restarts interrupted EVENT runs from their
+  persisted snapshot; 173/173 CI module tests pass. That last commit is on GitHub but still needs
+  reconciliation/push to the platform after the current train is quiet.
 
-Five workstreams:
+## Defects found and fixed
 
-- **AK** qits-artifacts `a4fae38` — the tag mechanics measured on the real host (JGit accepts an
-  annotated tag push), and the **`latest` guard**: a whole publish is refused **403** when it would
-  move `latest` backwards. That closes the foot-gun a `-main.g<sha>` prerelease would otherwise fire.
-  (Head is now `7e91db0e`, the styling fix on top.)
-- **AM** qits-ci `97a1f0d` — `artifacts:` in a pipeline file, and the per-artifact
-  `SoftwareRelease` fan-out on a green declared event-run, `parentId` = the triggering event.
-- **AL** qits-workspaces `efe5acf` — the class rename (the wire name *is* the class name), the
-  annotated tag pushed **atomically with `main`**, and **409 `VERSION_ALREADY_RELEASED`** when the
-  version's tag already exists.
-- **AN** — the two canary release pipelines, landed inert first because the bus has no replay:
-  `libs/qits-spa-ui-components` `1964a78` and `services/qits-stt` `6398740`. Post-receive now
-  publishes `<version>-main.g<sha7>` with an explicit `--tag main`.
-- **AO** (this pass) — qits-events `298936d`, the V4 migration deleting the three rows that carried
-  the old meaning, then the live proof of both chains.
+- EventStream tests raced a manual sweep against scheduler startup; test scheduling is disabled.
+- npm publishing was intercepted by proactive OIDC; raw registries now remain tokenless while
+  guarded JSON endpoints still authenticate.
+- Queued EVENT runs previously lost payload/YAML on CI restart; trigger snapshots are persisted.
+- Wrapper handlers false-passed because `ignore=all` affected `git add` and cached diffs. They now
+  compare tree SHAs and stage gitlinks using `git update-index --cacheinfo`.
+- Handler shell scripts had an errexit comparison trap and a doubled-backslash commit argument.
+- Wrapper builds cloned platform-only frontend commits from GitHub. Handler, post-receive, and
+  release configs now override submodule URLs to sibling repositories on qits-artifacts.
+- Shallow submodule updates could not request platform-only, unadvertised commits. Internal
+  submodule updates now fetch full history.
+- Workspaces image builds hardcoded the host Maven URL. The POM/Dockerfile now accept the injected
+  internal Maven URL, use a repository-ID-specific settings mirror to bypass Maven's HTTP blocker,
+  and build with `--network qits-net`.
 
-### The proof, in one paragraph each
+## In flight now
 
-**npm.** A doc commit on `qits-spa-ui-components`, released as `2026.801.85149` (`21655ba4`).
-Annotated tag `refs/tags/2026.801.85149` (object `69f6181f`) peels to the release commit and carries
-its subject. `SCMRelease c5edabb5` → release run `9e62191e` (`EVENT`,
-`ci-event-release.yml`, `triggerEventId c5edabb5`) checks out the tag and publishes; dist-tags end at
-`{latest: 2026.801.85149, main: 2026.801.85149-main.g21655ba}` — **`latest` moved forward**. The run
-yields two siblings under the same parent: `BuildSuccessful 99c733d8` and
-`SoftwareRelease 0bdbe98d`. spa-home's bump trigger (now on `SoftwareRelease`, matching
-`repository`) fires → run `5d42b91f` → force-push `maintenance/qits-spa-ui-components` `9e8666cc`
-→ ONE run `e55d9131` with tests + release → spa-home releases `2026.801.85249` (`dd021e83`, tagged).
-spa-home has no release pipeline, so **no `SoftwareRelease(qits-spa-home)`** and nothing wakes.
-60 seconds, release call to last event.
+- Workspaces final main/epic build at `e6b78f6` passed on `qits-net`, including resolving
+  `qits-eventstream` from qits-artifacts.
+- Release `epic/workspaces-qits-net-release` through the Workspaces REST endpoint, then require its
+  `SCMRelease` pipeline and deployment to pass. This creates a tag containing the Maven mirror fix;
+  replaying the older Workspaces release is insufficient because release pipelines check out tags.
+- Gateway received one last UI-home replay after full-history submodule fixes. Its handler/build/
+  release chain must finish and the deployed gateway must contain the newest UI-components release.
+- Current active CI state must be checked first with `GET /ci/api/runs/active`; do not assume a
+  queued/running run survived without checking its row.
 
-**docker.** Same on `qits-stt`: `2026.801.85448` (`ccd55834`), tag object `7ec49abb`,
-`SCMRelease 7bb9fc99` → release run `df62403a` →
-`HEAD /v2/qits/qits-stt/manifests/2026.801.85448` = **200**, and
-`SoftwareRelease f99998d3 {docker, "qits/qits-stt"}`. Beside it, unchanged: the ordinary
-post-receive run `02eef2e6` pushed `qits/qits-stt:ccd55834` and deployment `cce9225a` went ACTIVE.
-No repository consumes stt's artifact, so the train stops there.
+## After the queue is clean
 
-**The one thing that could have broken and did not**: `SoftwareRelease` had never been serialized by
-the deployed qits-ci **binary**. `bus/EventWireReflection` had it registered; the first real emission
-came out whole. A JVM suite cannot see that class of defect, so it was open until this run.
+1. Reconcile every platform-generated release `main` and tag back into each local/GitHub repo;
+   never overwrite platform release commits.
+2. Push/deploy qits-ci `5d43c7c` (interrupted EVENT recovery), merging the current platform main.
+3. Verify all ten containers are healthy and the CI queue is empty.
+4. Verify final Maven/npm coordinates and all eight wrapper gitlinks/deployed image SHAs.
+5. Update this handoff with final run/event/version evidence and commit explicit root gitlinks.
+6. Only then integrate `../qits-qits-oci` (build dedupe + four concurrent builds) and run a shorter
+   regression train against this known-good serial baseline.
 
-### What the split changes for a reader of the old docs
+## Preserve
 
-- The event AJ and AG observed as `SoftwareRelease` is `SCMRelease` now. The pre-rename plans
-  (release-flow, release-train-hops, software-release-event) were all verified and retired
-  2026-08-01 rather than rewritten; their rescued arguments live in docs/*-notes.md (their
-  success stories were true and also masked the race — both facts stay on the record there).
-- **The train stops one event earlier in kind.** It used to stop at a repository that matched
-  nothing. It stops at a repository with **no release pipeline**: the artifact statement is never
-  made, so there is nothing to match.
-- **Causation is a fork.** `?parentId=<SCMRelease id>` returns `N+1` children — one
-  `BuildSuccessful` plus one `SoftwareRelease` per declared artifact — all at the run's finish
-  instant. That query is the whole answer to "what did this release produce".
-
-## Also shipped: the SPAs stop rendering in Times New Roman
-
-Four SPAs carried the Angular scaffold's `styles.css` with **zero rules** in it, so they inherited no
-platform typography at all — `qits-spa-artifacts` `1e85926`, `qits-spa-events` `225b7df`,
-`qits-spa-observability` `bea5f2f`, `qits-spa-projects` `84691cd`. Fixed by taking the global
-stylesheet the other four already had; **all eight are uniform now**. Each rode into its service on
-the gitlink.
-
-The related fix was **recommended and deliberately parked**: `index.html` is served
-`immutable, max-age=86400` by every SPA, so a returning browser gets a stale page after each deploy
-until a hard reload. Doing it per service is a seven-repo rollout; doing it **at the gateway** is one
-change and covers every SPA at once. That is the recommendation and nobody has taken it.
-**Until it is done, hard-reload before judging any SPA deploy.**
-
-## Also shipped: the release pipelines fanned out (was "AP", done)
-
-All eleven publishers carry `.config/qits/ci-event-release.yml` (8 more docker + the second npm,
-`qits-integrations-angular` `40c42611`); ui-components' publish step is `branches:`-bound to main
-(`d43d710f`) and spa-workspaces' canary listens to the true `SoftwareRelease` (`48114db8`). Every
-deployment cycled green, one at a time. Known consequence recorded: on a service repo, a release
-now produces a second same-sha deployment (any green run announces to cd).
-
-## The afternoon, in order (all live unless noted)
-
-1. **The artifacts explorer shipped end to end** — browse API (qits-artifacts, six read endpoints,
-   manifest-parsed sizes) + the SPA (`qits-spa-artifacts` `aa51d3b`, repository-first tree, the
-   labeled three-figure store summary, commit-sha tags deep-linking to `/ci/`). Live at
-   `/artifacts/` (hard-reload). The census reconciles the store **to the byte**; gzip on (7.7×).
-   Its plan doc was deleted after implementation.
-2. **Git-host storage unification, most of the way** (`git-host-storage-unification-plan.md`,
-   verdict PLAUSIBLE-WITH-PRECONDITIONS, all ⚖ settled: reftable; no GC recorded; mirror cache in
-   its own module; both backends behind config; artifacts Flyway lineage):
-   - **AT** qits-workspaces `e6f6b14` — the service no longer touches the shared filesystem: new
-     `gitmirror` module (no Quarkus, simple API, extractable to a daemon later), every ref write a
-     push, worktrees on a private mirror, the tag dance simplified. **The payoff observed live: a
-     branch creation now produces a CI run where it produced silence.** Zero six-verb call sites
-     here — they all live in qits-projects.
-   - **AV** qits-artifacts `6f2af8c` — the `git-storage` module: DFS + reftable over two
-     self-declared ports (PackBlobStore, PackCatalog), 18 offline tests incl. atomic refusal and
-     the GC-amplification assertion.
-   - **AW** qits-artifacts `bf9294d` — the wiring: adapters, `V4` pack catalog + `V5` protection
-     row (the bare-config override is a table now, both backends), the `GitRepositoryProvider`
-     seam behind `qits.repositories.git.storage` (default `file`; a typo fails boot), GitHostSuite
-     runs 23 cases against EACH backend, and a packaged-binary DFS probe round-tripped clone/push
-     with zero bares on the volume.
-   - **Remaining**: AX (both-backend native matrix — blocked on a create-verb route), the six-verb
-     API on qits-artifacts (scoped entirely by qits-projects' ~35 call sites), the qits-projects
-     conversion, then AY (importer + one-repo-at-a-time rollout, **no bare ever deleted**,
-     qits-artifacts last).
-3. **Artifacts GC underway** (`artifacts-gc-plan.md`, all ⚖ settled: npm-proxy parked; docker
-   keep-set = calver tags + cd ACTIVE pins + previous distinct sha, fetched fail-closed; row-less
-   blobs UNTOUCHABLE this draft — daemon orphans deferred; **nothing deletes until the user
-   reviews the dry-run**):
-   - **AZ/BA** `da604b0` — the substrate: `LiveBlobCensus` (one census, shared with the explorer),
-     `BlobStore.delete` package-private with a **7-day grace window** + pre-unlink re-census, the
-     `GcStrategy` seam, and `GET /artifacts/api/gc/plan` (dry-run reports).
-   - **BB** `a1d4030` — the oci strategy, live in the plan: **dead 270 / kept 21 / 4.48 GiB
-     reclaimable (81.6% of the OCI union)** — all withheld by the grace window until ~Aug 6 (the
-     store is two days old). Kept-by-rule spot-checked. cd pins fetched by enumerating ALL
-     environments; `commitSha` is the field.
-   - **BC** — the npm strategy + the republish **tombstone** (a GC'd version can never be
-     silently republished), in flight at handoff-update time.
-4. **The daemon-identity plan settled** (`daemon-artifact-identity-plan.md`; ⚖: type name
-   **`binary`** (user's call), **version-addressed** pin URL (user's call), qits-ci pin endpoint
-   fail-closed, release-train tie-in yes). Key corrections it measured: the ci-daemon has NO
-   pipeline (only a bootstrap curl publishes it; neither daemon repo is on the platform git host),
-   and the workspace daemon ships INSIDE `qits/workspace:latest` on the host docker daemon —
-   nothing in the store at all. Workstreams BH–BL queued behind the GC chain.
-5. **The pull-through mirror plan settled** (`proxy-pulling-normal-images.md`, SETTLED, uncommitted):
-   generalized lazy pull-through, npmjs-style — the `oci_mirror_upstream` entity (domain → slug:
-   docker.io→hub, quay.io→quay, registry.access.redhat.com→redhat; prefilled; CRUD-managed, UI
-   panel to follow), append-only cache, anonymous upstreams (recorded: `docker login` never
-   traverses a pull-through hop — private registries need a server-side credential, a future
-   entity column). The one-time FROM rewrite is 24 lines in 12 repos; bootstrap's three Hub refs
-   stay direct. Workstreams **BW→BX→BY→BZ, CA** (explorer panel) queued.
-6. **The workspace detail screen, wave 1 done** (`workspace-detail-plan.md`, all ten ⚖ settled —
-   the user refined two: lifecycle verbs are CONDITIONAL (release iff parent is main, integrate
-   iff target is not), and **speech stays as far as the original existed** (recorder → qits-stt →
-   refine), overriding the plan's kill recommendation. Letters AH–AQ renumbered **BM–BV**):
-   - **BM** qits-workspaces `72cdeb3` — `GET /workspaces/{id}` (+ `repositoryMainBranch`), prompt
-     draft/attachments, bootstrap-runs reader; ⚖9: `ENDED` survives in the rollup (30-min TTL,
-     BUSY>WAITING>IDLE>ENDED); and the **websocket backpressure defect FIXED** (upgrades bypass
-     vertx-http-proxy entirely; discriminating test). Endpoint shapes frozen in its report.
-   - **BN** workspace-daemon `d2f17ae` (GitHub only; ships in `qits/workspace:latest`, host-built —
-     picking it up needs a host image rebuild + per-workspace recreate, scheduled with BU) — the
-     hand-written 24-operation API contract + both socket protocols, guarded by
-     `OpenApiContractTest`; `/services` enriched (`restartCount`, `webView`). **Health machinery
-     does not exist in the daemon** — declared checks are parsed but never run; no `health` field
-     shipped; the prober is a named follow-up and the services panel builds for absence.
-   - **BO** qits-spa-workspaces `278bb47` — the shell: detail route (`?tab=`), status strip with
-     conditional verbs, activity bar (renders ENDED), tab host (latch-and-hide, in-session
-     reorder), SSE client (invalidate-on-connect, zero timers asserted), daemon transport skeleton.
-   - **BP** (files tree) in flight; then BQ (chat + prompt + restored speech) → BR (services +
-     actions) → BS (files viewer) → BT (agents + web view + severable element picker) → BU (gitlink
-     embed + ship + browser pass). BV = phase two.
-7. **Sixteen plan documents verified and retired** by read-only verifier agents (ci-cd-explorer,
-   event-triggers, dns, causation, eventsourcing, software-release-event, migration-deployables,
-   main-environment, npm-registry, scm-release-split, final-workspaces, finish-ci, release-flow,
-   release-train-hops, image-publishing, plus artifacts-explorer post-implementation). Every
-   unique argument was rescued into **docs/*-notes.md** (causation, eventstream, ci-cd-explorer,
-   npm-registry, release-flow, release-train, scm-release-split, workspace-daemon);
-   `migration-plan.md`'s §9 ledger finally learned what shipped (items 9/16/19 closed, 22 gained
-   the ci-daemon precedent). The one real gap found: run-page live-output auto-scroll (parked).
-8. **Events + observability UI designs in flight** — two Opus agents writing `events-ui-plan.md`
-   (letters CB+; knows `?limit=` is ignored and causation is the centerpiece) and
-   `observability-ui-plan.md` (letters CG+; the store's ephemerality must be surfaced honestly).
-
-## In flight right now (update on each landing)
-
-- ~~BT~~ — the last tabs LANDED (`a75a924`, 466 tests): four-branch resolution asserted by what
-  it refuses to do, the sign-in replay double-keyed and capped, THE PICKER MADE THE CUT (own
-  commit), both FileNavigation wirings done, a hand-written VT100 subset behind an xterm-ready
-  seam, bundle 505 kB with the budget deliberately moved to 550. One stale claim for BU: the
-  badge copy predates BM's ENDED TTL. **BU is HELD until BY clears qits-workspaces** (push
-  collision), then: gitlink → a75a924 (+ the badge fix), the qits/workspace:latest HOST rebuild
-  (delivers BN's enrichment — mind the "toolchain base this script cannot conjure" note), and
-  the full browser pass. CL follows BY too (metrics data). (Earlier: BS landed the
-  viewer `3c14886`, 387 tests — precedence asserted as the resurrection case, gitignore locality
-  proven by counter-test, PickedContext receives {path,range,excerpt}. Parked: a `size` field on
-  the daemon's FileContent would fix the binary/2MB copy; a one-line ?path= clear belongs in the
-  shell. BT wires both FileNavigation consumers. Earlier: the BQ two-box
-  rework landed `9eda206`, 312 tests, prettier clean — transcript box restored, promotion is
-  append-and-empty, the mic-less browser keeps the typed-transcript feature. Earlier:
-  BR landed `88f0e05`, 308 tests: services + actions with health-absence rendered honestly, the
-  recycled-label and dead-history traps counted-and-named; the spec's targetless "Logs link"
-  became a per-service Events scope — a real logs link is daemon work, parked. BQ had landed
-  `a3ea608`, 269 tests — chat
-  with side-chain folding, prompt panel on BM's draft contract, and the SPEECH FLOW RESTORED:
-  recorder → level meter + pause detection → WAV → live qits-stt `{audioBase64}→{text}` →
-  serialized appends → refine. Shared seams for later workstreams: WorkspaceCommands,
-  PickedContext. The user ruled TWO BOXES (the spec's original transcript→promote shape) — a
-  small BQ follow-up queued for when BR frees the repo.)
-- ~~CB~~ — events backend queries LANDED (final `9099c91`, deployed ACTIVE; envelope + literal
-  cursor spelling regression-pinned; live walk 142/142 whole): honored/clamped limit,
-  composite cursor (walked live: 20 pages, 140 ids, 0 dup/missing, forks intact), /names,
-  ?name=/?since=/?q=, (occurredAt,id) total order. Envelope exactly {events, nextCursor}.
-- ~~CG~~ — **THE EVENTS EXPLORER IS COMPLETE AND BROWSER-PROVEN** (`aef2df1` embed, deployment
-  ACTIVE, 291 kB bundle): every verification step passed live — the 2+1-socket budget observed,
-  server-side filters matching backend counts, the cursor walk whole with the fork tie held, all
-  five tail marker states, the c5edabb5 fork drawn as a fork at 1+2+5=8 requests, the dangling
-  parent honest, console clean. One cosmetic defect parked: log-page lede duplicates "newest
-  first" (ride the next spa-events change). CF earlier landed the chain page `d0813d2` and
-  caught+fixed CC's typed-away {event:…} envelope.
-- ~~BY~~ — the fan-out LANDED, all 12 repos green: **metrics flow from all nine services (34–36
-  series each, was 0)**; the mirror serves every service build — qits-stt paid two manifest
-  fetches cold, THE SEVEN BUILDS AFTER FETCHED NOTHING UPSTREAM. CA's panel rode the artifacts
-  cutover (`17cfe53`, gitlink c20a78f). Frictions: (1) the 1.5–2.5 GiB layer fill was DEFERRED —
-  the host daemon already held the base layers, so the mirror has manifests but no layer bytes
-  for the big builders; BZ's proof step decides whether to force it. (2) COLD-START REGRESSION
-  found: the bootstrap seed-builds five rewritten Dockerfiles before the mirror exists — a fix
-  agent is on qits-local-up.sh (sed-to-direct for seed builds only). (3) qits-stt's GitHub main
-  lagged the platform by 4 release commits — healed by rebase + force-with-lease. (4) qits-dns
-  got its FROM/metrics on GitHub only (no pipeline — the standing orphan).
-- ~~BU~~ — the workspace embed LANDED (`21de566`, deployment ACTIVE, 505/550 kB) and the daemon
-  image REBUILT (zero cold fetches — BY's warm cache) — with TWO escalations: (1) **workspace
-  provisioning is broken platform-wide** — qits.workspace.git-host unset → auto resolves to
-  qits-workspaces' OWN container IP, every container→platform URL 404s; fix proven read-only
-  (QITS_WORKSPACE_GIT_HOST=qits-gateway). (2) the PREVIOUS qits/workspace:latest contained NO
-  daemon at all (bash entrypoint) — preserved as :toolchain-base-20260720, now rebuilt correctly.
-  Everything container-free PASSED incl. the free negative test (every surface legible with no
-  daemon). Also found: gateway serves the SPA bundle UNCOMPRESSED; the web-view panel lacks an
-  error branch; async.ts double-period (copied to spa-cd too, parked); UUID repo labels.
-- ~~BV~~ — **PROVISIONING FIXED AND THE FULL SCREEN PROVEN LIVE** (`a984672` SPA fixes,
-  `389f4aa` script, live cd config + restart, `d02f7040` embed; resolver now logs
-  qits-gateway): workspace 1901 provisioned, files/viewer/pick, the two-box speech refine LIVE
-  against the daemon, enriched services incl. a real restart count, actions history, the picker
-  with honest non-Angular fallback, guarded discard, clean teardown, zero idle requests. TWO
-  BLOCKERS FOUND (a fix agent is on them): **D1** the host never learns daemon-supervised
-  services (coupler chain dead → Web view 404s for every daemon service, no service events, no
-  bootstrap-run rows) and **D2** agent launch requires UUID repo ids (the platform's ids are
-  slugs) + QITS_WORKSPACE_DAEMON_PROJECT_ID ships empty. Parked smalls: D3 status-strip
-  double-period (async.ts's sibling; also in spa-cd), D4 draft-restore wipes a fresh element
-  pick, D5 web-view stale-cached list vs stopped container, D6 no repo declares a workspace
-  config + the SPA has no create-workspace surface, D7 the daemon's MCP/git URLs rely on
-  control-socket-authority inference (unset config).
-- ~~D1+D2 fix~~ — **LANDED AND RE-VERIFIED** (qits-workspaces `112ac52` deployed; daemon
-  `f52b897`, images rebuilt). D1's root cause was FOUR compounding defects, each proven live:
-  missing native enum reflection (RestartPolicy/HealthCheckKind deserialized configs as empty in
-  the binary only), a supervisor-monitor/socket-pipeline self-deadlock starving the config reply,
-  a restart race reading config before the daemon dialed home, and lazy subscribers dropping
-  reports (bootstrap 202s wrote nothing). Fixed at the root: definitions resolved once with a
-  bounded wait, sink fan-out on a dedicated thread, StartupEvent subscriptions, a persistent
-  bootstrap recorder as the single row writer, the NativeImageContractTest now walking enum
-  components. D2: slug grammar accepted daemon-side (UUIDs a subset), the REAL project UUID
-  injected (the old resolver never shipped — the var was structurally always empty), the
-  submodule rewrite guarded. Re-verified live: autostart visible host-side, the service proxy
-  serving the service's own answer, bootstrap rows recorded, project id in the container.
-  Carried forward: config errors are SILENT on every route (worth a surface); the 20s bounded
-  wait is visible in daemon-less Start streams.
-
-## Reopened by the user's go: the sweep and the grand tour
-
-- **GC sweep executor** IN FLIGHT (qits-artifacts): the user reviewed the dry-run and said GO —
-  the POST /gc/sweep executor (identity deletion per strategy, tombstones on npm, blob unlink
-  behind grace + re-census, row-less untouchable), the CI_SCREENSHOTS/CI_VIDEOS stub strategies
-  completing the five-type table, and the FIRST LIVE SWEEP — expected to reclaim ZERO (grace
-  holds everything until ~Aug 6), which is the safety proof.
-- ~~Full-platform E2E tour~~ — **DONE, 12/12 PASS in 31 minutes**: uniform SPAs, every explorer
-  live with byte-reconciling data, the workspace lifecycle end to end (D1 fixes holding — live
-  restart push, framed web view), a full release-train hop UI-door-to-stop in 95 s (ui-components
-  `2026.801.173225` → spa-home `2026.801.173400`), the mirror warm, GC withheld-by-grace, clean
-  teardown. FOUR NEW DEFECTS, fix agents dispatched:
-  **N4** (qits-ci) a post-receive silently DROPPED on a tracking-ref CAS race — and a release
-  makes the race likely (two pushes in a second); a released main can go unbuilt with only a
-  WARN. **N3** (daemon) web-view proxy loses prefix-stripping after a service auto-restart
-  (likely D1-fix regression) + the root path 404s fresh. **N1** (host) service_event rows persist
-  workspaceRowId null — the SPA's own guard disowns the workspace's events. **N2** (host
-  recorder) bootstrap rows store the step NAME where the declared ID belongs — the join never
-  matches. Known-parked all confirmed as such en route.
-- **N4 fix** IN FLIGHT (qits-ci: bounded CAS retry, QUEUED-not-dropped fallback, live
-  double-push probe).
-- **N1–N3 fix** IN FLIGHT (workspace seam: row id through the event path, declared id in the
-  recorder, restart-safe proxy semantics; daemon image rebuild; live restart probe).
-
-## SESSION ENDED WITH THREE AGENTS IN FLIGHT — VERIFY, DON'T TRUST
-
-The user stopped the session while these were mid-work. Their reports were NOT received; each may
-have finished, partially landed, or died after its last push. FIRST JOB NEXT SESSION — verify
-each by its artifacts, exactly like the morning-after protocol that opened today:
-
-1. **GC sweep executor** (services/qits-artifacts): was implementing POST /artifacts/api/gc/sweep
-   + the two CI-media stub strategies; last seen with JVM verify green, native verify running,
-   then commit → quiet-gap push → THE FIRST LIVE SWEEP (expected result: ZERO deletions — all
-   821 sweepable blobs are grace-withheld until ~Aug 6; the untouchable pool 130,419,952 B must
-   be byte-identical). Check: git ls-remote both remotes vs 17cfe53; the run/deployment for any
-   new sha; GET /artifacts/api/gc/plan (six strategy lines + two stubs?); whether POST /gc/sweep
-   answers; the store summary unchanged. If it never pushed, the work sits in the local
-   submodule checkout.
-2. **N4 fix** (services/qits-ci): the tracking-ref CAS race (a silent WARN drops a post-receive;
-   refs/qits-ci/<branch> "incorrect old value provided"). Fix shape: bounded retry, then
-   QUEUED-not-dropped. Check: ls-remote vs 6b84fdb/cad748fe-era head; if landed, the live
-   double-push probe (two rapid pushes → two run rows, no replay). Until verified, treat every
-   release as possibly leaving main unbuilt — check for a missing run row after any release and
-   replay POST /ci/api/events/post-receive (the tour's healed example: run efaae6df).
-3. **N1–N3 fix** (daemons/qits-workspace-daemon + services/qits-workspaces): service_event
-   workspaceRowId null; bootstrap rows name-vs-declared-id; web-view proxy prefix-stripping lost
-   after auto-restart (+ root path 404). Check: both repos' heads vs cbd9a71→f52b897-era /
-   d02f7040→112ac52-era; whether qits/workspace-daemon:latest + qits/workspace:latest were
-   rebuilt again (docker images timestamps); the re-verify is one throwaway workspace with a web
-   service + bootstrap step, kill the service process, confirm the framed path still resolves
-   after the auto-restart.
-
-The four defects' full evidence is in the tour scorecard above. Everything else in this handoff
-is landed and verified. Superproject: all local commits, none pushed, as ever.
-
-## Session close (as of the go): every prior chain closed
-
-Three new UIs live and browser-proven (events, observability, workspace detail — the last
-including the first working workspace provisioning this host has ever had), the pull-through
-mirror shipped-and-observed with its offline posture proven, the GC dry-run complete and awaiting
-the user's review, the SCM-release split and its fan-outs live since morning, sixteen plans
-verified and retired with their knowledge rescued, and the storage-unification and
-daemon-identity chains parked at their documented next steps (AX + six-verb API + qits-projects
-conversion + AY; BH–BL). Open user decisions: the GC dry-run go/no-go, the mirror-write posture
-(gateway session-guard vs qits-idp), overview-ux's concept, and the parked smalls (gateway
-cache+compression, D3–D7, docker release idempotency, summary length).
-- ~~CL~~ — the metrics screen LANDED (`37d9689`, 186 tests, real series, no-chart asserted) +
-  the consolidation pass (restart wording unified from FOUR copies, severity module adopted,
-  §5 table spec'd everywhere). Measured: /telemetry/metrics ?name= is exact-match (client
-  filter documented); seriesKey excludes serviceName (warned at ≥2 services/bucket); limit
-  accepted-and-ignored (the §4.6 bug class); qits-dns has no bucket (the standing orphan).
-- ~~CM~~ — **THE OBSERVABILITY UI IS COMPLETE AND BROWSER-PROVEN** (`95f3a9e` embed, deployment
-  ACTIVE, 383 kB bundle, PackagedSurfaceIT landed): the refill watched live (9 sources in 65s),
-  the restart wording captured while true, the error path proven with a live fixture (waterfall
-  + stack trace + correlated logs), follow-mode cadence and silence both wire-observed, console
-  clean. One minor client defect parked: the source strip labels all-sources totals with a
-  nonexistent bucket's raw key on hand-edited URLs (source-strip.ts scope()/figures() fallback
-  mismatch).
-- ~~BZ~~ — **THE MIRROR FEATURE IS CLOSED, SHIPPED AND OBSERVED** (superproject `8cdf1c5`): the
-  forcing proof filled 592 MB through the mirror cold and the offline check ran green with ZERO
-  upstream requests (counter frozen, 204 MB layer served from mirror disk in 0.21 s). The proof
-  required clearing docker's three-deep layer retention (an orphaned mandrel image, 33 GB
-  dangling, 96 GB buildkit cache) — the "rmi alone proves nothing" trap is now in
-  local-platform.md's new operator section, which also fixed its stale SoftwareRelease naming.
-  qits-stt's parked README line fixed in the trigger commit. graalvmce stays manifest-only until
-  a bootstrap rerun (the one remaining cold fetch ahead).
-- ~~bootstrap-fix~~ — LANDED (`30005f3`): seed builds pipe their Dockerfiles through
-  seed_dockerfile (mirror prefixes → direct upstreams, stdin-only, context unchanged — mechanism
-  proven with a throwaway build); the three inline Hub refs stay direct by design; pipeline
-  builds keep the mirror. Header "known gaps" updated. Adjacent pre-existing flag: during the
-  bootstrap deploy loop, qits-ci/qits-cd builds follow qits-artifacts' cutover — a FROM hitting
-  the mirror mid-blink fails that build and needs a rerun.
-- (earlier: CE landed the tail `ebcbc63`, 103 tests —
-  default-off with the budget kept honest, frame filtering EXACT against the server's own
-  predicate clauses, frames held under a cursor window. Parked nicety: reconnect blanks
-  accumulated load-more pages. Earlier: CD's log page `a19dd83`.)
-- ~~BX~~ — the mirror miss path LANDED (`4ba41ea`, deployed): the double-pull proof passed —
-  cold pulls fetch lazily (busybox 5 fetches; the s390x child on demand proving the Hub bearer
-  dance), post-rmi pulls ZERO upstream fetches. 502-when-unaskable vs 404-when-refused split by
-  cause. A general native trap recorded: blank-shipped String config kills the binary
-  (Optional<String> is the rule). THE MIRROR WORKS — remaining: BY (the 12-repo FROM rewrite,
-  HELD until CG's qits-events embed lands to avoid a push collision), BZ (rollout doc + proof).
-- ~~CA~~ — the upstream panel LANDED (`c20a78f`, 93 tests; /mirrors route, honest remove wording,
-  the store summary's "true union" label corrected to "hosted union"). Its gitlink advance rides
-  BY's qits-artifacts stop (message sent). TWO FINDINGS FOR THE USER: (1) mirror-upstream WRITES
-  ARE UNGUARDED LIVE — qits.artifacts.token ships blank (filter no-op) and the gateway's
-  PublicPaths allowlists /artifacts/api/ for ALL methods, so an unauthenticated caller can
-  register an outbound-fetch target; fix candidates: session-guard write methods at the gateway,
-  or accept until qits-idp lands (per the new no-interim-tokens posture). (2) two stray empty
-  oci-mirror repository rows (probe/probe2) from guard probing — no repository-removal API
-  exists; cosmetic residue.
-- (was BW queue note; GC-BC landed `83d7b57`:
-  npm strategy live in the dry-run — 3 superseded prereleases dead / ~31 KB, tombstone V6 shipped
-  with "removed by garbage collection" 403s. **THE FULL TWO-STRATEGY DRY-RUN NOW AWAITS THE
-  USER'S REVIEW at GET /artifacts/api/gc/plan** — oci 4.48 GiB + npm 31 KB, all grace-withheld
-  until ~Aug 6; the sweep trigger is not built until the review says go)
-- ~~CH~~ — observability read surface LANDED (`7d61d07`, deployed ACTIVE): re-bucketing live —
-  eight real service.name buckets within seconds, a real nested waterfall trace verified; all
-  four SPA rulings honored (explicit nulls); schema wart fixed. NEW USER DECISION: no service
-  exports metrics (quarkus.otel.metrics.enabled defaults false in all ten) — enable via a
-  ten-repo fan-out, or ship the metrics screen honest-empty.
-- ~~CI~~ — observability SPA foundation + Overview LANDED (`e7e5782`, GitHub-only; 35 tests;
-  Overview budget 2+0 with zero-cost expansion asserted). Four contract seams it found were ruled
-  and sent to CH as binding (thresholdMs + service on /traces; rootMissing always; nullable
-  window/scope fields). The spa-side CI recipe file is reassigned to the embed workstream (CM).
-- ~~CK~~ — errors + logs LANDED (`f291dae`, 144 tests: odd wire shapes fixture-proven, seven
-  empty-state reasons per screen, follow-mode off = zero timers). USER RULED metrics: ENABLE
-  EXPORTS FIRST — combined with the held BY into ONE ten-repo fan-out (metrics property + FROM
-  rewrite per repo, one redeploy each), dispatching when CG clears qits-events. CL (metrics
-  screen + the honesty consolidation pass) follows the fan-out. (Earlier: CJ `bee9a5f`,
-  89 tests — the waterfall live-verified with a hand-encoded OTLP fixture: nesting percentages,
-  orphans never re-parented, sub-ms slivers honest, the lens genuinely reordering. Its fixture
-  bucket `_service/qits-fixture` clears on the next restart.)
-- Queued: BQ two-box follow-up + **BS** (SPA-workspaces, after BR), **CF** (events chain page,
-  after CE), **BX** (miss path, after BW), **CK/CL/CM** (observability errors+logs, metrics,
-  embed).
-- New parked line from BP: the daemon doc under-describes `/files` (the root call returns the FULL
-  eager tree, not one level; and `listDirectory` stubs every subdirectory) — a doc sentence for
-  the daemon repo's next pass. BP's derived framework-depth rule (descend while exactly one
-  subdirectory holds members, fork stops, cap 6) is a recorded judgment call.
-
-## Next up (decisions and follow-ups awaiting the user)
-
-- **Review the GC dry-run** (`GET /artifacts/api/gc/plan`) once BC lands — the gate before any
-  sweep; the grace window means nothing is reclaimable before ~Aug 6 regardless.
-- **`workspace-overview-ux.md`** — still awaiting the concept choice (workspace-detail is being
-  implemented; artifacts-explorer shipped).
-- **The gateway `index.html` cache header** — one change at the gateway, seven SPAs' benefit,
-  user-facing. Until then hard-reload before judging any SPA deploy.
-- **Typography tokens in ui-components** — the durable form of the styling fix; wants the train
-  fan-out (six SPAs) so consumers actually pick up lib releases.
-- **The daemon health prober** — BN measured the machinery absent; shape specced in its report.
-- **Docker release-step idempotency** (rebuild-and-repush on redelivery vs a manifest probe) and
-  the **summary-length composition** (108 vs the 100 cap) — both still undecided.
-- **Tag GC** — release tags are permanent refs now; the GC plan's git strategy never deletes refs
-  by design, so if tag pruning is ever wanted it is its own decision.
-
-## Parked follow-ups (deliberate, not forgotten)
-
-- **The other six SPAs' train files** — still a fan-out awaiting the user's go. Seven bump runs,
-  seven maintenance pushes and seven releases on one serialized worker.
-- **Retired-plan pointers in submodule docs.** Nine verified-shipped plans were deleted 2026-08-01
-  (explorers, event-triggers, dns, causation, eventsourcing, software-release-event,
-  migration-deployables, main-environment, npm-registry, scm-release-split; rescued
-  arguments live in docs/*-notes.md). Still pointing at them, to fix on each repo's next real
-  change (never a deploy of its own): qits-ci AGENTS.md:91 (its "kept alive only by
-  eventsourcing-plan.md" sentence is now false) and :351; qits-events AGENTS.md:131;
-  libs/qits-eventstream README:12 + QitsEvent.java:17 (plus the two vendored submodule copies);
-  qits-dns service/pom.xml:90 (stale SimpleResolver claim); seven service pom.xml headers citing
-  migration-deployables-plan.md (artifacts, cd, ci, observability ×2, projects ×2, stt ×2,
-  workspaces) + qits-observability README:173; two stale prose strays (observability
-  service/pom.xml:35 "still library JARs", qits-stt README:107 "not yet a deployable");
-  ~25 cites of main-environment-plan.md across 20 qits-projects files (rationale restated in
-  code everywhere — pointers to strike, not knowledge to migrate); qits-workspaces AGENTS.md:522
-  and libs/qits-spa-ui-components README:140 citing scm-release-split-plan.md;
-  frontends/qits-spa-home README:168 + ci-post-receive.yml:88 still saying the release "publishes
-  a SoftwareRelease" (post-split it is SCMRelease); qits-workspaces DaemonApiGateIT.java:35 citing
-  the retired final-workspaces plan; StepChunk.java:10 in BOTH protocol copies (daemon repo first,
-  then the vendored qits-ci copy, or diff -r goes red) + CiDaemonRegistry.java:148 citing the
-  retired finish-ci plan; qits-workspaces README:271 (future tense for shipped daemon routing, and
-  "a gateway route" is what the design forbids); workspace-daemon AGENTS.md:110 (names
-  SameOriginUpgradeCheck as open — the gateway resolved it, the class does not exist);
-  qits-workspaces AGENTS.md tests note ("real-docker ITs are not in this repo" — DaemonApiGateIT
-  is, self-skipping); qits-workspaces VersionStamp.java:36 + NpmVersionBumper.java:42 citing the
-  retired release-flow plan (redirect to docs/release-flow-notes.md); three stale strays the
-  release-flow verifier found — qits-workspaces GitExecutor.java:101 ("the overload the integrate
-  flow's push uses" — no production caller since gitmirror), qits-artifacts
-  microprofile-config.properties:127 (still teaches the bare-config override and "owns no table"
-  — it owns three, the override is a row), qits-artifacts README:154 (names /integrate as the
-  release door — it is /release), qits-artifacts README:921 (still claims steps get no docker
-  socket "by design" and builds keep failing — false since image-publishing shipped; all nine
-  services are built exactly that way).
-- ~~The websocket backpressure defect~~ — FIXED same day (qits-workspaces `365ea90`, workstream
-  BM): upgrades bypass vertx-http-proxy entirely, raw NetSocket piping with full flow control,
-  proven by a discriminating test. Record kept in docs/workspace-daemon-notes.md.
-- **qits-dns is built but deployed nowhere, and no plan owns that.** Verified 2026-08-01: no
-  container, no compose entry, not in qits-local-up.sh's sets, no gateway route. Consequence today
-  is nil (the only project stores no dns record, so the registrar never fires), but it is orphaned
-  platform debt — recorded here so it has an owner-shaped line, not just the bootstrap's warn.
-- ~~The spa-workspaces trigger flip and the ui-components publish binding~~ — both closed by the
-  fan-out workstream (qits-spa-workspaces `48114db` flips the canary to `SoftwareRelease`;
-  qits-spa-ui-components `d43d710f` binds the publish step to `main`).
-- The `summary` length composition (a release subject quoting a bump subject reaches 108 against a
-  100-char cap) — unreachable in the designed flow, still undecided.
-- Tofu chevrons (`▸▾`) in the explorers on hosts without glyph coverage.
-- `CausationStampingTest` and `OutboxFlowTest` flakes in qits-eventstream — same outbox race.
-- qits-ci README still promises `jq` in step images; `node-base` has none.
-- qits-spa-ci / qits-spa-cd have CI recipes but no repos on the platform git host.
-- Event-triggered QUEUED rows are discarded (not re-enqueued) at restart.
-- DAG cycle detection across trigger files; bus catch-up/replay.
-
-## Operational truths that bite (full versions in auto-memory + repo AGENTS.md files)
-
-- **Two release events, and they are not interchangeable.** `SCMRelease` = source control has the
-  version. `SoftwareRelease` = the artifact is published, and it names the exact package. A
-  downstream consumer triggers on the **second**. A repository with no release pipeline emits no
-  `SoftwareRelease` at all — that is the designed stop, not a break.
-- **Three endpoints, two doors.** Release is the only thing that writes `main`:
-  `POST /workspaces/api/workspaces/{id}/release` and
-  `POST /workspaces/api/branches/release?repositoryId=<repo>` `{branch, summary}`. Both stamp, bump,
-  **push an annotated tag named the version atomically with `main`**, publish `SCMRelease`, resolve
-  any ACTIVE workspace on the branch INTEGRATED and delete the source branch.
-  `POST …/{id}/integrate` merges into the branch's *parent* and refuses a `main` parent with 409
-  `RELEASE_REQUIRED`. A direct `git push … main` needs `-o qits.token=local-dev`.
-- **409 `VERSION_ALREADY_RELEASED` is retryable** — the version's tag already exists, and a second
-  later a fresh stamp simply works. Never treat it like `PUSH_REJECTED`, which is not retryable.
-  It is reachable on a small repository: two releases inside one second stamp one version.
-- **A release pipeline checks out the tag, not `main`.** An event-triggered run is cloned at the head
-  of main, which a later push moves; the tag does not. `git fetch <url> refs/tags/X:refs/tags/X &&
-  git checkout --detach X` is the whole mechanism, and it needs no platform change.
-- **`artifacts:` is a declaration nobody validates.** qits-ci announces `{repository, version,
-  packageType, packageName}` on the strength of two lines in a YAML file. A wrong `name:` produces a
-  confident event about a package that does not exist.
-- **`@` is a reserved YAML indicator** — `exact: "@qits/ui-components"` must be quoted.
-- **npm `latest` is guarded now** (403 on a backwards move), but a prerelease publish still needs
-  `--tag main` — the guard refuses the whole publish, so a missing `--tag` is a red build, not a
-  silent regression.
-- Replays of `POST /ci/api/events/post-receive` are NOT idempotent; a missing run row while the
-  worker is busy means QUEUED, not lost. A run whose sha was force-pushed away is discarded outright.
-- qits-cd write-wedge: green runs, no deployment row, "database has been closed" in cd logs →
-  restart the cd container, replay `POST /cd/api/events/build-succeeded`.
-- qits-cd caches its run-args config at boot; restart it after editing the `qits-cd-config` volume.
-- Gateway is :8080; :8081 is qits-artifacts direct (and the reason every repo's test port is 0).
-  CI filter param is `repositoryId`; cd's is `environmentId`. `/events/api/events` ignores `limit`
-  and returns the whole history.
-- **GC never runs on its own.** `GET /artifacts/api/gc/plan` is a dry-run report; the delete
-  primitive is package-private with a 7-day grace window and a pre-unlink re-census; row-less
-  blobs (the 130 MB orphan pool incl. the live ci-daemon binary) are untouchable by construction.
-- **The git host has two storage backends.** `qits.repositories.git.storage` = `file` (default) |
-  `dfs`; an unknown value fails the boot on purpose. DFS repos cannot yet be created from outside
-  the process (the create verb has no route until the six-verb API lands).
-- `ENDED` agent activity expires from the rollup after 30 minutes
-  (`qits.workspace.agent-activity.ended-ttl-ms`); precedence BUSY>WAITING>IDLE>ENDED.
-- Never run `qits-local-up.sh` casually (the recreate branch kills the cd-managed core); never DELETE
-  the `qits` project (it deletes the platform's own git origins).
-- Superproject: many local commits, **none pushed** (the user has not asked). Submodule gitlinks lag
-  by design; sync is automated.
-
-How to verify any of it: `/ci/api/runs?repositoryId=<repo>` for builds,
-`/cd/api/deployments?environmentId=9fc2480c-3ff9-4f24-9bfe-67abe64afb06` for deployments,
-`/events/api/events` and `?parentId=` for the bus, `git ls-remote` on both remotes for shas **and
-tags**, `HEAD /v2/<repo>/<image>/manifests/<tag>` on :8081 for a docker artifact, and
-`GET /artifacts/npm/npm/<pkg>` for an npm one.
+- Root untracked user files: `daemon-artifact-identity-plan.md`, `workspace-overview-ux.md`.
+- `services/qits-workspaces/.claude/` is user-owned and untracked.
+- Do not reintroduce EventStream as a CI/Workspaces submodule or reactor module.
