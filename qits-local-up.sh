@@ -138,7 +138,17 @@ DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts 
 # qits-workspaces can release them, and qits-ci can discover their event pipelines. Keep this list
 # separate from DEPLOYABLES; adding a library or SPA to the deployment loop would make cd wait for
 # an image and health endpoint that repository intentionally does not ship.
-RELEASE_TRAIN_REPOS="oci eventstream spa-ui-components userflows integrations-angular integrations-quarkus spa-home spa-projects spa-workspaces spa-artifacts spa-observability spa-events spa-ci spa-cd"
+#
+# ci-daemon belongs here and nowhere else. It ships no image and no health endpoint, so it is not a
+# deployable — but its binary is now an ordinary release-train artifact (a PUT to
+# /artifacts/daemons in its own ci-event-release.yml), and a release train needs the repository on
+# the git host: workspaces releases it, ci discovers its trigger files, projects inventories it.
+# Being in this list rather than in DEPLOYABLES also keeps the bootstrap quiet — the history is
+# pre-seeded into the bare below, so the push that follows is a no-op and fires no post-receive.
+# That matters more here than for any sibling: this repo's post-receive is a cold GraalVM musl
+# build, and firing one during bootstrap would race the deliberately serial deployment train for
+# the host's memory.
+RELEASE_TRAIN_REPOS="oci ci-daemon eventstream spa-ui-components userflows integrations-angular integrations-quarkus spa-home spa-projects spa-workspaces spa-artifacts spa-observability spa-events spa-ci spa-cd"
 PLATFORM_REPOS="$DEPLOYABLES $RELEASE_TRAIN_REPOS"
 
 # The static clients qits-idp seeds from config. The list is the contract's, and every one of them
@@ -199,8 +209,11 @@ DOCKER_GID=$(stat -c %g /var/run/docker.sock 2>/dev/null || echo 0)
 # --- sources -------------------------------------------------------------------------------------
 say "cloning sources into $SRC"
 mkdir -p "$SRC"
-# PLATFORM_REPOS covers every pipeline repository; ci-daemon is the one hand-published input.
-for name in ci-daemon $PLATFORM_REPOS; do
+# PLATFORM_REPOS covers every pipeline repository, ci-daemon included since its binary joined the
+# release train. This bootstrap still builds and publishes that binary by hand, because a fresh
+# platform needs a daemon before it has any CI to build one — cold start only, and the same PUT the
+# release pipeline uses.
+for name in $PLATFORM_REPOS; do
   repo="qits-$name"
   local_src="/out/$(repo_path "$name")"
   if [ -e "$local_src/.git" ]; then from="$local_src"; else from="$ORG_URL/$repo.git"; fi
@@ -796,16 +809,45 @@ idp_token() {
 }
 
 # --- publish the ci-daemon binary ----------------------------------------------------------------
+# The cold-start publish, and only that: a fresh platform needs a daemon before it has any CI to
+# build one. Every later one comes from qits-ci-daemon's own release pipeline, which PUTs to this
+# same route.
+#
+# THE ROUTE CHANGED, AND THAT IS THE POINT. This used to be one monolithic POST to the OCI
+# blob-upload session, which promotes bytes and writes no row by construction — so every byte this
+# script ever published was invisible to every table in qits-artifacts, which is why the whole
+# orphan pool of that store was ci-daemon builds. `PUT /artifacts/daemons/<name>/<version>` writes
+# the row and the bytes in one transaction, so even a bootstrap publish now has an identity.
+#
+# THE VERSION IS THE DIGEST HEX. CalVer begins with the first release-train publish; a bootstrap
+# binary has no release to take a version from, and using the digest means QITS_CI_DAEMON_VERSION's
+# value doubles as a valid version coordinate and both download spellings already resolve
+# (daemon-artifact-identity-plan.md ⚖5). Nothing downstream changes: the compose file and cd's
+# run-args below still pin the digest, and every step container still downloads by digest through
+# /v2 — the route this publish no longer uses, but which serves the same global blob store.
+#
+# THE PROBE IS NOT OPTIONAL. Re-publishing a version is 409 by design, so a blind re-PUT would kill
+# a rerun. HEAD on the version-addressed spelling answers without moving 43 MB.
 say "publishing the ci-daemon binary to the registry"
-if curl -fsS -o /dev/null "$ARTIFACTS/v2/qits/ci-daemon/blobs/sha256:$DAEMON_SHA"; then
-  echo "  blob already present"
+if curl -fsS -o /dev/null --head "$ARTIFACTS/artifacts/daemons/qits-ci-daemon/$DAEMON_SHA"; then
+  echo "  qits-ci-daemon $(echo "$DAEMON_SHA" | cut -c1-12) already published"
 else
-  [ -f /qits-ci-daemon ] || die "daemon binary not in this container and blob absent — rerun without QITS_SKIP_BUILD"
-  code=$(curl -s -o /tmp/upload.out -w '%{http_code}' -X POST \
+  [ -f /qits-ci-daemon ] || die "daemon binary not in this container and not published — rerun without QITS_SKIP_BUILD"
+  # The publish route is guarded exactly as cd's and ci's intakes are: with the gate on it wants a
+  # machine token addressed to qits-artifacts. Same borrowed client as the replayed build event
+  # above — this script presents the platform's own credentials because it IS the platform, before
+  # there is anything to go through. set -- carries the header as ONE argument.
+  if [ "$MACHINE_AUTH" = 1 ]; then
+    token=$(idp_token qits-artifacts) || die "qits-idp issued no token for the daemon publish — is the qits-ci client's secret in place?"
+    set -- -H "Authorization: Bearer $token"
+  else
+    set --
+  fi
+  code=$(curl -s -o /tmp/upload.out -w '%{http_code}' -X PUT "$@" \
     -H 'Content-Type: application/octet-stream' --data-binary @/qits-ci-daemon \
-    "$ARTIFACTS/v2/qits/ci-daemon/blobs/uploads/?digest=sha256:$DAEMON_SHA")
-  [ "$code" = 201 ] || die "daemon upload answered $code: $(cat /tmp/upload.out)"
-  echo "  uploaded sha256:$DAEMON_SHA"
+    "$ARTIFACTS/artifacts/daemons/qits-ci-daemon/$DAEMON_SHA")
+  [ "$code" = 201 ] || die "daemon publish answered $code: $(cat /tmp/upload.out)"
+  echo "  published qits-ci-daemon $DAEMON_SHA"
 fi
 
 # --- the platform's own repositories on its own git host -----------------------------------------
