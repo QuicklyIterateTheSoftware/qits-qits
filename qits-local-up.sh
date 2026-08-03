@@ -731,7 +731,13 @@ qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speec
 # service's own shipped default; it is spelled anyway, for the same reason every other
 # cross-service address in this file is spelled: an address a deployment inherits silently is an
 # address nobody knows to change.
-qits.cd.run-args.qits-projects=-v qits-projects-data:/data -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics -e QITS_PROJECTS_DATA_DIR=/data/mirrors -e QITS_ARTIFACTS_URL=http://qits-artifacts:8080
+#
+# QITS_REPOSITORIES_GIT_PUSH_TOKEN is the SAME token qits-artifacts' hook checks, one line above.
+# projects advances refs on the git host by pushing now, and the default branch is protected here
+# (QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true), so without the token every pull that
+# fast-forwards main is refused. A branch delete deliberately sends no token: that refusal is the
+# behaviour projects-volume-decoupling-plan.md §3.7 asks for.
+qits.cd.run-args.qits-projects=-v qits-projects-data:/data -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics -e QITS_PROJECTS_DATA_DIR=/data/mirrors -e QITS_ARTIFACTS_URL=http://qits-artifacts:8080 -e QITS_REPOSITORIES_GIT_PUSH_TOKEN=${PUSH_TOKEN}
 # QITS_ARTIFACTS_URL is where release PUSHES the release commit — the git host, over HTTP, so
 # the ordinary post-receive fires and the ordinary pipeline builds it. The value equals the
 # service's own shipped default; it is spelled here because every other cross-service address in
