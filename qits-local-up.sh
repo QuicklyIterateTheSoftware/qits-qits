@@ -833,17 +833,12 @@ if curl -fsS -o /dev/null --head "$ARTIFACTS/artifacts/daemons/qits-ci-daemon/$D
   echo "  qits-ci-daemon $(echo "$DAEMON_SHA" | cut -c1-12) already published"
 else
   [ -f /qits-ci-daemon ] || die "daemon binary not in this container and not published — rerun without QITS_SKIP_BUILD"
-  # The publish route is guarded exactly as cd's and ci's intakes are: with the gate on it wants a
-  # machine token addressed to qits-artifacts. Same borrowed client as the replayed build event
-  # above — this script presents the platform's own credentials because it IS the platform, before
-  # there is anything to go through. set -- carries the header as ONE argument.
-  if [ "$MACHINE_AUTH" = 1 ]; then
-    token=$(idp_token qits-artifacts) || die "qits-idp issued no token for the daemon publish — is the qits-ci client's secret in place?"
-    set -- -H "Authorization: Bearer $token"
-  else
-    set --
-  fi
-  code=$(curl -s -o /tmp/upload.out -w '%{http_code}' -X PUT "$@" \
+  # BARE, LIKE EVERY OTHER PUBLISH THIS SCRIPT MAKES. The daemon publish surface is tokenless, the
+  # same as the npm registry, the maven repository and /v2 — on qits-net producers are trusted, and
+  # a cold start has nothing to authenticate with anyway. What keeps it honest is the immutable
+  # version the probe above relies on, plus the digest that IS the coordinate here. The replayed
+  # build event below is the one call in this script that needs a token.
+  code=$(curl -s -o /tmp/upload.out -w '%{http_code}' -X PUT \
     -H 'Content-Type: application/octet-stream' --data-binary @/qits-ci-daemon \
     "$ARTIFACTS/artifacts/daemons/qits-ci-daemon/$DAEMON_SHA")
   [ "$code" = 201 ] || die "daemon publish answered $code: $(cat /tmp/upload.out)"
