@@ -507,9 +507,11 @@ networks:
     external: true
 
 volumes:
-  # The three-way on-disk contract (bare git origins): qits-projects clones into it,
-  # qits-artifacts serves it, qits-workspaces branches from it — and the bootstrap seeds the
-  # platform's own repos into it. Explicitly named: cd's run-args reference these volumes by name.
+  # The on-disk contract (bare git origins), two-way since projects-volume-decoupling-plan.md BT:
+  # qits-artifacts serves it, qits-workspaces still branches from it and reads pre-move workspace
+  # sidecars off it — and the bootstrap seeds the platform's own repos into it. qits-projects mounts
+  # neither; it clones its own mirrors over the wire instead. Explicitly named: cd's run-args
+  # reference these volumes by name.
   qits-repositories:
     name: qits-repositories
   qits-artifacts-data:
@@ -721,7 +723,15 @@ qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v
 # git host's wildcard — it announces pushes for every repo, so its project claim covers every value.
 qits.cd.run-args.qits-idp=-v qits-idp-data:/data -e QUARKUS_DATASOURCE_IDP_JDBC_URL=jdbc:h2:file:/data/idp/h2/idp -e QITS_IDP_ISSUER=${IDP} -e QITS_IDP_CLIENT_QITS_CI_SECRET=${IDP_SECRET_QITS_CI} -e QITS_IDP_CLIENT_QITS_CD_SECRET=${IDP_SECRET_QITS_CD} -e QITS_IDP_CLIENT_QITS_ARTIFACTS_SECRET=${IDP_SECRET_QITS_ARTIFACTS} -e QITS_IDP_CLIENT_QITS_WORKSPACES_SECRET=${IDP_SECRET_QITS_WORKSPACES} -e QITS_IDP_CLIENT_QITS_GATEWAY_SECRET=${IDP_SECRET_QITS_GATEWAY} -e QITS_IDP_CLIENT_QITS_ARTIFACTS_CLAIMS_PROJECT=*
 qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speech
-qits.cd.run-args.qits-projects=-v qits-projects-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics
+# projects-volume-decoupling-plan.md BT: projects no longer mounts the shared repositories volume
+# at all — it clones its own git mirrors over the wire, through qits.artifacts.url, into its own
+# data dir. QITS_PROJECTS_DATA_DIR is spelled here rather than left to the image default
+# (${user.home}/...), which resolves to the literal "?" under this image's passwd-less UID 1001 —
+# the same reason the datasource URLs are spelled below. QITS_ARTIFACTS_URL already equals the
+# service's own shipped default; it is spelled anyway, for the same reason every other
+# cross-service address in this file is spelled: an address a deployment inherits silently is an
+# address nobody knows to change.
+qits.cd.run-args.qits-projects=-v qits-projects-data:/data -e QUARKUS_DATASOURCE_PROJECTS_JDBC_URL=jdbc:h2:file:/data/projects/h2/projects -e QUARKUS_DATASOURCE_EPICS_JDBC_URL=jdbc:h2:file:/data/epics/h2/epics -e QITS_PROJECTS_DATA_DIR=/data/mirrors -e QITS_ARTIFACTS_URL=http://qits-artifacts:8080
 # QITS_ARTIFACTS_URL is where release PUSHES the release commit — the git host, over HTTP, so
 # the ordinary post-receive fires and the ordinary pipeline builds it. The value equals the
 # service's own shipped default; it is spelled here because every other cross-service address in
