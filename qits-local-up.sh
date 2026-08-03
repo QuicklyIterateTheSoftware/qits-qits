@@ -357,6 +357,12 @@ EOF
         pnpm build
         version=$(node -p "require(\"./dist/qits-integrations-angular/package.json\").version")
         npm view "@qits/angular@$version" version >/dev/null 2>&1 || npm publish ./dist/qits-integrations-angular
+
+        cd /src
+        pnpm install --frozen-lockfile
+        pnpm build
+        version=$(node -p "require(\"./dist/qits-integrations-angular/package.json\").version")
+        npm view "@qits/angular@$version" version >/dev/null 2>&1 || npm publish ./dist/qits-integrations-angular
       ')
       docker cp "$SRC/qits-integrations-angular/." "$angular_cid:/src"
       docker start -a "$angular_cid" || { docker rm -f "$angular_cid" >/dev/null; die "Angular integration publish failed"; }
@@ -621,7 +627,7 @@ services:
     # Unprivileged uid stays; the socket group is all it needs.
     group_add: ["${DOCKER_GID}"]
     environment:
-      QUARKUS_DATASOURCE_CI_JDBC_URL: jdbc:h2:file:/data/ci/h2/ci
+      QUARKUS_DATASOURCE_CI_JDBC_URL: "jdbc:h2:file:/data/ci/h2/ci;DB_CLOSE_DELAY=-1"
       # The eventstream library (the outbox) owns its own datasource, whose shipped default sits
       # under \${user.home} — which a container has not got, so H2 refuses the url at Flyway and the
       # binary dies at boot. Every deployment of ci must spell this twin; so must the seed.
@@ -695,7 +701,7 @@ qits.cd.run-args.qits-gateway=-p ${PORT}:8080 -e QITS_GATEWAY_PROXY_HOSTS_ARTIFA
 # switched on: turning protection on is then one property on the artifacts side, not a two-part
 # change that could leave a running platform locked out of its own bootstrap.
 qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive -e QITS_REPOSITORIES_GIT_PUSH_TOKEN=${PUSH_TOKEN} -e QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QITS_ARTIFACTS_CLIENT_SECRET=${IDP_SECRET_QITS_ARTIFACTS}
-qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA} -e QITS_EVENTS_URL=http://qits-events:8080 -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CREDENTIALS_SECRET=${IDP_SECRET_QITS_CI}
+qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci;DB_CLOSE_DELAY=-1 -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA} -e QITS_EVENTS_URL=http://qits-events:8080 -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CREDENTIALS_SECRET=${IDP_SECRET_QITS_CI}
 qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP}
 # The idp's own deployment. The volume is the whole point: the signing key is in that database, and
 # a redeploy that lands on a fresh one invalidates every token in flight. The claims grant is the
@@ -810,6 +816,22 @@ for name in $PLATFORM_REPOS; do
   docker run --rm -v qits-repositories:/repos --entrypoint sh alpine/git -c \
     "git init -q --bare -b main /repos/qits-$name/origin && chown -R 1001:0 /repos/qits-$name"
   echo "  qits-$name -> /artifacts/git/qits-$name"
+done
+
+# Deployable repositories contain gitlinks to the frontend repositories. Those commits must exist
+# on the platform git host BEFORE the first wrapper pipeline clones its submodules. Populate the
+# non-deployable histories directly in the bare repositories, without going through artifacts'
+# receive path: this is storage initialization, not a push event, and firing all release-train
+# pipelines here would race them against the deliberately serial deployment train below.
+say "pre-seeding release-train histories for deployable submodules"
+for name in $RELEASE_TRAIN_REPOS; do
+  repo="qits-$name"
+  git -C "$SRC/$repo" bundle create "/tmp/$repo.bundle" main
+  docker run --rm -i -v qits-repositories:/repos --entrypoint sh alpine/git -c \
+    "cat > /tmp/repo.bundle && git --git-dir=/repos/$repo/origin fetch -q /tmp/repo.bundle main:main && chown -R 1001:0 /repos/$repo" \
+    < "/tmp/$repo.bundle"
+  rm -f "/tmp/$repo.bundle"
+  echo "  $repo history at $(git -C "$SRC/$repo" rev-parse --short main)"
 done
 
 # --- the main environment ------------------------------------------------------------------------

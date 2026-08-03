@@ -1,16 +1,57 @@
 # Handoff: full local release-train E2E
 
-Updated 2026-08-02. This file is the current restart point; older session material was removed.
+Updated 2026-08-03. This file is the current restart point; older session material was removed.
 
-## Cold-bootstrap verification in progress
+## Cold-bootstrap verification complete
 
 - Goal: remove the complete local qits Docker environment and prove that one unassisted invocation
   of the documented `docker run ... qits-local-up.sh` command ends with a healthy environment.
-- Preserve all source checkouts and the two user-owned untracked planning files. Remove generated
-  bootstrap state (`.qits-bootstrap.env`, `docker-compose.qits.yml`) together with qits containers,
-  volumes, network, and qits-owned local images so this is a genuine first run.
+- Scope clarified by the user before deletion: preserve source, images, networks, generated
+  bootstrap files, and unrelated Docker resources. Remove only the locally running qits
+  environment's containers and its `qits-*`/`qits_*` volumes, then invoke the script once.
 - No manual repair is allowed after the bootstrap starts. Any failure must be recorded here and
   fixed in source before restarting the cold test from zero.
+- Cold attempt 1 started 2026-08-03 after removing all ten old qits containers and fourteen
+  `qits-*`/`qits_*` volumes. Images, `qits-net`, generated files, source, and unrelated Docker
+  resources were preserved. Seed builds, dependency publication, compose startup, repository
+  creation, and seed readiness all passed without intervention.
+- Attempt 1 ended naturally with exit 1. qits-observability CI run `6ffa554b` failed in step 0 with
+  exit 128. Its wrapper
+  gitlink requested qits-spa-observability commit `9d144a7`, but the fresh platform bare was empty:
+  release-train repositories were only pushed after every deployable. Projects, Workspaces, Events,
+  Gateway, Artifacts, CI, and CD then failed for the same reason; IDP and STT alone reached ACTIVE.
+- Fixed in the root `qits-local-up.sh`: silently seed all release-train histories directly into
+  their bare repositories before deployable pushes, avoiding both missing gitlinks and a concurrent
+  storm of initial post-receive pipelines. `sh -n`, `git diff --check`, and an isolated bundle/fetch
+  proof for the exact missing `9d144a7` commit pass. Cold attempt 2 is the next action.
+- Attempt 2 live-proved that fix: Observability, IDP, STT, Projects, Workspaces, and Events reached
+  ACTIVE. Gateway then exposed a separate CI persistence race in run `13871670`: H2 closed between
+  short CI transactions, and inserting step 0 failed while evaluating the `ci_step.status` check
+  constraint (`The database has been closed [90098-240]`). No pipeline step was recorded.
+- Source fix in progress: pin `DB_CLOSE_DELAY=-1` on both the compose-seeded and CD-managed CI file
+  datasource URLs, matching the lifecycle setting already used by CI's H2 test datasources.
+- Attempt 2 ended naturally with exit 1. After the H2 close event, Artifacts, CI, and CD also failed
+  while trying to persist step state; the seed CI process stayed up and could reopen the database,
+  confirming an intermittent close lifecycle rather than corrupt storage. The datasource fix passes
+  `sh -n` and `git diff --check`; cold attempt 3 is next.
+- Attempt 3 proved the H2 fix: Gateway run `0f110c32` persisted an ordinary failed step instead of
+  losing the database. It exposed the next independent cold-registry defect: Gateway's frontend
+  needs `@qits/angular@2026.802.154030`, but the Angular seed path only published historical
+  `0.0.1`. Unlike the adjacent UI package path, it never built/published the current `/src` checkout.
+- Source fix in progress: after the compatibility publish, build current qits-integrations-angular
+  from `/src` and idempotently publish its actual package version.
+- Attempt 3 finished with nine deployables ACTIVE and only Gateway absent, then exited 2 at the
+  summary because the mounted script was edited after its known failure while the shell was still
+  reading it. The attempt was already invalid, but operationally: do not patch the mounted script
+  until an invocation has exited. The now-stable source passes `sh -n` and `git diff --check`; cold
+  attempt 4 is next.
+- Attempt 4 exited 0 without intervention. All ten deployables are ACTIVE at their expected source
+  SHAs and all ten containers are healthy. The CD self-handoff referee exited normally. Final probes
+  for gateway root/readiness plus Artifacts, CI, CD, Observability, Projects, Workspaces, STT, and
+  Events readiness all returned HTTP 200.
+- Cold bootstrap is proven from empty qits containers/volumes while preserving images, `qits-net`,
+  generated state, source, and unrelated Docker resources. The only root worktree changes are this
+  handoff and `qits-local-up.sh`; both user-owned untracked planning files remain untouched.
 
 ## Integration in progress: qits-oci
 
