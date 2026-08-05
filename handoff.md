@@ -99,12 +99,22 @@ removed from this file. History is in git.
   MavenRegistryCollection (no tombstones — daemon re-release at a collected version
   is legitimate). All own types readsPins() (digest pins reach any type's bytes).
   526 tests green (gc 110).
-  **BO launched** (last code workstream): report completeness (pins section, top-level
-  human summary, excluded lines), doctrine rewrite as a DECISION, first-sweep
-  choreography in README. SPA GC panel skipped — the JSON is the review surface.
-  After BO: deploy cd THEN artifacts, hand-delete the legacy row-less daemon blobs
-  (user-called), pull the live dry-run and present it for the user's review. NOTHING
-  SWEEPS until that review.
+  **BO DONE** (`d4fcb70`): pins[] on plan AND receipt, human-first summary block,
+  excluded lines on the type entries, doctrine rewritten as the 2026-08-05 decision,
+  first-sweep choreography in README ops. SPA panel skipped (JSON is the review
+  surface).
+  **DEPLOYED 2026-08-05**: cd `5c091c6` then artifacts `d4fcb70`, both healthy;
+  `/cd/api/pins` live (10 apps, 20 shas — ACTIVE+previous per app); `/gc/plan`
+  EXECUTABLE.
+  **Legacy row-less blobs HAND-DELETED** (user decision): all six (two daemon-sized,
+  fbefa249 among them, three probe fragments; 124.7 MB) rm'd from the volume;
+  **orphanBytes = 0** — the BI remnant is closed. Untouchable invariant untouched.
+  **LIVE DRY-RUN, awaiting user review** (the gate before any sweep): executable
+  true; 0 condemned / 0 B reclaimable — honest for a 2-day-old platform (every row
+  younger than every window; last-2 belts hold everything current). Pins verified
+  live: cd 10 apps/20 shas incl. today's deploys, ci 2 adopted ladder rungs. First
+  sweep would be a no-op today; the report becomes interesting as the platform ages
+  past P30D.
 
 - Nothing running. **LF DONE (2026-08-05, orchestrator-measured):** identity rollout
   deployed fleet-wide (cd `3f71647` handoff clean, idp `647a3b7` with token endpoint
