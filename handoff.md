@@ -6,6 +6,24 @@ removed from this file. History is in git.
 
 ## In flight right now
 
+- **GC goes per-repository + UI surface** (user request 2026-08-05): PLANNED (plan
+  saved at scratchpad/per-repo-gc-plan.md), implementation agent running W1→W4.
+  Design core (planner-verified): groups never span repositories, so per-repo is
+  `Plan.scopedTo(repo)` — a FILTER over the one plan, never a second planner; the
+  correctness case is a blob dead in two repos (must stay retained in each scoped
+  view — dedicated test). Honest bytes = scoped reconcile ("blobs only this repo's
+  cleanup frees"); Σ(per-repo) ≤ global, stated on the wire. Routes are subresources
+  (`/gc/repositories/{repo}/plan|sweep`) because a dropped query param on the sweep
+  must 404, never degrade to global. List column reads ONE derived summary call (a
+  per-row plan = N censuses + 2N pin fetches — rejected). Sweep safety survives
+  scoping via three belts (scoped retained-union, post-delete re-census, in-lock
+  guard). UI: Cleanup column (structural figure + pins-down marker — ⚖C decided),
+  details ROUTE `repositories/:repo/cleanup` = the review step, run button only
+  below the rendered plan, two-press confirm (mirrors idiom), receipt in place.
+  ⚖A decided: gitlink advance ships the 4 pending SPA commits (released content).
+  ⚖B pending USER review: the repositories-page lede replacing "Nothing here
+  deletes, expires or reclaims a byte" — implementer drafts, user vetoes.
+
 - **Artifacts GC unblocked** (2026-08-05): the four ⚖ are SETTLED — and they supersede
   the plan's five-strategy shape. Settlement recorded at the top of artifacts-gc-plan.md
   (committed `5b8bfd6`): two generic strategies configured per repository type (cache
