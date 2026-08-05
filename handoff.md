@@ -19,7 +19,13 @@ removed from this file. History is in git.
   throttled retries while its own receiver boots). **Secrets audit: CLEAN** — 66 live
   records, zero hits for the push token, all five idp client secrets, bearer JWTs,
   Authorization headers, passwords. Eviction counters zero through the deploy burst.
-  Named follow-ups: expose resource identity in the logs DTO; qits-ci success-path
+  Named follow-ups: **resource identity exposure DONE + DEPLOYED 2026-08-05**
+  (qits-observability `bde4f4a`+`8bc5769` with embedded spa `97df6dd`: whole
+  `resourceAttributes` map on log/span/metric DTOs, RESOURCE pane on the trace page —
+  service.version first — and per-member version chips on the errors page; verified on
+  a live record carrying the deploy sha, and screenshot-verified in the browser; a
+  service shows full identity after its first post-LD deploy, pom stamp until then);
+  qits-ci success-path
   daemon-tail capture — **assessed 2026-08-05 and DROPPED**: the tail is already
   captured on all three failure outcomes where it is the only diagnosis; on success it
   would cost a docker call per step to tee redundant housekeeping lines into the
