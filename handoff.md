@@ -6,6 +6,106 @@ removed from this file. History is in git.
 
 ## In flight right now
 
+- **Artifacts GC unblocked** (2026-08-05): the four ⚖ are SETTLED — and they supersede
+  the plan's five-strategy shape. Settlement recorded at the top of artifacts-gc-plan.md
+  (committed `5b8bfd6`): two generic strategies configured per repository type (cache
+  types: delete unaccessed after $configured days; own types: always keep the last
+  released versions, delete the unaccessed rest), live pins fetched at sweep time from
+  qits-cd (owns "rollback-relevant"; unreachable aborts) and qits-ci `/ci/api/daemon`,
+  and the engine extracted into its own maven module (`qits-artifacts-gc` — a process
+  modeled in qits-artifacts, not artifacts domain). ⚖1 npm-proxy dissolves into the
+  cache strategy; ⚖3's rowless blob needs no adoption — pins decide. BK (daemon GC)
+  dissolves into the own-type strategy. A Plan agent is grounding the workstreams
+  against real code (types, access tracking, census, cd/ci pin surfaces, module shape,
+  "last released" semantics per type — ambiguities come back as ⚖, not guesses).
+  Standing rule unchanged: nothing deletes a byte until the dry-run report is reviewed
+  (re-armed: the bespoke-strategy review does not cover the new policy).
+  **Planner ground truth**: most substrate ALREADY SHIPPED in qits-artifacts (census,
+  BlobSweep w/ grace window, GcStrategy/GcPlanner/GcSweepExecutor, six bespoke
+  strategies incl. cd-pin fetch, GET /gc/plan + POST /gc/sweep) — the reshape re-doors
+  policy, it does not greenfield. Gaps: access tracking covers only 3 tables (V9);
+  rollback policy lives in artifacts not cd; per-type fail-closed ≠ settled whole-run
+  abort; git host is structurally excluded (not a RepositoryType); H2 row deletion
+  reclaims no disk without SHUTDOWN COMPACT.
+  **Residual ⚖ resolved** (committed `aa44728`): own belt = LAST 2 released versions
+  (user's original words — access window + pins protect the rest); ci-screenshots/
+  videos excluded for now (future own-like strategy); windows P30D/P90D as proposed;
+  row-less legacy daemon blobs deleted BY HAND once (dev leftovers; no invariant
+  weakening; the configured digest bottom rung may lose its blob — accepted).
+  **Workstream sequence**: BI (access columns, artifacts) ∥ BL (cd pins endpoint) →
+  BH (extract qits-artifacts-gc module, behavior-neutral, /gc/plan byte-identical) →
+  BJ+BK (engines + config + pins aggregation + whole-run abort; swap the artifacts
+  fetcher to /cd/api/pins and delete its local policy copy) → BM (cache adapters:
+  oci-mirror, npm-proxy) → BN (own adapters: oci, npm, maven, daemon) → BO (report
+  finish, doc supersession — the "no shared policy" rule must be rewritten as a
+  DECISION, review choreography, first sweep after user review).
+  **BL DONE** (qits-cd `5c091c6`, not pushed): `GET /cd/api/pins` — policy in
+  `RollbackPins` beside DeployService, anchored to the cutover invariant and PROVEN by
+  driving the real failed-gate/cutover flows. **Found a real bug in the artifacts-side
+  rule it transplanted**: `Pinned.read` stops at the first older row of ANY status, so
+  `ACTIVE/FAILED/DECOMMISSIONED` history pins a sha that never ran and drops the one
+  that served; cd's rule skips never-served rows (FAILED/IMAGE_MISSING/QUEUED/STARTING)
+  instead. Union is documented as a keep-SET (no cross-environment recency). Verify
+  green (16+50+9).
+  **BI DONE** (qits-artifacts `349f966`, not pushed): V11 `accessed_at` + V9-shaped
+  indexes on npm_version/maven_artifact/daemon_binary, NO backfill (null =
+  never-read-since-tracking, V9's reasoning mirrored); touches on npm tarball (one
+  route covers hosted AND proxy — npm_version is shared), maven stored file, daemon
+  version route; HEAD counts; touch only after the blob is located. Deliberately NOT
+  tracked: digest-addressed daemon reads (cross-repo attribution is what V9 refuses;
+  the live pin template uses the tracked version route anyway — verified) and maven
+  derived documents. maven/daemon have NO browse surface (nothing to mirror accessedAt
+  into — reported, not invented). 493 tests green.
+  **BH DONE** (qits-artifacts `95b6752`, not pushed): `gc/` module landed
+  (gc → artifacts only; service → gc; controller stays in service); three narrow
+  facades (`BlobReclaim`, `OciRegistryCollection`, `NpmRegistryCollection`) — no
+  funnel became public; **neutrality PROVEN**: seeded non-trivial /gc/plan report
+  md5-identical before/after (3702 bytes, only generatedAt normalized). Fixture split
+  kept the no-shared-test-classpath rule (deliberate documented copy). Real baseline
+  was 452 tests (BI's 493 figure was stale), preserved exactly: 115+18+38+281.
+  **BJ+BK DONE** (qits-artifacts `3796f04` + `dee03f9`, not pushed): engines
+  (`CacheEvictionStrategy`, `OwnArtifactsStrategy` w/ RELEASES_KEPT=2) + adapter seam
+  (`GcTypeAdapter`/`GcCandidate`/`GcPinned`) shipped DARK — seeded dead/kept snapshot
+  across all 8 types provably unchanged; report gains the configuration echo. Pins:
+  `GcPinSources.fetch()` once per run, both sources always asked; sweep aborts WHOLE
+  on incomplete pins (untouchable pool "not computed", zero rows touched); plan never
+  500s — `executable:false` + pinFailures, non-pin types still planned; cd fetcher now
+  reads `/cd/api/pins`, local ACTIVE+previous derivation DELETED; ci blank version =
+  answer; 64-hex pins the blob directly. Keys renamed to `gc.pins.*` — qits-local-up.sh
+  verified NOT carrying the old key. 526 tests green.
+  **DEPLOY ORDER LANDMINE: qits-cd (pins endpoint `5c091c6`) must deploy BEFORE
+  qits-artifacts** — the new fetcher reads /cd/api/pins which live cd does not serve
+  yet; until cd deploys, artifacts' plan reports non-executable and any sweep aborts
+  (fail-closed, correct, but the report is what the user must review).
+  **BM DONE** (qits-artifacts `967676a`, not pushed): both caches live on
+  `CacheEvictionStrategy` (P30D). Mirror: tags + untagged child manifests are
+  identities (evicting an unpulled architecture is the lazy-pull bargain — bytes
+  survive via the kept index's closure); `collectTag` cleans `oci_mirror_tag_check`
+  in-funnel. Proxy: proxy-only `npm_version` rows + packuments (staleness =
+  max(fetched, newest version access) — never evicted under an active package);
+  eviction funnels refuse non-proxy repos, write NO tombstone. H2 honesty note in the
+  report; SHUTDOWN COMPACT documented as ops. Both caches `readsPins()` (digest pins
+  reach cache rows because blobs dedupe) → live dry-run shows caches "pins
+  unavailable" until cd's pins endpoint deploys — accepted. 501 tests green.
+  **BN DONE** (qits-artifacts `c799886` + `7ccfd29`, not pushed): all four own types
+  on `OwnArtifactsStrategy` via `OwnGcStrategy` binder (refuses incomplete pins /
+  wrong engine; enumerates once). Belts carried with tests: calver last-2 (numeric
+  three-part order), cd pins, newest-build-per-image (by tag updated_at — deliberate:
+  cold never-deployed images), dist-tags, tombstone-in-tx, maven newest-resolvable
+  snapshot set. Conservative §3.6 resolutions: maven identity = coordinate not path
+  (jar+pom one identity); no keep-N-per-snapshot-line invented (window decides);
+  grace withholds whole coordinates; oci unclassified-keep backstop retired into the
+  access rule (measured store has none). NEW funnels: DaemonRegistryCollection,
+  MavenRegistryCollection (no tombstones — daemon re-release at a collected version
+  is legitimate). All own types readsPins() (digest pins reach any type's bytes).
+  526 tests green (gc 110).
+  **BO launched** (last code workstream): report completeness (pins section, top-level
+  human summary, excluded lines), doctrine rewrite as a DECISION, first-sweep
+  choreography in README. SPA GC panel skipped — the JSON is the review surface.
+  After BO: deploy cd THEN artifacts, hand-delete the legacy row-less daemon blobs
+  (user-called), pull the live dry-run and present it for the user's review. NOTHING
+  SWEEPS until that review.
+
 - Nothing running. **LF DONE (2026-08-05, orchestrator-measured):** identity rollout
   deployed fleet-wide (cd `3f71647` handoff clean, idp `647a3b7` with token endpoint
   verified post-cutover, five more services redeployed; 10/10 healthy). Verified live:
