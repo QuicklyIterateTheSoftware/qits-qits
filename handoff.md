@@ -6,7 +6,24 @@ removed from this file. History is in git.
 
 ## In flight right now
 
-- **Items 1–5 running** (2026-08-05, four Opus agents, disjoint repos): (1) LC-idp DONE
+- Nothing running. **LF DONE (2026-08-05, orchestrator-measured):** identity rollout
+  deployed fleet-wide (cd `3f71647` handoff clean, idp `647a3b7` with token endpoint
+  verified post-cutover, five more services redeployed; 10/10 healthy). Verified live:
+  `OTEL_RESOURCE_ATTRIBUTES` + `QUARKUS_OTEL_RESOURCE_ATTRIBUTES` on containers with
+  full deploy sha / environment / instance id; the store RETAINS resourceAttributes but
+  `TelemetryLogDto` omits them — **follow-up: expose service.version in the query API/
+  UI**. Outage drill: `docker restart` on the receiver — 30/30 availability probes 200
+  on qits-ci throughout, buffer honestly reset, all 10 sources re-exporting after.
+  Latency: ≤35s measured across the receiver's own boot window (upper bound; steady
+  state is governed by the SDK's ~1s batch delay — startup edge includes the exporter's
+  throttled retries while its own receiver boots). **Secrets audit: CLEAN** — 66 live
+  records, zero hits for the push token, all five idp client secrets, bearer JWTs,
+  Authorization headers, passwords. Eviction counters zero through the deploy burst.
+  Named follow-ups: expose resource identity in the logs DTO; qits-ci success-path
+  daemon-tail capture (has per-step cost, decide first); LD-b (workspace ServiceSupervisor
+  OTLP overlay, default off) still open.
+
+- **Items 1–5 recap** (2026-08-05, four Opus agents, disjoint repos): (1) LC-idp DONE
   (`647a3b7`, 20 green): extension + endpoint + logs.enabled were already present; the
   three handler/exporter/level keys, the full comment block, OtelLogConfigTest, and
   `quarkus.otel.metrics.enabled=true` (idp was the ONLY repo without it) added. No new
