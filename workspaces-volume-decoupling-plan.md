@@ -5,6 +5,11 @@ SV-b cut over the same day (run-args edited, qits-cd restarted, container `c9327
 mounts only its own volume); SV-c verified live: workspace create/discard round-trip
 pushed a branch to the git host and removed it again over HTTP, sidecars written and
 deleted on the own volume, mirror-local ahead/behind and conflict preview working.
+Later the same day, a full epic/task cycle ran on a throwaway repository from the
+mount-less container: task branch created and integrated into its epic (worktree merge,
+push), the epic released onto protected main (version stamp, tag, `--atomic` push with
+`qits.release`), landed branches auto-deleted by push, sidecars removed, `SCMRelease`
+on the bus. Every write reached the git host through receive-pack.
 
 The user's decision: every technical process clones its own repository over HTTP, makes its
 local changes, pushes them, and cleans up. No shared volume. This is the workspaces half of
