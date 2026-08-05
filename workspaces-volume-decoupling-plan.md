@@ -1,6 +1,10 @@
 # Remove the shared git volume from qits-workspaces
 
-Status: **planned 2026-08-05, precondition verified, ready to implement.**
+Status: **SHIPPED AND VERIFIED, 2026-08-05.** SV-a landed as qits-workspaces `3d440c1`;
+SV-b cut over the same day (run-args edited, qits-cd restarted, container `c9327580`
+mounts only its own volume); SV-c verified live: workspace create/discard round-trip
+pushed a branch to the git host and removed it again over HTTP, sidecars written and
+deleted on the own volume, mirror-local ahead/behind and conflict preview working.
 
 The user's decision: every technical process clones its own repository over HTTP, makes its
 local changes, pushes them, and cleans up. No shared volume. This is the workspaces half of

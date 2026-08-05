@@ -19,7 +19,9 @@ Updated 2026-08-05. Everything shipped-and-verified has been removed; history is
 3. **Git-storage flip** (git-host-storage-unification-plan.md): DECISION PENDING. The
    cold-wipe experiment is a scoped NO-GO; the cheap proof path (second qits-artifacts
    on a spare port with DFS, import one real history, three checks) is documented in
-   the plan.
+   the plan. The AT precondition is now fully cleared: since 2026-08-05 nothing but the
+   git host itself touches the repositories volume
+   (workspaces-volume-decoupling-plan.md).
 
 ## Open work, not user-gated
 
