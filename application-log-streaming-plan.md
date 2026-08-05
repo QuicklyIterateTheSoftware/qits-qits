@@ -1,6 +1,15 @@
 # Stream application logs into qits-observability
 
-Status: **planned, not started.** Written 2026-08-02.
+Status: **shipped for all platform services** (updated 2026-08-05; written 2026-08-02).
+LA–LC are done: every service carries the explicit `quarkus.otel.logs.*` block with an
+`OtelLogConfigTest` drift guard, and the behavioral proof lives once in qits-events
+(`OtelLogBridgeTest`/`PackagedLogBridgeIT`). LD's platform half is done: qits-cd injects
+`service.version` (deploy sha) at `docker run`. LD-b and LE are settled as **not planned**
+(user decision 2026-08-05): console capture answers the daemons, and workspace-launched
+dev services get no telemetry overlay. LG (durable retention) is settled by the
+2026-08-05 decision that qits adds no external component that cannot be embedded into the
+Quarkus app: no third-party log backend, no sidecar collector; the bounded live window
+stands unless a qits-owned store is ever justified.
 
 ## The short answer
 
@@ -107,8 +116,8 @@ Advantages:
 - batching, background export, retry behavior and log-manager bridging belong to the SDK/Quarkus,
   not qits application code;
 - the existing qits receiver and UI already speak it;
-- the sender can later point at an OpenTelemetry Collector, Grafana Loki's native OTLP endpoint or
-  another backend without changing application logging calls.
+- the sender can later point at any other OTLP-speaking receiver without changing application
+  logging calls.
 
 Costs:
 
@@ -118,18 +127,16 @@ Costs:
 - a receiver outage must never block an application, so some logs will be dropped under prolonged
   failure. Console output remains the durable-at-host fallback if the runtime captures it.
 
-### B. OpenTelemetry Collector/Alloy beside the applications — **future reliability layer**
+### B. OpenTelemetry Collector/Alloy beside the applications — **ruled out: external, not embeddable**
 
 Applications still emit OTLP, but aim at a local agent/sidecar/host collector. It batches, queues,
 enriches, samples/redacts and forwards to qits-observability or durable storage. Alternatively it
 can tail container stdout and translate existing console logs without an in-process log exporter.
 
-This is the right answer when qits needs disk-backed buffering, multi-destination fan-out, central
-redaction, non-Java sources, or isolation from receiver outages. It is not the first step here:
-there is no collector in the deployment, qits-observability already receives OTLP, and introducing
-one process per container or host would be more operational machinery than the requested direct
-connection. Keep the receiver wire standard so adding this layer later requires only endpoint
-changes.
+The 2026-08-05 no-non-embeddable-components decision removes this option: a per-host or sidecar
+collector is exactly the kind of external process qits does not add. The needs it would have
+served — disk-backed buffering, fan-out, central redaction — must, if they ever materialize, be
+met inside qits-observability itself. The receiver wire stays standard OTLP regardless.
 
 ### C. Built-in syslog handler — **compatible fallback, not the platform contract**
 
@@ -167,12 +174,12 @@ backpressure and native-image initialization. Those are precisely the responsibi
 SDK and Quarkus integration already own. A custom bridge is only a contingency if the preview
 Quarkus bridge proves unusable in a measured packaged/native test.
 
-### F. Direct Loki push API — **reject as an application contract**
+### F. Direct push to a third-party log backend — **rejected outright**
 
-Loki 3 accepts native OTLP at `/otlp/v1/logs` and recommends it over the older Loki exporter. If qits
-eventually adopts Loki for durable retention, qits-observability or a Collector can tee OTLP there.
-Applications should not learn LogQL label policy, tenant headers or `/loki/api/v1/push`; that couples
-every producer to one storage engine and bypasses qits' existing trace/log view.
+Ruled out 2026-08-05: qits adds no external component that cannot be embedded into the Quarkus
+app, so there is no third-party log store for applications to target. Even before that decision,
+coupling every producer to one storage engine's push API and label policy would have bypassed
+qits' existing trace/log view.
 
 ## Settled design
 
@@ -237,8 +244,8 @@ Exporter diagnostics must not re-enter the same OTel handler recursively.
 The acceptance test for an unreachable receiver is therefore: application startup and request
 handling stay healthy, exporter failure is rate-limited/diagnosable locally, memory remains bounded,
 and recovery resumes new exports. It is not “every log is eventually delivered.” If that guarantee
-becomes necessary, insert a Collector with persistent queueing rather than blocking application
-threads or growing an in-process queue without bound.
+ever becomes necessary, it means persistent queueing on the receiver side — never blocking
+application threads or growing an in-process queue without bound.
 
 ### 5. qits-observability remains a bounded live window
 
@@ -246,11 +253,10 @@ Direct shipping does not turn the existing in-memory store into durable logging.
 it, per-source caps evict old entries and the UI reports both facts. That is suitable for the current
 “what just failed?” operator/agent use case.
 
-Durable/searchable history is a separate phase and should use an OTLP-compatible backend (for
-example Loki) behind qits-observability's existing byte-for-byte tee or behind a Collector. Do not
-add a database to `TelemetryStore` as an accidental consequence of enabling producers. The plan for
-retention must settle retention duration, tenant/isolation model, query ownership, indexing/cardinality,
-redaction and deletion before choosing storage.
+Durable/searchable history is a separate phase (§LG). Do not add a database to `TelemetryStore`
+as an accidental consequence of enabling producers. A retention plan must settle retention
+duration, tenant/isolation model, query ownership, indexing/cardinality, redaction and deletion
+before choosing storage.
 
 ### 6. The receiver stays deliberately narrow
 
@@ -376,15 +382,11 @@ through the exporter itself. Document that the UI is a bounded recent window, no
 
 ### LG — Optional durable retention, separately approved
 
-Only after direct streaming is proven, decide whether the live buffer is enough. If not, compare:
-
-1. qits-observability tee → Loki native OTLP;
-2. applications → Collector → qits-observability plus Loki;
-3. qits-observability → a qits-owned persistent log store.
-
-Recommend (1) for the smallest first durable step, or (2) when persistent queues/redaction/fan-out
-are required. Reject (3) until there is a compelling qits-specific query/isolation requirement;
-building a log database is much larger than receiving logs.
+Constrained 2026-08-05: qits adds no external component that cannot be embedded into the Quarkus
+app. That removes third-party log backends and sidecar collectors from the option list. If the
+bounded live window ever proves insufficient, the only path is a qits-owned persistent store
+inside qits-observability — a much larger build than receiving logs, so it waits for a compelling
+query/isolation requirement. Until then the live window stands.
 
 Nothing in LA–LF waits for LG.
 
@@ -421,5 +423,3 @@ Nothing in LA–LF waits for LG.
 - OpenTelemetry, stable Logs Data Model — timestamps, severity, resources, attributes and trace
   context:
   https://opentelemetry.io/docs/specs/otel/logs/data-model/
-- Grafana Loki, native OTLP ingestion — a future durable backend can consume the same wire:
-  https://grafana.com/docs/loki/latest/reference/loki-http-api/

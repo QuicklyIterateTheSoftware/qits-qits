@@ -20,9 +20,6 @@ Updated 2026-08-05. Everything shipped-and-verified has been removed; history is
    cold-wipe experiment is a scoped NO-GO; the cheap proof path (second qits-artifacts
    on a spare port with DFS, import one real history, three checks) is documented in
    the plan.
-4. **LG — durable log retention** (application-log-streaming-plan.md §LG):
-   recommendation on file is observability's existing byte-for-byte tee → Loki native
-   OTLP. Yes / no / later.
 
 ## Open work, not user-gated
 
@@ -48,6 +45,11 @@ Updated 2026-08-05. Everything shipped-and-verified has been removed; history is
 - **Workspace-launched dev services telemetry (LD-b): NOT PLANNED** (user decision
   2026-08-05). Console capture is the answer for both daemons; qits-observability's
   README "missing sender" note is a description, not a TODO.
+- **Durable log retention (LG): SETTLED** (user decision 2026-08-05). qits adds no
+  external component that cannot be embedded into the Quarkus app — no third-party log
+  backend, no sidecar collector. The bounded live window stands; if it ever proves
+  insufficient, the only path is a qits-owned persistent store inside
+  qits-observability.
 - **Git pack GC** (old BD): separate, DFS-gated, untouched by the GC reshape.
 
 ## Standing facts and landmines (not in memory files)
