@@ -6,8 +6,19 @@ removed from this file. History is in git.
 
 ## In flight right now
 
-- **GC goes per-repository + UI surface** (user request 2026-08-05): PLANNED (plan
-  saved at scratchpad/per-repo-gc-plan.md), implementation agent running W1→W4.
+- **GC per-repository + UI: SHIPPED AND BROWSER-VERIFIED 2026-08-05.** Backend
+  `085b39a`+`6b164e1`, SPA `191e4f6`, embed `b0718dd` — deployed healthy, gitlinks
+  `0168ac9`. `GET /gc/repositories` answers all 10 rows live; the explorer root shows
+  the Cleanup column + Review cleanup per row; `repositories/:repo/cleanup` renders
+  the dry-run (rule sentence, H2 honesty, kept-with-rules, pins provenance with
+  timings, untouchable line) and — with nothing condemned — NO run button, just
+  "There is nothing to run". Screenshot-verified both pages.
+  **Pending user verdict**: the new lede (drafted, live) + two copy nits seen in the
+  screenshot: the repository count runs into the lede unpunctuated ("10 repositories
+  Two things…"), and excluded rows show "nothing" in the column where "not collected"
+  would be more honest. Batch all three into one SPA copy commit after the user's
+  lede verdict.
+  Original design record (plan at scratchpad/per-repo-gc-plan.md):
   Design core (planner-verified): groups never span repositories, so per-repo is
   `Plan.scopedTo(repo)` — a FILTER over the one plan, never a second planner; the
   correctness case is a blob dead in two repos (must stay retained in each scoped
