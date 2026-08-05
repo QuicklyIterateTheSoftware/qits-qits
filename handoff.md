@@ -20,7 +20,10 @@ removed from this file. History is in git.
   records, zero hits for the push token, all five idp client secrets, bearer JWTs,
   Authorization headers, passwords. Eviction counters zero through the deploy burst.
   Named follow-ups: expose resource identity in the logs DTO; qits-ci success-path
-  daemon-tail capture (has per-step cost, decide first).
+  daemon-tail capture — **assessed 2026-08-05 and DROPPED**: the tail is already
+  captured on all three failure outcomes where it is the only diagnosis; on success it
+  would cost a docker call per step to tee redundant housekeeping lines into the
+  bounded live buffer. No change made.
   **LD-b (workspace ServiceSupervisor OTLP overlay) is OUT OF SCOPE by user decision
   2026-08-05** — no plan to stream telemetry from workspace-launched dev services for
   now. The plan's §LD second half is declined, and qits-observability's README note
