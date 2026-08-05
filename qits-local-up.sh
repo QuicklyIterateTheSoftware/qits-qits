@@ -507,11 +507,11 @@ networks:
     external: true
 
 volumes:
-  # The on-disk contract (bare git origins), two-way since projects-volume-decoupling-plan.md BT:
-  # qits-artifacts serves it, qits-workspaces still branches from it and reads pre-move workspace
-  # sidecars off it — and the bootstrap seeds the platform's own repos into it. qits-projects mounts
-  # neither; it clones its own mirrors over the wire instead. Explicitly named: cd's run-args
-  # reference these volumes by name.
+  # The git host's own storage (bare origins), one-way since
+  # workspaces-volume-decoupling-plan.md SV-b: only qits-artifacts mounts it; projects and
+  # workspaces clone their own mirrors over the wire and push back. The bootstrap seeds the
+  # platform's own repos into it. Explicitly named: cd's run-args reference these volumes by
+  # name.
   qits-repositories:
     name: qits-repositories
   qits-artifacts-data:
@@ -758,7 +758,10 @@ qits.cd.run-args.qits-projects=-v qits-projects-data:/data -e QUARKUS_DATASOURCE
 # qits-gateway, not qits-workspaces or qits-artifacts: it is the one name on qits-net that fronts
 # the WHOLE platform, so all four of those paths resolve through one value, each under its owning
 # service's segment. Port stays 8080 (qits.workspace.qits-port), which is the gateway's.
-qits.cd.run-args.qits-workspaces=-v qits-workspaces-data:/data -v qits-repositories:/data/repositories -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_WORKSPACES_JDBC_URL=jdbc:h2:file:/data/workspaces/h2/workspaces -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_PROJECTS_URL=http://qits-projects:8080 -e QITS_ARTIFACTS_URL=http://qits-artifacts:8080 -e QITS_EVENTS_URL=http://qits-events:8080 -e QITS_WORKSPACE_GIT_HOST=qits-gateway
+#
+# workspaces-volume-decoupling-plan.md SV-b: no shared repositories mount — workspaces keeps
+# private mirrors under its own /data and reaches the git host over HTTP only.
+qits.cd.run-args.qits-workspaces=-v qits-workspaces-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_WORKSPACES_JDBC_URL=jdbc:h2:file:/data/workspaces/h2/workspaces -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_PROJECTS_URL=http://qits-projects:8080 -e QITS_ARTIFACTS_URL=http://qits-artifacts:8080 -e QITS_EVENTS_URL=http://qits-events:8080 -e QITS_WORKSPACE_GIT_HOST=qits-gateway
 qits.cd.run-args.qits-events=-v qits-events-data:/data -e QUARKUS_DATASOURCE_EVENTS_JDBC_URL=jdbc:h2:file:/data/events/h2/events
 RUNARGS
 docker volume create qits-cd-config >/dev/null
