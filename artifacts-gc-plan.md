@@ -1,9 +1,32 @@
 # Garbage collection for the artifacts system: five strategies, one sweep
 
-Status: **DESIGN, NOT SETTLED (2026-08-01)** — four decisions are the user's and are marked ⚖.
-Everything else is measured, not assumed. No implementation until the ⚖ are answered, and nothing
-deletes a byte until a dry-run report has been reviewed. This platform has never deleted a byte;
-that changes here deliberately or not at all.
+Status: **DECISIONS SETTLED 2026-08-05 — and they supersede this document's shape.** The user
+answered the four ⚖ with a simpler model than §6 offered; §6's options are history, the
+settlement below is the design. The standing rule stands: nothing deletes a byte until a dry-run
+report has been reviewed. This platform has never deleted a byte; that changes here deliberately
+or not at all.
+
+## Settlement (user, 2026-08-05)
+
+- **Two generic strategies, not five bespoke ones, configured per repository type:**
+  1. *Cache types* (the proxy/mirror repositories — npm-proxy, oci-mirror, and kin):
+     **delete everything unaccessed for $configured days.** Access tracking (shipped
+     2026-08-02) is the basis.
+  2. *Own types* (the platform's own artifacts — own npm, maven, docker images, daemon
+     binaries…): **always keep the last released versions; delete the unaccessed rest.**
+     Own-ness is what earns version protection; the version-keep circumvents the access rule
+     only for own types.
+  The mapping type → (strategy, window) is configuration.
+- **Live pins are fetched by the GC process at sweep time, from the services that own them:**
+  deployment-pinned image shas from qits-cd (qits-cd owns what "rollback-relevant" means and
+  answers it; unreachable ⇒ the run aborts), the daemon pin from qits-ci's `GET
+  /ci/api/daemon`. Pinned artifacts are never deleted regardless of access age. This answers
+  ⚖2, ⚖3 and ⚖4 in one shape: the rowless legacy daemon blob needs no allowlist and no
+  adoption — it is kept iff a live pin references it and ages out like anything else if not.
+- **The GC engine is its own maven module** (`qits-artifacts-gc` or similar) in the
+  qits-artifacts repo: a process modeled from within qits-artifacts, not artifacts domain.
+- ⚖1's npm-proxy question dissolves: the cache strategy covers it; no parking, no blunt
+  structural rule.
 
 ## The framing, which is load-bearing
 
