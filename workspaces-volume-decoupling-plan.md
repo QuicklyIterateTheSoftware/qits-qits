@@ -9,7 +9,10 @@ Later the same day, a full epic/task cycle ran on a throwaway repository from th
 mount-less container: task branch created and integrated into its epic (worktree merge,
 push), the epic released onto protected main (version stamp, tag, `--atomic` push with
 `qits.release`), landed branches auto-deleted by push, sidecars removed, `SCMRelease`
-on the bus. Every write reached the git host through receive-pack.
+on the bus. A second throwaway carried a `ci-event-release.yml`, and its release drove the
+whole train: `SCMRelease` → event-triggered CI run on `main`'s head → green →
+`SoftwareRelease` (npm/sv-train, parented on the `SCMRelease` event). Every write reached
+the git host through receive-pack.
 
 The user's decision: every technical process clones its own repository over HTTP, makes its
 local changes, pushes them, and cleans up. No shared volume. This is the workspaces half of
