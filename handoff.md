@@ -6,6 +6,30 @@ removed from this file. History is in git.
 
 ## In flight right now
 
+- **Log streaming started** (2026-08-05, application-log-streaming-plan.md):
+  **LA DONE — GATE PASSED** (qits-events `0bd5dbd`, not pushed): unchanged JBoss `Logger`
+  calls reach a decoding OTLP stub in JVM, fast-jar AND real native (2:26, verified ELF).
+  Exception attrs are exactly `exception.type/message/stacktrace` (semconv-stable); body
+  stays the formatted message; no-span records carry ABSENT trace ids (empty, not
+  zero-filled); one 500 yields several records at several severities (match severity+
+  stack, not stack alone); INFO=9 ERROR=17. `quarkus.otel.logs.level=INFO` is a
+  deliberate narrowing (real default ALL — comment says so). Unreachable receiver: 3000
+  records past the 2048 queue, caller never blocked, health stays UP. New under
+  service/src/test: OtlpLogStub (decodes), OtelLogBridgeTest, unreachable test,
+  PackagedLogBridgeIT. proto artifact test-scope only.
+  **LB DONE** (qits-observability `cfaba4c`, not pushed): `CanaryLogStreamTest` (8 cases
+  through the public API: source bucket, severities, errors feed w/ stack trace, trace
+  correlation, second batch, 400, 413-via-raw-socket, restart truth) + packaged
+  `OtelReceiverIT` case; JVM 72 green, fast-jar ITs 16 green, REAL native gate green
+  (1:28, verified not the docker fallback). **OTLP audit recorded**: success path
+  compliant; error bodies are JSON not google.rpc.Status; no 429/503/Retry-After
+  (deliberate fail-open — record as absent-by-design); no partial_success though
+  evictedLogs holds the data; **finding 6 = real bug: gzip bomb — the 64 MiB ceiling
+  bounds compressed bytes only, decompression is uncapped into heap. Fix in flight**
+  (same agent resumed: bounded inflate, 413 past ceiling, gzip-bomb test).
+  After LA+LB: LC normalizes the ten producers, LD deployment identity, LE daemons,
+  LF live validation. Caution: never two native builds in parallel on this host.
+
 - **CL — candidate listing: COMPLETE AND PROVEN LIVE 2026-08-05.** The KnownCiRepos
   compromise is lifted; bootstrap-by-rerun works. Both released through the train
   (artifacts `97925dd` deployed `25b2e8ac`, qits-ci `4fbb585` deployed `95ec2fb0`, daemon
@@ -86,13 +110,20 @@ removed from this file. History is in git.
 3. **Review WO-b's judgment calls**: the merge panel + "Landed from this screen" section
    left the root page (merging lives on the detail route now); create POST carries
    `repositoryId` in the body.
-4. **qits-ci doc drift**: README (~line 732, boundary table) and AGENTS.md §Authentication
-   still describe the removed `qits.ci.token`/`X-CI-Token`; the real guard is `MachineAuth`
-   + `qits.auth.machine.required`. Small follow-up commit.
-5. **Findings parked from the restart IT** (fix if they start to bite): `reapOrphans()` is
-   host-wide — two qits-ci on one docker daemon would reap each other's steps (one qits-ci
-   per daemon); a docker-unreachable boot logs only DEBUG and looks like "nothing to sweep";
-   the two `StartupEvent` observers have no `@Priority` ordering.
+4. **qits-ci doc drift: DONE** (2026-08-05, `a6a1abc`, pushed everywhere): README/AGENTS
+   rewritten against the shipped `MachineAuth` reality. Corrections beyond the ask: the
+   auth classes live in `qits-integrations-quarkus/qits-auth-core` (never in this repo);
+   the fail-open mode is now "a new write endpoint that omits the guard call", not path
+   matching; the cd announcement uses `CdBearer` (`aud=qits-cd`), not "no token"; the only
+   audience key is `qits.auth.machine.audience`.
+5. **Restart-IT findings: DONE** (2026-08-05, qits-ci `006fc1d`, pushed everywhere,
+   gitlink `0d973bd`): failed boot `docker ps` is a WARN naming runtime/exit/stderr tail
+   (tested with a real failing script, not a stub); StartupEvent observers ordered
+   **reap (2000) before sweep (2100)** via `@Priority` — load-bearing, not cosmetic:
+   sweep-first restarts interrupted runs whose brand-new containers the reap could then
+   `rm -f` (same label, indistinguishable). `BootReconciliationOrderTest` pins ArC's
+   resolution order = notification order. "One qits-ci per docker daemon" documented in
+   reapOrphans javadoc + AGENTS + README deploy section. Verify green (service 128).
 
 ## User decisions this session (supersede workspace-overview-ux.md's open questions)
 
