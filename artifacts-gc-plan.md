@@ -28,6 +28,26 @@ or not at all.
 - ⚖1's npm-proxy question dissolves: the cache strategy covers it; no parking, no blunt
   structural rule.
 
+Residual decisions resolved 2026-08-05 (after the implementation-planning pass):
+
+- **"Last released versions" = the last 2 released versions, per own type** — the user's
+  original words. The belt is last-2; anything older survives only through the access
+  window (an old release still being installed is accessed, so lockfile/range pulls keep
+  it alive by use, not by policy) or a live pin. Applies uniformly, daemon-binaries
+  included (qits-ci's `daemonVersion`+`previousDaemonVersion` pins are the belt there
+  anyway).
+- **ci-screenshots / ci-videos: no GC strategy configured for now** (excluded, reported
+  honestly). Future: an own-like `$last versions` strategy of their own — out of scope
+  today.
+- **Windows: P30D** for caches (npm-proxy, oci-mirror) and oci-images/npm-packages,
+  **P90D** for maven-packages and daemon-binaries. Per-type config, changeable anytime.
+- **The row-less legacy daemon blobs are deleted by hand, once** — they are development
+  leftovers that would have died with the next env teardown; no adoption, no invariant
+  weakening (row-less stays structurally untouchable to the sweep). One-time ops action;
+  note the configured `QITS_CI_DAEMON_VERSION` bottom rung loses its blob if it still
+  references one of them — accepted, the adopted ladder outranks it and a bootstrap
+  rebuilds it.
+
 ## The framing, which is load-bearing
 
 There is **no single GC strategy** in this design, and there must not be one in the
