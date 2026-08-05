@@ -32,8 +32,9 @@ Updated 2026-08-05. Everything shipped-and-verified has been removed; history is
   back after proxy evictions; documented in qits-artifacts README, never run by code.
 - **ci-screenshots / ci-videos GC**: excluded by configuration today; the user wants an
   own-like "$last versions" strategy for them eventually (out of scope for now).
-- **Log-streaming leftovers**: qits-events has no openapi export test at all (only repo
-  without one); qits-artifacts publishes `paths: {}` (raw-route service — fine, known).
+- **Log-streaming leftovers**: none since 2026-08-05 — qits-events gained its OpenAPI
+  export test (every repo has one now). Standing note: qits-artifacts publishes
+  `paths: {}` (raw-route service — fine, known).
 
 ## Longer-term backlog (from settled plans)
 
