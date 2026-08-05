@@ -6,6 +6,37 @@ removed from this file. History is in git.
 
 ## In flight right now
 
+- **Items 1–5 running** (2026-08-05, four Opus agents, disjoint repos): (1) LC-idp DONE
+  (`647a3b7`, 20 green): extension + endpoint + logs.enabled were already present; the
+  three handler/exporter/level keys, the full comment block, OtelLogConfigTest, and
+  `quarkus.otel.metrics.enabled=true` (idp was the ONLY repo without it) added. No new
+  dependency → no native surface change. Deploy note: idp authenticates everyone —
+  watch its canary deploy longest;
+  (2) LD-a — qits-cd injects `OTEL_RESOURCE_ATTRIBUTES` (service.version=deploy sha,
+  deployment.environment.name, service.instance.id=container name) into every `docker
+  run`, composing with operator run-args, precedence verified — plus cd's openapi
+  re-export as a first commit; (3) LE DONE — decision record, no daemon code (correct
+  outcome): BOTH daemons are Quarkus command-mode native (the plan guessed wrong — the
+  ci-daemon is not Go), neither has trace context, so per the plan's own criterion both
+  stay on console capture. ci-daemon: its own stdout reaches operators only via the
+  bounded `docker logs --tail` on the three failure outcomes (success-path lines die
+  with the container — named follow-up in qits-ci: capture/tee the tail on success too,
+  three call sites, has a per-step docker-logs cost, decide before doing).
+  workspace-daemon: 13 hand-written DaemonLog frames DO reach observability via the
+  registry relay; the 40 ordinary Logger calls go to container stdout only — its
+  overstating properties comment fixed + pushed (`8ea3cee`). In-process exporters for
+  both deferred, explicitly blocked on LD-b (no OTLP endpoint is injected into
+  workspace containers; zero OTEL_ refs in either daemon repo). Bootstrap: out of
+  scope, attended terminal output, circular by construction; (4) openapi sweep DONE — pure version-stamp diffs everywhere, no
+  route drift: observability `ff176a0`, projects `8e1c934`, stt `3ee2970`, workspaces
+  `fdfc01b`, artifacts `b781853`; events has no export test/docs at all. Side note:
+  artifacts publishes `paths: {}` (raw-route service — its whole surface is invisible
+  to OpenAPI; fine but worth knowing). Then: LD-b (workspaces
+  ServiceSupervisor OTLP overlay, default off) and LF measurements. **LF's "secrets
+  sweep" is an AUDIT, not a feature** (user confirmed scope): grep the live window for
+  leaked credentials, record findings; automated redaction stays a future Collector
+  concern (plan option B).
+
 - **Log streaming: LA+LB+LC COMPLETE AND DEPLOYED PLATFORM-WIDE** (2026-08-05). All
   nine local services (dns has no local platform) deployed serially with per-service
   live-log canaries confirmed: events 8, cd 18, gateway 12, observability 6, projects
