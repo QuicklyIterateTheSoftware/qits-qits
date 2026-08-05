@@ -24,11 +24,47 @@ removed from this file. History is in git.
   (1:28, verified not the docker fallback). **OTLP audit recorded**: success path
   compliant; error bodies are JSON not google.rpc.Status; no 429/503/Retry-After
   (deliberate fail-open — record as absent-by-design); no partial_success though
-  evictedLogs holds the data; **finding 6 = real bug: gzip bomb — the 64 MiB ceiling
-  bounds compressed bytes only, decompression is uncapped into heap. Fix in flight**
-  (same agent resumed: bounded inflate, 413 past ceiling, gzip-bomb test).
-  After LA+LB: LC normalizes the ten producers, LD deployment identity, LE daemons,
-  LF live validation. Caution: never two native builds in parallel on this host.
+  evictedLogs holds the data; **finding 6 = real bug: gzip bomb — FIXED** (`9927937`):
+  counted 8 KiB streaming inflate against the config-sourced ceiling
+  (`quarkus.http.limits.max-body-size` via MemorySize injection), 413 past it, bomb test
+  holds only the ~65 KB compressed form; native gate re-run green (@ConfigProperty
+  injection points are build-time).
+  **Deploys in flight**: qits-events `0bd5dbd` + qits-observability `9927937` pushed to
+  GitHub + platform (gitlinks `c51fd3b`); watcher confirms cutovers then probes the live
+  telemetry sources for the first real streamed logs.
+  **LIVE CANARY CONFIRMED** (2026-08-05 ~10:10Z): qits-events `0bd5dbd` +
+  qits-observability `9927937` deployed healthy; the live source list shows real
+  streamed logs — qits-events 8 (incl. its native "started in 0.048s" line), cd 2, ci 1,
+  observability self-export 6, no recursion blowup. Startup line still stamps the old
+  pom version (2026.803.170350) — `service.version` is LD's territory.
+  **LC wave 1 DONE + deploying**: qits-dns `785d812` (87 green, guard proven
+  non-vacuous), qits-cd `b879ae2` (42+9 green; side-find: cd's committed openapi.yml
+  says 1.0.0-SNAPSHOT vs pom release version — every test run dirties the tree, small
+  separate fix), qits-gateway `1c7ca67` (89+5 green, variant untouched). All three on
+  GitHub. **Fact learned: qits-dns is NOT on this local platform** — no bare on the git
+  host, no container; its GitHub push is its whole sync (the plan's "ten processes"
+  table counts it, but the local train runs 10 other containers incl. idp). Serial
+  platform deploys re-running for cd → gateway only (handoff-dance, then a :8080 blip),
+  strict per-repo run-status checks + live-log canary confirmation (first deployer
+  attempt had weak failure handling and tripped on the missing dns repo — killed).
+  **LC wave 2 DONE**: qits-stt `f1c20af` (9 green), qits-projects `9569717` (all four
+  modules green), qits-artifacts `06e2226` (277 green). None pushed yet.
+  **LC wave 3**: qits-ci DONE (`5b92f4a`, 131 green; the OTEL_SDK_DISABLED remark
+  turned out to live elsewhere — only the shipped %dev/%test darkness exists there),
+  qits-workspaces DONE (`f85c641`, six modules green), qits-observability DONE
+  (`dbbf93b`, 76 green) — **LC IS CODE-COMPLETE, all nine producers normalized.**
+  Self-export recursion guarantee verified in source, not assumed: Quarkus' log handler
+  has NO re-entrancy guard (scope name only), so the guarantee is the app's — the whole
+  receiver path (`OtelReceiverResource`/`TelemetryDecoder`/mapper) logs nothing, the
+  only two loggers are the forwarder (DEBUG, below the INFO floor) and one latched
+  store WARN; SDK export-failure diagnostics are throttled 5/min and fire only after a
+  failure. Traces close the loop instead via `suppress-application-uris`.
+  Pattern now confirmed in FOUR repos (cd, stt, projects, artifacts): committed
+  openapi.yml version stamps lag the pom, so any test run dirties those trees — one
+  platform-wide sweep commit would end it. Waves 2/3 next:
+  projects+stt+artifacts, then ci+workspaces+observability(self-export care). Then LD
+  deployment identity, LE daemons, LF live validation. Caution: never two native builds
+  in parallel on this host.
 
 - **CL — candidate listing: COMPLETE AND PROVEN LIVE 2026-08-05.** The KnownCiRepos
   compromise is lifted; bootstrap-by-rerun works. Both released through the train
