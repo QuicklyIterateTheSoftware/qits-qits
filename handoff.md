@@ -20,8 +20,11 @@ removed from this file. History is in git.
   records, zero hits for the push token, all five idp client secrets, bearer JWTs,
   Authorization headers, passwords. Eviction counters zero through the deploy burst.
   Named follow-ups: expose resource identity in the logs DTO; qits-ci success-path
-  daemon-tail capture (has per-step cost, decide first); LD-b (workspace ServiceSupervisor
-  OTLP overlay, default off) still open.
+  daemon-tail capture (has per-step cost, decide first).
+  **LD-b (workspace ServiceSupervisor OTLP overlay) is OUT OF SCOPE by user decision
+  2026-08-05** — no plan to stream telemetry from workspace-launched dev services for
+  now. The plan's §LD second half is declined, and qits-observability's README note
+  about the "missing sender" stays a description, not a TODO.
 
 - **Items 1–5 recap** (2026-08-05, four Opus agents, disjoint repos): (1) LC-idp DONE
   (`647a3b7`, 20 green): extension + endpoint + logs.enabled were already present; the
@@ -42,14 +45,15 @@ removed from this file. History is in git.
   workspace-daemon: 13 hand-written DaemonLog frames DO reach observability via the
   registry relay; the 40 ordinary Logger calls go to container stdout only — its
   overstating properties comment fixed + pushed (`8ea3cee`). In-process exporters for
-  both deferred, explicitly blocked on LD-b (no OTLP endpoint is injected into
-  workspace containers; zero OTEL_ refs in either daemon repo). Bootstrap: out of
+  in-process exporters for both are NOT PLANNED (user decision 2026-08-05; LD-b
+  declined). No OTLP endpoint is injected into workspace containers (zero OTEL_ refs in
+  either daemon repo) and none will be — console capture is the answer, full stop. Bootstrap: out of
   scope, attended terminal output, circular by construction; (4) openapi sweep DONE — pure version-stamp diffs everywhere, no
   route drift: observability `ff176a0`, projects `8e1c934`, stt `3ee2970`, workspaces
   `fdfc01b`, artifacts `b781853`; events has no export test/docs at all. Side note:
   artifacts publishes `paths: {}` (raw-route service — its whole surface is invisible
-  to OpenAPI; fine but worth knowing). Then: LD-b (workspaces
-  ServiceSupervisor OTLP overlay, default off) and LF measurements. **LF's "secrets
+  to OpenAPI; fine but worth knowing). Then: LF measurements (LD-b was later declined —
+  see above). **LF's "secrets
   sweep" is an AUDIT, not a feature** (user confirmed scope): grep the live window for
   leaked credentials, record findings; automated redaction stays a future Collector
   concern (plan option B).
