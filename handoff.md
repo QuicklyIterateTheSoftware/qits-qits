@@ -6,7 +6,16 @@ removed from this file. History is in git.
 
 ## In flight right now
 
-- **Log streaming started** (2026-08-05, application-log-streaming-plan.md):
+- **Log streaming: LA+LB+LC COMPLETE AND DEPLOYED PLATFORM-WIDE** (2026-08-05). All
+  nine local services (dns has no local platform) deployed serially with per-service
+  live-log canaries confirmed: events 8, cd 18, gateway 12, observability 6, projects
+  16, stt 3, workspaces 16, artifacts 14, ci 20. Platform 10/10 healthy, daemon pin
+  intact (adopted 2026.803.184200). 7/10 source buckets show logs (idp + the two
+  probe-era buckets idle — idp never got the LC pass, it is not in the plan's table;
+  flag for LD/LE triage). Gitlinks synced at root `9644d4b`. REMAINING: LD (deployment
+  identity — service.version is stale pom stamps), LE (ci-daemon + workspace-daemon +
+  bootstrap scripts), LF (live measurements: latency, burst, outage/recovery, secrets
+  sweep), LG (durable retention, separately approved). Details below.
   **LA DONE — GATE PASSED** (qits-events `0bd5dbd`, not pushed): unchanged JBoss `Logger`
   calls reach a decoding OTLP stub in JVM, fast-jar AND real native (2:26, verified ELF).
   Exception attrs are exactly `exception.type/message/stacktrace` (semconv-stable); body
