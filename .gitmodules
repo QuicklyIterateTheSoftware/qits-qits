@@ -172,3 +172,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-cli-bootstrap"]
+	path = cli/qits-cli-bootstrap
+	url = https://github.com/QuicklyIterateTheSoftware/qits-cli-bootstrap.git
+	ignore = all
+	update = merge
+	branch = main
