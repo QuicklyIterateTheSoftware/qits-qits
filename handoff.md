@@ -14,8 +14,11 @@ Updated 2026-08-06. Everything shipped-and-verified has been removed; history is
 - **Open follow-ups**: qits-artifacts GC pins still point at qits-cd's URL (fail-closed,
   one-line retarget); ci's image-pull/health-gate prose still names qits-cd (facts hold);
   `target` vs `deploymentTarget` wire spelling; buildkit migration for the remaining SPA
-  pipelines; spec-aware release promotion; the enforcement flip; WebUi SSE sink for the
-  CLI (agent running at session end); userflow workstream (handover.md) still parked.
+  pipelines; spec-aware release promotion; the enforcement flip; userflow workstream (handover.md) still parked.
+- **WebUi SHIPPED** (qits-cli-bootstrap `53c964d`): browser view of any bootstrap/unwrap
+  at http://127.0.0.1:8480 (QITS_WEB_PORT/QITS_WEB=0 knobs) — SSE with snapshot+ring
+  recovery, self-contained page, native-verified. Sharp edge: the port binds before the
+  boot, so parallel runs need another port. Gateway proxying = recorded follow-up.
 
 ## In flight right now (userflow-tests worktree branch)
 
