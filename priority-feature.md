@@ -1,6 +1,17 @@
 # priority-feature: environments as first-class, cross-application entities — v2, DECIDED
 
-Status: **decisions locked 2026-08-06, implementation in progress.** Supersedes v1 (git
+Status: **LIVE since 2026-08-06 ~15:30 — the clean-start bootstrap completed on the
+re-model.** All eleven applications healthy and pipeline-deployed (nine `dev` apps incl.
+cd via its self-handoff, singletons idp + serviceregistry), zero compose leftovers, the
+topology byte-for-byte the pinned design (per-app networks holding app + gateway hub +
+both singletons; `qits-platform` singletons-only; `qits-net` the bundle; labels as
+amended). The run surfaced five defects, all fixed live and recorded under "Debts";
+three needed hand intervention (reflection hotfix + pipeline buildkit fix, health-path
+seeding, three lost post-receive/build-event replays). One wire divergence on record:
+the registry serializes `target` where the contract says `deploymentTarget` — cd's
+tolerant reader accepts it; align in a follow-up. Remaining work: the debts below, the
+parked phases, and the new `qits-cli-bootstrap` workstream (TUI bootstrap CLI replacing
+the bash script; repo seeded separately). Supersedes v1 (git
 history). Precedes the userflow work (handover.md). The "Current state" investigation
 record from v1 still holds; only the pointers section is kept here.
 
@@ -205,6 +216,31 @@ The clean-start rollout:
    to `main` deploying once, platform-wide.
 6. Update handoff.md and the memory; the parked phases (enforcement flip, URL migration,
    preprod, idp phase 2, userflows) stand.
+
+### Debts surfaced by the first live run (follow-ups, user-confirmed direction)
+
+- **Pipelines must be buildkit-compatible** (the platform targets buildkit — a swarm
+  cannot assume the legacy builder). qits-cd's and every SPA-serving service's
+  `ci-post-receive.yml` does `docker build --network qits-net`, which only works because
+  `node-docker-base`'s older CLI falls back to the legacy builder. serviceregistry's
+  pipeline shows the corrected shape (`e4e42ab`): `--network host` +
+  `QITS_MAVEN_REPOSITORY_URL` derived from `$QITS_REGISTRY`. Migrate the others the same
+  way.
+- **Health-path convention**: derived registration has no source for per-app health
+  paths (the old bootstrap's applications array carried them). The live run needed
+  hand-PUTs into the registry. Durable fix: cd derives `/<name-sans-qits->/q/health/ready`
+  as the registration default, with an optional `health_path` spec key for exceptions
+  (gateway: `/q/health/ready`).
+- **Registration failure with no rows is silent** (deviation 5's ordering hole): the
+  registry answering 500 on the first-ever registration produced no FAILED row and no
+  monitor signal — an hour-long stall. cd should record the failure somewhere loud.
+- **The script's docker-based singleton liveness** counts a `running/unhealthy`
+  container as live (idp declared live, then rolled back). Needs a cd API that exposes
+  singleton deployments, or a health-state check in the grep.
+- **A failed singleton cutover of idp takes the token plane down with it** for the
+  stop-to-rollback window; anything announcing in that window (post-receive → ci) is
+  lost fire-and-forget. stt's run had to be replayed by hand. Worth a retry on the
+  announce path or a health-gated stop order for idp specifically.
 
 Parked (explicitly out of this effort): the enforcement flip (`qits.cd.legacy-network=`
 empty) and the cross-app URL migration to gateway routes it requires; preprod/prod

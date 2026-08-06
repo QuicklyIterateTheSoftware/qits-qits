@@ -5,6 +5,21 @@ Updated 2026-08-06. Everything shipped-and-verified has been removed; history is
 
 ## In flight right now (userflow-tests worktree branch)
 
+- **THE RE-MODEL IS LIVE (2026-08-06 ~15:30)**: clean-start bootstrap from this worktree
+  completed — eleven apps healthy, all pipeline-deployed, steady state (no compose
+  containers). dev on `environment/dev`, registry-owned topology, hub-and-spoke networks
+  verified live. Five first-run defects fixed on the fly (registry native reflection,
+  buildkit pipeline shape, health-path seeding, two lost post-receive announces + two
+  lost build events) — all recorded in priority-feature.md "Debts surfaced by the first
+  live run"; those debts are now the open work list. Wire note: registry serializes
+  `target`, contract says `deploymentTarget` — tolerated by cd, align later.
+- **qits-cli-bootstrap** (new workstream, user ask): a Quarkus command-mode + picocli +
+  JLine3 TUI CLI replacing qits-local-up.sh — modes `bootstrap` and `unwrap`
+  (`--with-volumes` for the full wipe, volumes kept by default), state-machine phases
+  with live output so waits are visible. Repo
+  github.com/QuicklyIterateTheSoftware/qits-cli-bootstrap, to be added at
+  `cli/qits-cli-bootstrap`; implementation agent running at session end.
+
 - **Environment re-model implemented, NOT deployed** — design + decisions + contract
   amendments in `priority-feature.md`. Committed on `main` in each submodule (none
   pushed): qits-cd (5 commits: V4, spec source, hub-and-spoke networks, derived
