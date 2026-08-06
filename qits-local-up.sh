@@ -894,41 +894,48 @@ for name in $RELEASE_TRAIN_REPOS; do
   echo "  $repo history at $(git -C "$SRC/$repo" rev-parse --short main)"
 done
 
-# The release trains that PUBLISH, fired by hand. Service images embed their SPAs, and those SPA
-# builds install @qits npm packages that only these repositories' own pipelines put into the
-# fresh registry — the pre-seed above deliberately fires no events, so a cold start would 404 on
-# @qits/ui-components in every wrapper build below. Replay each repo's post-receive (the same
-# document the git host would have sent) and WAIT for the run: the deployables cannot build until
-# the packages exist. The rest of the release trains stay quiet, exactly as before — only the
-# publishers the wrapper builds consume are fired here.
-say "publishing the npm packages the wrapper builds install"
-for name in spa-ui-components integrations-angular; do
+# The RELEASED artifacts, published by replaying each publisher's release pipeline. The wrapper
+# builds below install RELEASED versions — SPA lockfiles pin @qits/ui-components and
+# @qits/angular from npm, service poms pin qits-eventstream (and integrations-quarkus) from
+# maven — and a clean version only ever comes from a repo's ci-event-release.yml, fired by an
+# SCMRelease event; a post-receive publish on main produces a `-main.g<sha>` prerelease nothing
+# pins. A fresh platform has had no releases, so fire the release pipeline by hand for each
+# publisher: push the release tag the pipeline checks out (the pre-seed pushes only main),
+# trigger SCMRelease through the manual event trigger, and WAIT — the deployables cannot build
+# until the artifacts exist. Publish-if-absent makes every replay idempotent. Everything else in
+# the release trains stays quiet, as before.
+say "publishing the released artifacts the wrapper builds install"
+for name in spa-ui-components integrations-angular eventstream integrations-quarkus; do
   repo="qits-$name"
-  sha=$(git -C "$SRC/$repo" rev-parse main)
-  # The git host announces pushes with the qits-artifacts client (project=*); this replay stands
-  # in for exactly that announcement, so it borrows the same identity.
+  version=$(git -C "$SRC/$repo" describe --tags --abbrev=0 main) \
+    || die "$repo has no release tag reachable from main — nothing to replay"
+  out=$(git -C "$SRC/$repo" push -o qits.no-ci -o "qits.token=$PUSH_TOKEN" \
+    "$ARTIFACTS/artifacts/git/$repo" "refs/tags/$version" 2>&1) \
+    || die "tag push of $repo $version failed: $out"
+  # The manual trigger demands the one project=* client — the same identity the git host uses to
+  # announce pushes, because this stands in for the announcement a real release would have made.
   if [ "$MACHINE_AUTH" = 1 ]; then
     token=$(curl -fsS -X POST "$IDP/token" -u "qits-artifacts:$IDP_SECRET_QITS_ARTIFACTS" \
       -d grant_type=client_credentials -d audience=qits-ci | jq -er .access_token) \
-      || die "qits-idp issued no token for the post-receive replay"
+      || die "qits-idp issued no token for the release trigger"
     set -- -H "Authorization: Bearer $token"
   else
     set --
   fi
   curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
-    -d "{\"repoId\":\"$repo\",\"branch\":\"main\",\"oldSha\":\"0000000000000000000000000000000000000000\",\"newSha\":\"$sha\"}" \
-    "$CI/ci/api/events/post-receive" || die "post-receive replay for $repo refused"
+    -d "{\"name\":\"SCMRelease\",\"payload\":{\"repository\":\"$repo\",\"branch\":\"main\",\"version\":\"$version\"}}" \
+    "$CI/ci/api/events/trigger" || die "SCMRelease trigger for $repo refused"
   i=0
   while :; do
     status=$(curl -fsS "$CI/ci/api/runs/finished?limit=20" \
-      | jq -r --arg r "$repo" --arg s "$sha" \
-        '[.runs[] | select(.repoId == $r and .commitSha == $s)][0].status // empty')
+      | jq -r --arg r "$repo" \
+        '[.runs[] | select(.repoId == $r and .triggerType == "EVENT")][0].status // empty')
     [ "$status" = SUCCESS ] && break
-    [ -n "$status" ] && die "$repo publish run ended $status — the registry never got its package"
-    i=$((i + 10)); [ "$i" -gt 1800 ] && die "$repo publish run not finished after 30min"
+    [ -n "$status" ] && die "$repo release run ended $status — the registry never got its package"
+    i=$((i + 10)); [ "$i" -gt 1800 ] && die "$repo release run not finished after 30min"
     sleep 10
   done
-  echo "  $repo published from $(echo "$sha" | cut -c1-7)"
+  echo "  $repo released $version"
 done
 
 # --- the main environment ------------------------------------------------------------------------
@@ -973,6 +980,24 @@ echo "  environment $ENV_NAME ($ENV_ID)"
 # push was a no-op but the application still lacks an ACTIVE deployment at HEAD (a recreated
 # environment, an image published on an earlier run), the build-succeeded event is posted by hand:
 # the intake is open on qits-net and the image is already in the registry.
+# Hands qits-cd the build-succeeded event a green run should have announced. cd's intake is
+# idempotent enough for a replay: a (repo, branch, sha) it already deployed becomes a no-op
+# cutover to the same image.
+post_build_event() {
+  pbe_repo=$1; pbe_sha=$2
+  # With the gate on, cd's intake wants a bearer addressed to qits-cd. set -- carries the header
+  # as ONE argument; an unquoted ${var:+-H ...} would word-split the header in half.
+  if [ "$MACHINE_AUTH" = 1 ]; then
+    token=$(idp_token qits-cd) || die "qits-idp issued no token for the build event — is the qits-ci client's secret in place?"
+    set -- -H "Authorization: Bearer $token"
+  else
+    set --
+  fi
+  curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
+    -d "{\"runId\":\"bootstrap\",\"repoId\":\"$pbe_repo\",\"branch\":\"main\",\"commitSha\":\"$pbe_sha\"}" \
+    "$CD/cd/api/events/build-succeeded"
+}
+
 say "pushing the platform through its own pipeline"
 overall=0
 for name in $DEPLOYABLES; do
@@ -1024,22 +1049,14 @@ PIPELINE
     # No push, no event — but no ACTIVE deployment at HEAD either. The image exists from an
     # earlier run; hand cd the event it never got.
     echo "  $repo unchanged but not deployed at HEAD — posting the build event"
-    # With the gate on, cd's intake wants a bearer addressed to qits-cd. set -- carries the header
-    # as ONE argument; an unquoted ${var:+-H ...} would word-split the header in half.
-    if [ "$MACHINE_AUTH" = 1 ]; then
-      token=$(idp_token qits-cd) || die "qits-idp issued no token for the build event — is the qits-ci client's secret in place?"
-      set -- -H "Authorization: Bearer $token"
-    else
-      set --
-    fi
-    curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
-      -d "{\"runId\":\"bootstrap\",\"repoId\":\"$repo\",\"branch\":\"main\",\"commitSha\":\"$sha\"}" \
-      "$CD/cd/api/events/build-succeeded"
+    post_build_event "$repo" "$sha"
   else
     echo "  pushed $(echo "$sha" | cut -c1-7), waiting for the deployment (a cold native build — be patient)"
   fi
 
   waited=0
+  green_for=0
+  replayed=0
   while :; do
     row=$(newest)
     status=$(echo "$row" | jq -r '.status // "PENDING"')
@@ -1060,6 +1077,17 @@ PIPELINE
       warn "$repo CI run ended $run_status before a deployment was created"
       overall=1
       break
+    fi
+    # The run's own announcement to cd is fire-and-forget and can be lost (observed: a green
+    # qits-ci build whose event vanished while another application was mid-cutover). A green run
+    # with no deployment row a minute later is that loss — hand cd the event again, once.
+    if [ "$run_status" = SUCCESS ]; then
+      green_for=$((green_for + 10))
+      if [ "$green_for" -ge 60 ] && [ "$replayed" = 0 ]; then
+        warn "$repo run is green but no deployment appeared — replaying the build event"
+        post_build_event "$repo" "$sha"
+        replayed=1
+      fi
     fi
     waited=$((waited + 10))
     [ "$waited" -ge "$DEPLOY_TIMEOUT" ] && { warn "$repo: no terminal deployment after ${DEPLOY_TIMEOUT}s (ci may still be building — watch docker ps and qits-ci logs)"; overall=1; break; }
