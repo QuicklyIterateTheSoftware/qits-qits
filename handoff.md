@@ -13,12 +13,15 @@ Updated 2026-08-06. Everything shipped-and-verified has been removed; history is
   lost build events) — all recorded in priority-feature.md "Debts surfaced by the first
   live run"; those debts are now the open work list. Wire note: registry serializes
   `target`, contract says `deploymentTarget` — tolerated by cd, align later.
-- **qits-cli-bootstrap** (new workstream, user ask): a Quarkus command-mode + picocli +
-  JLine3 TUI CLI replacing qits-local-up.sh — modes `bootstrap` and `unwrap`
-  (`--with-volumes` for the full wipe, volumes kept by default), state-machine phases
-  with live output so waits are visible. Repo
-  github.com/QuicklyIterateTheSoftware/qits-cli-bootstrap, to be added at
-  `cli/qits-cli-bootstrap`; implementation agent running at session end.
+- **qits-cli-bootstrap BUILT** (user ask): Quarkus command-mode + picocli + JLine3-
+  Display TUI replacing qits-local-up.sh — modes `bootstrap` and `unwrap` (volumes kept
+  by default, `--with-volumes` for the clean slate, `--dry-run`), 47 fully-ported
+  state-machine phases, every remote wait showing target/state/elapsed/deadline, PlainUi
+  fallback for non-TTY. 59 tests green; submodule at `cli/qits-cli-bootstrap`
+  (`9040914`). **UNPROVEN: no cold bootstrap has run through it yet** — the bash script
+  stays the reference until one passes (its AGENTS.md says so); likeliest first-run
+  surprises are the gateway-routed ci/cd health polls and the release-run poll shape.
+  It already fixes the singleton-liveness debt (ignores unhealthy containers).
 
 - **Environment re-model implemented, NOT deployed** — design + decisions + contract
   amendments in `priority-feature.md`. Committed on `main` in each submodule (none
