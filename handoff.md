@@ -1,77 +1,62 @@
 # Handoff
 
-Updated 2026-08-06. Everything shipped-and-verified has been removed; history is in git
-(this file's own log included). What remains is open, pending, or standing.
+Updated 2026-08-06 (late). Everything shipped-and-verified has been removed; history is
+in git. What remains is open, pending, or standing. This is the ONE handoff document —
+handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
-- **v3 IS LIVE (2026-08-06 ~20:30)**: qits-platform-deployments (the cd+serviceregistry
+- **v3 IS LIVE AND FULLY WIRED**: qits-platform-deployments (the cd+serviceregistry
   merge-back) runs the platform — 7 platform services from `platform/main`, 3 dev
-  services from `environment/dev`, deployed by the native CLI's first complete green
-  cold bootstrap (42 phases, 22m29s). 15 CLI defects found+fixed across the proving
-  runs (qits-cli-bootstrap history names each run). Verified: topology, gateway route,
-  relocated SPA, pins, deployer self-handoff.
+  services from `environment/dev`, deployed by the native CLI (15 proving-run fixes,
+  green cold bootstrap 22m29s, warm cycle: unwrap 11s + bootstrap 3m29s). The browser
+  view (`:8480`, `0.0.0.0` default for WSL2) is proven live. The gateway serves the
+  real home SPA; `/platform-deployments/` serves the relocated deployments UI.
+- **The release train ran end to end for the first time on v3** (2026-08-06 evening):
+  a ui-components release (`2026.806.184725`, the Deployments nav entry) cascaded
+  through all seven SPA releases with dual-branch promotions, then the service-tier
+  webui bumps. AT WRITE TIME the service tier was still deploying — when it settles,
+  every sidebar links `Deployments -> /platform-deployments/`. A later sync sweep
+  should pull the service release commits from the platform host into the checkouts
+  (the SPA-tier commits are already synced to GitHub).
 - **Open follow-ups**: qits-artifacts GC pins still point at qits-cd's URL (fail-closed,
-  one-line retarget); ci's image-pull/health-gate prose still names qits-cd (facts hold);
-  `target` vs `deploymentTarget` wire spelling; buildkit migration for the remaining SPA
-  pipelines; spec-aware release promotion; the enforcement flip; userflow workstream (handover.md) still parked.
-- **WebUi SHIPPED** (qits-cli-bootstrap `53c964d`): browser view of any bootstrap/unwrap
-  at http://127.0.0.1:8480 (QITS_WEB_PORT/QITS_WEB=0 knobs) — SSE with snapshot+ring
-  recovery, self-contained page, native-verified. Sharp edge: the port binds before the
-  boot, so parallel runs need another port. Gateway proxying = recorded follow-up.
+  one-line retarget); qits-ci's image-pull/health-gate prose still names qits-cd (facts
+  hold); `target` vs `deploymentTarget` wire spelling; buildkit migration for the
+  remaining SPA-service pipelines (`--network qits-net` relies on the legacy builder);
+  spec-aware release promotion (today both deploy branches push, double/triple builds);
+  the enforcement flip (`qits.platform.deployments.legacy-network=` empty) + the
+  cross-app URL migration it needs; two cosmetic red runs on qits-spa-cd/home mains
+  (interim spec commits, superseded by their releases).
+- **Known first-run debts fixed tonight in the CLI**: stale ACTIVE rows without
+  containers, tab-eating output sanitizer vs the container check, write-shaped
+  auth-plane probes, pinned-only seed publishes (version immutability!), bearer on the
+  deployer's guarded environment writes.
 
-## In flight right now (userflow-tests worktree branch)
+## Parked workstream: userflows (folded from handover.md)
 
-- **THE RE-MODEL IS LIVE (2026-08-06 ~15:30)**: clean-start bootstrap from this worktree
-  completed — eleven apps healthy, all pipeline-deployed, steady state (no compose
-  containers). dev on `environment/dev`, registry-owned topology, hub-and-spoke networks
-  verified live. Five first-run defects fixed on the fly (registry native reflection,
-  buildkit pipeline shape, health-path seeding, two lost post-receive announces + two
-  lost build events) — all recorded in priority-feature.md "Debts surfaced by the first
-  live run"; those debts are now the open work list. Wire note: registry serializes
-  `target`, contract says `deploymentTarget` — tolerated by cd, align later.
-- **qits-cli-bootstrap BUILT** (user ask): Quarkus command-mode + picocli + JLine3-
-  Display TUI replacing qits-local-up.sh — modes `bootstrap` and `unwrap` (volumes kept
-  by default, `--with-volumes` for the clean slate, `--dry-run`), 47 fully-ported
-  state-machine phases, every remote wait showing target/state/elapsed/deadline, PlainUi
-  fallback for non-TTY. 59 tests green; submodule at `cli/qits-cli-bootstrap`
-  (`9040914`). **UNPROVEN: no cold bootstrap has run through it yet** — the bash script
-  stays the reference until one passes (its AGENTS.md says so); likeliest first-run
-  surprises are the gateway-routed ci/cd health polls and the release-run poll shape.
-  It already fixes the singleton-liveness debt (ignores unhealthy containers).
+First real usage of `libs/qits-userflows` (the Playwright user-story framework:
+@UserStory/@UserflowPrecondition/@UserflowRunsAfter, topological orderer,
+UserflowContext, report emission) + writing the doctrine into the module's doctext
+(package-info). The design, adjusted to v3:
 
-- **Environment re-model implemented, NOT deployed** — design + decisions + contract
-  amendments in `priority-feature.md`. Committed on `main` in each submodule (none
-  pushed): qits-cd (5 commits: V4, spec source, hub-and-spoke networks, derived
-  registration, singletons, PATCH, docs), qits-workspaces (release promotes
-  `environment/dev`), qits-projects (CdEnvironmentNotifier removed), qits-idp +
-  qits-gateway (`deployments.yml` seeds). Wrapper commits on `userflow-tests`:
-  `qits-local-up.sh` (dev env, PATCH-reconcile, dual-ref pushes) + docs. All builds
-  green. The adversarial review of the qits-cd diff is DONE: one live release blocker
-  found (the forgotten `decoupling-probe` environment on branch `main` — runbook step 0
-  in priority-feature.md deletes it on the OLD cd before anything deploys) and five
-  code findings fixed on top (`69e5752`): environment-aware predecessor selection,
-  legacy-network guard on delete, join failures fail the deployment, registration
-  serialized onto the worker, singleton→environment flips rejected loudly. 106 tests
-  green.
-- **Post-review decisions**: the singletons are **qits-idp and qits-serviceregistry**
-  (idp deployed today, serviceregistry planned) — the cd-singleton call was reversed
-  (priority-feature.md decision 8; flip applied on the branch). The environment/
-  application registry extracts into **qits-serviceregistry** later (repo created,
-  empty; itself a singleton; shape-2 execution: socketless registry, a home cd deploys
-  the platform plane) — paired with second-environment readiness, not part of this
-  rollout.
-- **Script gate CLEARED, rollout still to run**: the separate `qits-local-up.sh` fix
-  landed on `main` (proven by the cold bootstrap above) and is now merged into this
-  branch. The reconciliation kept both sides — main's release replays, the
-  `post_build_event` helper and the lost-event replay; the branch's dev environment,
-  PATCH-reconcile, dual-ref pushes and serviceregistry. Two details settled in the
-  merge: the build event names the ref that DEPLOYS the application (not `main`), and
-  the lost-event replay is environment-applications-only (a singleton has no row, so
-  the sixty-second signal would misfire). What remains is the sequenced rollout in
-  `priority-feature.md` (cd first, PATCH env immediately after — see contract
-  amendment 7).
-- **Userflow-tests plan parked** behind the re-model: `handover.md`.
+- **Execution profiles**, two axes: environment kind (mocked | a live scope — `dev`,
+  later `preprod`/`prod`, plus the PLATFORM scope) and vantage (in-network | external).
+  A profile = a small properties file (`qits.userflows.profile`); one gateway base URL
+  covers UI + API. Profiles should eventually DERIVE from qits-platform-deployments'
+  registry instead of being hand-written.
+- **Capabilities**: a plain marker interface (e.g. RepositoryExists) accepted by
+  @UserflowPrecondition; providers are stories annotated @UserflowProvides + an
+  environments gate — mocked provider stubs, live provider IS the real create-flow.
+  Resolution over the classes in the run; zero/two active providers = hard error.
+- Phasing: framework profiles+gating+doctext -> capabilities -> first consumer in
+  qits-ci (mocked profile against the packaged app + StubGitHost) -> live-external ->
+  live in-network (CI pipeline; step env needs a gateway URL) -> publish reports to the
+  pre-seeded ci-screenshots/ci-videos artifact types.
+- Open questions that remain: where the cross-service suite lives long-term; packaged
+  vs dev-mode boot for mocked runs; surefire/failsafe chain constraint; auth for live
+  profiles (idp machine tokens); report identity per profile.
+- Stale note fixed on pickup: UserflowTarget's javadoc references -Pextended, which no
+  longer exists (the `extended` JUnit tag + -DskipITs=false is the convention).
 
 ## Awaiting user verdicts
 
