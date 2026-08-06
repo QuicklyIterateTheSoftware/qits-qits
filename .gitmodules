@@ -178,3 +178,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-platform-deployments"]
+	path = services/qits-platform-deployments
+	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-deployments.git
+	ignore = all
+	update = merge
+	branch = main
