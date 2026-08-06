@@ -12,13 +12,18 @@ handover.md (the userflow plan) is folded in below and deleted.
   green cold bootstrap 22m29s, warm cycle: unwrap 11s + bootstrap 3m29s). The browser
   view (`:8480`, `0.0.0.0` default for WSL2) is proven live. The gateway serves the
   real home SPA; `/platform-deployments/` serves the relocated deployments UI.
-- **The release train ran end to end for the first time on v3** (2026-08-06 evening):
-  a ui-components release (`2026.806.184725`, the Deployments nav entry) cascaded
-  through all seven SPA releases with dual-branch promotions, then the service-tier
-  webui bumps. AT WRITE TIME the service tier was still deploying — when it settles,
-  every sidebar links `Deployments -> /platform-deployments/`. A later sync sweep
-  should pull the service release commits from the platform host into the checkouts
-  (the SPA-tier commits are already synced to GitHub).
+- **The release train ran END TO END and COMPLETED** (2026-08-06 evening): the
+  ui-components release (`2026.806.184725`, the Deployments nav entry) cascaded through
+  all seven SPA releases and the full service tier; every sidebar now links
+  `Deployments -> /platform-deployments/`. All ten containers healthy on the released
+  builds; ALL release commits are synced into the checkouts and GitHub; zero unpushed
+  commits anywhere. Cascade frictions handled: three twin-build image races replayed
+  (the -o qits.no-ci discipline matters), one orphaned step-container name collision
+  cleared, two SPA specs pinning the old nav fixed and released, the retired qits-cd's
+  event triggers stripped (its resurrection was blocked by a failed env-branch build;
+  triggers are gone now). Cosmetic leftovers: a handful of red quiet-ref runs, and the
+  imageless release-train repos auto-registered in the services listing (amendment-7
+  consequence, harmless).
 - **Open follow-ups**: qits-artifacts GC pins still point at qits-cd's URL (fail-closed,
   one-line retarget); qits-ci's image-pull/health-gate prose still names qits-cd (facts
   hold); `target` vs `deploymentTarget` wire spelling; buildkit migration for the
