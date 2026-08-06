@@ -13,15 +13,26 @@ Two sets to keep straight:
 
 | set | members | managed by | updated by |
 |---|---|---|---|
-| **cd-managed** | all nine: observability, stt, projects, workspaces, events, gateway, ci, artifacts, **and qits-cd itself** | qits-cd's `qits` environment (branch `main`, network `qits-net`) — cd container names, sha-addressed registry images | a git push |
+| **cd-managed** | all ten: observability, stt, projects, workspaces, events, gateway, ci, artifacts, idp, **and qits-cd itself** | qits-cd — sha-addressed registry images, cd container names | a git push |
 | **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, cd's run-args file (the `qits-cd-config` volume — the git host's push token among them) | the bootstrap | a bootstrap rerun |
 
-Every component is an application of the `qits` environment, qits-cd included, and the steady
-state has **zero compose-managed containers** — the compose seed exists only for a first boot,
-after which each service's own pipeline deployment *replaces* its compose original: cd's replace
-cutover stops whatever holds the application's alias (H2 files and published host ports allow
-exactly one holder), starts the fresh container, health-gates it, and only then removes what it
-stopped; a failed gate restarts it.
+The cd-managed set has two shapes, and each repo's `.config/qits/deployments.yml` says which it
+is:
+
+- **environment applications** — everything but the two below. They belong to the `dev`
+  environment (branch `environment/dev`, network `qits-net`), deploy from that branch, and run as
+  `qits-cd-dev-qits-<name>-<id8>`.
+- **singletons** — `qits-cd` and `qits-idp`. One instance for the whole platform, no environment,
+  deployed from `main`, running as `qits-cd-singleton-qits-<name>-<id8>`.
+
+Nothing registers an application by hand: a green build on the branch that deploys a repo
+registers or updates it from that repo's spec.
+
+The steady state has **zero compose-managed containers** — the compose seed exists only for a
+first boot, after which each service's own pipeline deployment *replaces* its compose original:
+cd's replace cutover stops whatever holds the application's alias (H2 files and published host
+ports allow exactly one holder), starts the fresh container, health-gates it, and only then
+removes what it stopped; a failed gate restarts it.
 
 **qits-cd updates itself via the handoff**: deploying `qits-cd` starts the successor (retrying
 on the H2 lock under its restart policy) and launches a detached referee that stops the old
@@ -56,21 +67,30 @@ The everyday loop, and it has two doors into `main`.
 **Release is the normal one.** `POST /workspaces/api/workspaces/<id>/release` merges the
 workspace's branch into `main`, stamps the calendar version onto the merge commit itself
 (`release(2026.801.55529): …`) and pushes that commit to the git host — an ordinary push, so
-everything in the paragraph below happens exactly as it always did. It also publishes an
-`SCMRelease` event on the bus.
+everything in the paragraph below happens exactly as it always did. It then fast-forwards
+`environment/dev` to the same commit, which is the push that deploys; a non-fast-forward is an
+error the release reports rather than forces. It also publishes an `SCMRelease` event on the bus.
 
 Its sibling `POST /workspaces/api/workspaces/<id>/integrate` merges into the branch's **parent**
 branch instead — a `task/…` landing on its `epic/…` — with no version, no bump and no event. Aimed
 at a workspace whose parent is `main` it refuses with 409 `reason: RELEASE_REQUIRED`. Only release
 writes `main`.
 
-**A direct push is the escape hatch, and the deployment decides whether it exists.** `main` is a
+**A direct push is the escape hatch, and the deployment decides whether it exists.** What deploys
+is a push to `environment/dev` — pushing only `main` builds the image and stops there. `main` is a
 protected ref on the git host, so updating it needs a push option carrying this host's configured
-push token:
+push token; `environment/dev` is not protected, but carry the token there too and one command
+shape covers both:
 
     cd services/qits-observability
     git commit ...
-    git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability main
+    git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability \
+        main HEAD:environment/dev
+
+For the two singletons (`qits-cd`, `qits-idp`) it is the `main` push that deploys, and
+`environment/dev` that does nothing. Both refs in one push means two CI runs of the same commit —
+add `-o qits.no-ci` to a separate push of the ref that is not deploying if the second cold build
+is worth avoiding.
 
 `local-dev` is what `qits-local-up.sh` configures; `QITS_PUSH_TOKEN` changes it. A deployment that
 configures **no** token has no escape hatch at all — unset matches nothing, and neither does empty,
@@ -82,12 +102,17 @@ fresh repo needs nothing.
 
 That push IS the deployment: post-receive → qits-ci runs the repo's
 `.config/qits/ci-post-receive.yml` (build `docker/Dockerfile`, push
-`localhost:8081/qits/<repo>:<sha>`) → green run announces to qits-cd → cd pulls, health-gates the
-fresh container on `qits-net`, and only then removes the old one. Watch it land:
+`localhost:8081/qits/<repo>:<sha>`) → green run announces the branch and sha to qits-cd → cd reads
+the repo's `deployments.yml` at that sha, registers the application if it is new, pulls,
+health-gates the fresh container on `qits-net`, and only then removes the old one. Watch it land:
 
     docker ps                                      # the step container, then the new deployment
     curl -s localhost:8080/cd/api/environments     # the environment id
     curl -s 'localhost:8080/cd/api/deployments?environmentId=<id>' | jq   # newest-first, with detail on failures
+    curl -s localhost:8080/cd/api/applications | jq  # environment apps and singletons, flattened
+
+The deployments listing is scoped to an environment, so singleton deployments are not in it;
+`docker ps` under `qits-cd-singleton-qits-*` is what shows those.
 
 A failed build or gate leaves the previous container serving (`FAILED` / `IMAGE_MISSING` on the
 deployment row, with the log tail in `detail`); nothing to clean up.
@@ -103,10 +128,11 @@ gate; the host port rebinds when the fresh one starts). A failed gate restarts t
 
 ## Updating qits-cd
 
-The same push as everything else — the handoff does the rest. If the new cd's gate fails, the
-referee restarts the old one and its sweep records the `FAILED` row; if the handoff dies in a
-way that leaves no cd running (both crash-looping images, say), recovery is `docker start` on
-the stopped predecessor or a bootstrap rerun.
+The same push as everything else, except that cd is a singleton: `main` is the ref that deploys
+it, and its deployment is in no environment listing. The handoff does the rest. If the new cd's
+gate fails, the referee restarts the old one and its sweep records the `FAILED` row; if the
+handoff dies in a way that leaves no cd running (both crash-looping images, say), recovery is
+`docker start` on the stopped predecessor or a bootstrap rerun.
 
 ## Updating the qits-ci-daemon
 
@@ -155,15 +181,18 @@ deployment of that application (empty commit push, at worst) applies it.
 
 ## Changing the environment's membership
 
-qits-cd has no add-application endpoint: applications are fixed at environment creation. The
-script owns this — it detects that the existing `qits` environment's application count differs
-from its list and recreates the environment (tearing down its containers; they redeploy on the
-next pushes). To add a fifth service: give the repo a `.config/qits/ci-post-receive.yml` and a
-`docker/Dockerfile`, add its name to `DEPLOYABLES` in the script (plus run-args if it needs state), and
-rerun.
+Membership is **derived**, so there is nothing to edit and nothing to recreate: the first green
+build on `environment/dev` registers the application from the repo's `.config/qits/deployments.yml`,
+and later builds update it. The bootstrap only ever reconciles the environment row itself, by
+`PATCH` — it never deletes it, because a `DELETE` tears down every container of the environment,
+the cd-managed core included.
+
+To add a service: give the repo a `.config/qits/ci-post-receive.yml`, a `docker/Dockerfile` and a
+`deployments.yml` if it needs anything but the defaults, then push `environment/dev`. Add its name
+to `DEPLOYABLES` in the script (plus run-args if it needs state) so the bootstrap carries it too.
 
 ## Teardown
 
-    docker ps -aq --filter label=qits.cd.environment | xargs -r docker rm -f   # cd's deployments (the whole platform)
+    docker ps -aq --filter label=qits.cd.application | xargs -r docker rm -f   # cd's deployments, environment apps and singletons alike
     docker compose -p qits -f docker-compose.qits.yml down        # leftover first-boot seed, if any
     docker volume ls -q | grep '^qits-' | xargs -r docker volume rm            # ALL local state: dbs, registry, git origins

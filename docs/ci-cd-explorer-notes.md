@@ -28,8 +28,10 @@ item below) and retired. Contracts live in the repos' code, AGENTS.md and docs/o
   `/data/repositories/<name>` directory name; making `Repository.id` equal it (SelfSeedService +
   adoptExistingOrigin enforce this for platform repos) is THE join between projects, ci and cd.
   A UUID id would have needed a mapping table on every read path.
-- **The project→environment edge is a naming convention, not a foreign key**
-  (`CdEnvironment.name === Project.slug`, set by CdEnvironmentNotifier). Never present it as an FK.
+- **There is no project→environment edge.** Environments are deliberate tiers owned by qits-cd
+  (`dev` on branch `environment/dev`), created over its REST API. The old convention
+  `CdEnvironment.name === Project.slug` is gone with qits-projects' `CdEnvironmentNotifier`;
+  never present the two as related, by FK or by name.
 
 ## Known cosmetic deviations (accepted)
 

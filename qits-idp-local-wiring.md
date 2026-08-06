@@ -166,12 +166,11 @@ require, and each step is separately reversible.
 
 Two operational notes for the live platform:
 
-- **Environment membership.** qits-idp makes the environment ten applications
-  where a running platform's is nine, and qits-cd has no add-application
-  endpoint — so the first rerun of `qits-local-up.sh` takes the *recreate*
-  branch, which tears the environment's containers down, the cd-managed core
-  included. Hand the core back to compose before the rerun, or expect to bring
-  the platform back up from the seed.
+- **Environment membership.** No longer a hazard: registration is derived from
+  each repo's `.config/qits/deployments.yml` on a green build, and
+  `qits-local-up.sh` reconciles the environment row by `PATCH` instead of
+  recreating it. qits-idp is a singleton — it deploys from `main` and runs as
+  `qits-cd-singleton-qits-idp-<id8>`.
 - **Manual event replays now need a token.** The two documented recovery
   commands — replaying `POST /ci/api/events/post-receive` after a lost hook and
   `POST /cd/api/events/build-succeeded` after a write-wedge — answer 401 once
