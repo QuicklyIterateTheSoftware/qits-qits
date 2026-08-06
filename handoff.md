@@ -1,6 +1,6 @@
 # Handoff
 
-Updated 2026-08-05. Everything shipped-and-verified has been removed; history is in git
+Updated 2026-08-06. Everything shipped-and-verified has been removed; history is in git
 (this file's own log included). What remains is open, pending, or standing.
 
 ## Awaiting user verdicts
@@ -16,12 +16,15 @@ Updated 2026-08-05. Everything shipped-and-verified has been removed; history is
      would be honest.
 2. **WO-b judgment call**: the merge panel left the workspaces overview (merging lives
    on the detail route). Keep it that way, or bring a merge entry point back.
-3. **Git-storage flip** (git-host-storage-unification-plan.md): DECISION PENDING. The
-   cold-wipe experiment is a scoped NO-GO; the cheap proof path (second qits-artifacts
-   on a spare port with DFS, import one real history, three checks) is documented in
-   the plan. The AT precondition is now fully cleared: since 2026-08-05 nothing but the
-   git host itself touches the repositories volume
-   (workspaces-volume-decoupling-plan.md).
+3. **Git-storage flip** (git-host-storage-unification-plan.md): DECISION PENDING, and
+   the evidence is now complete. The cheap proof ran 2026-08-06 on the **deployed
+   image**: second qits-artifacts on port 8090 with `storage=dfs`, imported the real
+   qits-workspaces history (6,411 objects, 0.16 s), all three checks green (`ls-remote`
+   ref-for-ref, fresh-clone `fsck` clean, `HEAD` match), plus `--atomic` main+tag push
+   confirmed and the bytes confirmed blob-store-only. Details at the top of the plan.
+   The AT precondition is fully cleared: since 2026-08-05 nothing but the git host
+   itself touches the repositories volume (workspaces-volume-decoupling-plan.md). What
+   remains is only the go/no-go on flipping the live host.
 
 ## Open work, not user-gated
 

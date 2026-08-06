@@ -1,7 +1,23 @@
 # Unifying the git host onto the platform's blob storage
 
-Status: **PLAUSIBILITY CHECK — DECISION PENDING.** Nothing here has shipped and nothing here has
-been committed to. The verdict is at the end; the measurements it rests on come first.
+Status: **PLAUSIBILITY CHECK — DECISION PENDING.** The verdict is at the end; the measurements it
+rests on come first. Since this was written, the engine itself shipped (inert,
+`qits.repositories.git.storage=file`), and on 2026-08-06 the cheap proof ran against the **live
+image** — no longer the spike:
+
+- A second qits-artifacts container (the deployed image, `b0718dd7`) on port 8090 with
+  `storage=dfs` and a scratch store booted clean in 0.09 s; migrations V4 (pack catalog) and V5
+  (ref protection) applied.
+- `PUT /artifacts/git/qits-workspaces` created the repository; a `--mirror` push imported the
+  platform's largest real history (6,411 objects) in 0.16 s.
+- All three checks green: `ls-remote` matched the live host ref-for-ref (symbolic `HEAD`
+  included), a fresh clone (0.10 s) passed `git fsck --full`, and `HEAD` matched (`3d440c1`).
+- Bonus, both confirmed on the shipped engine: the packs lived only in the blob store
+  (`/data/repositories` stayed empty), and a `git push --atomic main + tag` landed with a clean
+  fsck after it — the release flow's requirement (⚖1) holds outside the spike.
+
+The proof instance was ephemeral and is torn down; reproducing it takes about a minute with the
+commands above. What remains pending is the decision itself, not evidence for it.
 
 The question, in the user's terms: the git host models its persistence as block storage (bare repos
 on a filesystem volume). Everything else on the platform persists through qits-artifacts' internal
