@@ -19,6 +19,23 @@ deleted (tarball: `~/qits-git-bares-final-2026-08-06.tar.gz`), the file-backend 
 is gone, and `qits-local-up.sh` seeds over the wire (home `6843faf`). Full record at
 the top of git-host-storage-unification-plan.md.
 
+Resolved 2026-08-06: the rewritten **`qits-local-up.sh` is proven end to end** — a full
+cold bootstrap ran green in an isolated docker-in-docker daemon: seed stack, wire
+repository creation, release replays, then all ten applications built and deployed
+through the platform's own pipeline, qits-cd's self-update handoff included, gateway
+healthy and the DFS git host serving clones. Five attempts; each earlier failure was a
+real cold-start bug, all fixed: the `${user.home}` heredoc bashism (`b03bce2`); no
+released artifacts on a fresh platform — bootstrap now replays the four publishers'
+release pipelines (`3a19ed0`, `97bda56`); H2's compiled-check defect killing every run
+after pool idle — V5 had dropped constraint names V1 never created; fixed for real
+with a Java migration (qits-ci `4439c4b`, deployed live); stale webui gitlinks in
+qits-ci/qits-cd pinning pre-CalVer `@qits/ui-components@0.0.4` (`b698b99`, `8ef8a8f`,
+deployed live; qits-spa-ci's main had also never been pushed to the platform host);
+and a lost fire-and-forget build-succeeded event — the deploy wait now replays it once
+when a run is green with no deployment row (`97bda56`). Caveat that stands: the seed
+images were preloaded (skip-build), so the cold GraalVM seed-image builds themselves
+were not exercised. This unblocks the env re-model rollout (user's runbook).
+
 Resolved 2026-08-06: the git host gained **content-read endpoints** (user's ask) —
 `GET /artifacts/git/{repoId}/blob/{rev}/{path}` (raw bytes) and `…/tree/{rev}[/{path}]`
 (JSON listing), `{rev}` a branch/tag or full sha, resolved sha in the `Git-Commit-Sha`
