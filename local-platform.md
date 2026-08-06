@@ -13,7 +13,7 @@ Two sets to keep straight:
 
 | set | members | managed by | updated by |
 |---|---|---|---|
-| **cd-managed** | all ten: observability, stt, projects, workspaces, events, gateway, ci, artifacts, idp, **and qits-cd itself** | qits-cd — sha-addressed registry images, cd container names | a git push |
+| **cd-managed** | all eleven: observability, stt, projects, workspaces, events, gateway, ci, artifacts, idp, serviceregistry, **and qits-cd itself** | qits-cd — sha-addressed registry images, cd container names | a git push |
 | **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, cd's run-args file (the `qits-cd-config` volume — the git host's push token among them) | the bootstrap | a bootstrap rerun |
 
 The cd-managed set has two shapes, and each repo's `.config/qits/deployments.yml` says which it
@@ -22,12 +22,19 @@ is:
 - **environment applications** — everything but the one below, `qits-cd` included: one deployer
   per environment. They belong to the `dev` environment (branch `environment/dev`, network
   `qits-net`), deploy from that branch, and run as `qits-cd-dev-qits-<name>-<id8>`.
-- **singletons** — today only `qits-idp`; the planned `qits-serviceregistry` joins it when that
-  leg lands. One instance for the whole platform, no environment, deployed from `main`, running as
-  `qits-cd-singleton-qits-<name>-<id8>`.
+- **singletons** — `qits-idp` and `qits-serviceregistry`. One instance for the whole platform, no
+  environment, deployed from `main`, running as `qits-cd-singleton-qits-<name>-<id8>`.
 
 Nothing registers an application by hand: a green build on the branch that deploys a repo
 registers or updates it from that repo's spec.
+
+**qits-serviceregistry holds the topology** — the environments, the services and the links between
+them. `/cd/api/environments` stays the door an operator and the bootstrap use, but the rows behind
+it are the registry's, so cd can do nothing with an environment while the registry is down. That is
+why the registry is in the compose seed beside the idp (a first boot reconciles the `dev`
+environment before any pipeline deployment could exist) and why it deploys before cd's own
+redeploy. Its writes are machine-guarded: cd presents a token minted as the `qits-cd` client, and
+the bootstrap puts `qits-serviceregistry` on that client's audience list at the idp.
 
 The steady state has **zero compose-managed containers** — the compose seed exists only for a
 first boot, after which each service's own pipeline deployment *replaces* its compose original:
@@ -88,7 +95,7 @@ shape covers both:
     git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability \
         main HEAD:environment/dev
 
-For a singleton (today only `qits-idp`) it is the `main` push that deploys, and
+For a singleton (`qits-idp`, `qits-serviceregistry`) it is the `main` push that deploys, and
 `environment/dev` that does nothing. Both refs in one push means two CI runs of the same commit —
 add `-o qits.no-ci` to a separate push of the ref that is not deploying if the second cold build
 is worth avoiding.
@@ -185,9 +192,9 @@ deployment of that application (empty commit push, at worst) applies it.
 
 Membership is **derived**, so there is nothing to edit and nothing to recreate: the first green
 build on `environment/dev` registers the application from the repo's `.config/qits/deployments.yml`,
-and later builds update it. The bootstrap only ever reconciles the environment row itself, by
-`PATCH` — it never deletes it, because a `DELETE` tears down every container of the environment,
-the cd-managed core included.
+and later builds update it. Registration lands in qits-serviceregistry; cd reads it back from
+there. The bootstrap only ever reconciles the environment row itself, by `PATCH` — it never deletes
+it, because a `DELETE` tears down every container of the environment, the cd-managed core included.
 
 To add a service: give the repo a `.config/qits/ci-post-receive.yml`, a `docker/Dockerfile` and a
 `deployments.yml` if it needs anything but the defaults, then push `environment/dev`. Add its name

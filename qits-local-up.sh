@@ -11,19 +11,24 @@
 # shared eventstream jar into the seed artifact registry on the way; from then on the platform
 # deploys all of its components through its own pipeline.
 #
-# Every deployable (observability, idp, stt, projects, workspaces, events, gateway, artifacts, ci,
-# cd) is deployed by qits-cd: pushed to the platform's git host, built by qits-ci from the repo's
-# own .config/qits/ci-post-receive.yml, published to the platform's registry, and cut over by
-# qits-cd's replace cutover — which stops whatever holds the application's alias first, so even the
-# compose-seeded originals of the first boot hand themselves over and reappear under cd's own
-# container names.
+# Every deployable (observability, idp, serviceregistry, stt, projects, workspaces, events, gateway,
+# artifacts, ci, cd) is deployed by qits-cd: pushed to the platform's git host, built by qits-ci
+# from the repo's own .config/qits/ci-post-receive.yml, published to the platform's registry, and
+# cut over by qits-cd's replace cutover — which stops whatever holds the application's alias first,
+# so even the compose-seeded originals of the first boot hand themselves over and reappear under
+# cd's own container names.
 #
 # WHICH PUSH DEPLOYS WHAT comes from the repo's own .config/qits/deployments.yml. Most repos are
 # applications of the 'dev' environment (branch environment/dev, network qits-net) and deploy from
-# that branch; qits-cd is one of them. qits-idp is the platform-plane SINGLETON and deploys from
-# main — today the only one deployed; the planned qits-serviceregistry joins it later. Nothing
-# here declares an application: cd registers one from the repo's spec on the first green build of
-# the branch that deploys it.
+# that branch; qits-cd is one of them. qits-idp and qits-serviceregistry are the platform-plane
+# SINGLETONS — one instance for the whole platform — and deploy from main. Nothing here declares an
+# application: cd registers one from the repo's spec on the first green build of the branch that
+# deploys it.
+#
+# qits-serviceregistry holds the topology (environments, services, the links between them). cd's
+# environment endpoints stay the operational door but the rows behind them are the registry's, so
+# the registry has to answer before cd can do anything with an environment — which is why it is in
+# the hand-built seed and is deployed before cd redeploys itself.
 #
 # qits-cd updates ITSELF via the handoff: deploying qits-cd starts the successor, a detached
 # referee stops the old instance and arbitrates the health gate, and the successor's startup
@@ -57,7 +62,8 @@
 #   QITS_PUSH_TOKEN     the git host's push token — what `-o qits.token=<value>` must equal to
 #                       push the default branch directly once protection is on
 #                       (default local-dev)
-#   QITS_MACHINE_AUTH   1 = machine-token enforcement ON for ci, cd and artifacts (default 1)
+#   QITS_MACHINE_AUTH   1 = machine-token enforcement ON for ci, cd, artifacts and
+#                       serviceregistry (default 1)
 #   QITS_IDP_CLIENT_<ID>_SECRET
 #                       pin one client's secret instead of letting this script generate it
 #                       (<ID> is the client id uppercased with dashes as underscores, e.g.
@@ -131,22 +137,26 @@ MACHINE_CLIENT=$MACHINE_REQUIRED
 
 # The seed: hand-built for the FIRST boot only. On later runs any of these already replaced by a
 # cd deployment is skipped at compose-up, and the deploy loop below hands the rest over.
-# qits-idp is in here because the three services that enforce machine auth are: a seed ci that
-# cannot reach an issuer answers 401 to the git host's very first post-receive.
-CORE="gateway artifacts ci cd idp"
+# qits-idp is in here because every service that enforces machine auth is: a seed ci that cannot
+# reach an issuer answers 401 to the git host's very first post-receive.
+# qits-serviceregistry is in here because cd cannot perform an environment operation until it
+# answers — the seed cd reconciles the 'dev' environment through it, long before any pipeline
+# deployment of the registry could exist.
+CORE="gateway artifacts ci cd idp serviceregistry"
 # Everything the platform deploys through itself. Order matters: observability first (quiets OTLP
 # warnings earliest), idp next (every later application's tokens are minted by it, and its own
-# cutover must not fall inside another application's deploy window), the seed's own repos last, cd
-# at the very end (its deployment is the self-update handoff: the cd API blinks while the successor
-# takes over and adopts the row).
-DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts ci cd"
+# cutover must not fall inside another application's deploy window), serviceregistry after it (cd
+# proxies every environment operation to the registry, so it must be live and current before cd's
+# own redeploy at the end), the seed's own repos last, cd at the very end (its deployment is the
+# self-update handoff: the cd API blinks while the successor takes over and adopts the row).
+DEPLOYABLES="observability idp serviceregistry stt projects workspaces events gateway artifacts ci cd"
 # The deployables that are NOT environment applications: platform-plane singletons, one instance
 # for the whole platform, deployed from main rather than from the environment's branch and named
 # qits-cd-singleton-qits-<name>-<id8>. The authority is each repo's .config/qits/deployments.yml;
 # this list is what tells the bootstrap which ref deploys them and which container name to expect.
-# qits-idp is the only one deployed today — qits-cd is an ordinary environment application, one
-# deployer per environment; the planned qits-serviceregistry is added here when that leg ships.
-SINGLETONS="idp"
+# qits-idp and qits-serviceregistry are the two — qits-cd is an ordinary environment application,
+# one deployer per environment.
+SINGLETONS="idp serviceregistry"
 # Repositories that participate in release trains but are not applications of qits-cd. They still
 # need a repository on the platform git host and a main push: qits-projects can then inventory them,
 # qits-workspaces can release them, and qits-ci can discover their event pipelines. Keep this list
@@ -415,11 +425,15 @@ EOF
     git -C "$SRC/qits-$name" submodule update --init --depth 1
     case "$name" in
       gateway) seed_ui=src/main/webui/dist/qits-spa-home/browser;;
+      # The registry answers JSON only: no submodule, no Quinoa build, nothing to stand in for.
+      serviceregistry) seed_ui="";;
       *) seed_ui=service/src/main/webui/dist/qits-spa-$name/browser;;
     esac
-    mkdir -p "$SRC/qits-$name/$seed_ui"
-    printf '<!doctype html><html><body>qits bootstrap</body></html>\n' \
-      > "$SRC/qits-$name/$seed_ui/index.html"
+    if [ -n "$seed_ui" ]; then
+      mkdir -p "$SRC/qits-$name/$seed_ui"
+      printf '<!doctype html><html><body>qits bootstrap</body></html>\n' \
+        > "$SRC/qits-$name/$seed_ui/index.html"
+    fi
     extra=""
     # A shipped gateway must say whether it authenticates; `local` is the unauthenticated
     # workstation variant.
@@ -517,7 +531,7 @@ cat > "$COMPOSE" <<EOF
 # build and deploy the rest. Everything else (observability, stt, projects, workspaces, events) is
 # deployed by qits-cd through the main pipeline and is deliberately NOT in this file — look for
 # it in \`docker ps\` under qits-cd-${ENV_NAME}-qits-* container names (qits-cd-singleton-qits-* for
-# the singletons, today just idp), redeployed on every green push.
+# the singletons, idp and serviceregistry), redeployed on every green push.
 #
 # Manage with: docker compose -p qits -f $(basename "$COMPOSE") ps|logs -f|down
 # (compose down leaves cd-deployed containers running; remove those via cd's API or docker.)
@@ -548,6 +562,12 @@ volumes:
   # why — which is why its image refuses to boot without the url that points at this volume.
   qits-idp-data:
     name: qits-idp-data
+  # THE PLATFORM'S TOPOLOGY LIVES HERE — every environment, every service, every link. The registry
+  # image refuses to boot without the url that points at this volume, for the same reason the idp's
+  # does: a redeploy onto ephemeral storage would come up healthy and empty, and every cd would then
+  # quietly reconcile against nothing.
+  qits-serviceregistry-data:
+    name: qits-serviceregistry-data
   # Mounted by cd-DEPLOYED containers via qits.cd.run-args, not by any service below.
   qits-projects-data:
     name: qits-projects-data
@@ -588,6 +608,12 @@ services:
       # a path nobody was looking at.
       QITS_IDP_CLIENT_QITS_WORKSPACES_SECRET: "${IDP_SECRET_QITS_WORKSPACES}"
       QITS_IDP_CLIENT_QITS_GATEWAY_SECRET: "${IDP_SECRET_QITS_GATEWAY}"
+      # qits-serviceregistry is not on the idp's shipped audience lists — it arrived after them —
+      # and an audience a client may not ask for is invalid_target, not a silent bare call. cd is
+      # the one client that writes to the registry, so its list is the one restated here: the
+      # shipped five plus the registry. The registry itself needs no client and no list; it mints
+      # nothing, it only validates what cd presents.
+      QITS_IDP_CLIENT_QITS_CD_AUDIENCES: "qits-ci,qits-cd,qits-artifacts,qits-workspaces,qits-gateway,qits-serviceregistry"
       # The one claim grant phase 1 needs. The git host announces every push to ci's intake, which
       # checks the token's project claim against the repo the event names — and the git host speaks
       # for ALL repos, so its grant is the wildcard. The idp only states the claim; qits-ci's own
@@ -595,6 +621,30 @@ services:
       QITS_IDP_CLIENT_QITS_ARTIFACTS_CLAIMS_PROJECT: "*"
     volumes:
       - qits-idp-data:/data
+    networks: [qits-net]
+    restart: unless-stopped
+
+  # The topology. The second singleton, and in the seed because cd reconciles the 'dev' environment
+  # through it minutes from now: the environment endpoints are still cd's door, but the rows behind
+  # them are this service's. No published host port and no gateway route — cd proxies every read a
+  # human needs. No docker socket either, ever: the registry decides nothing about containers.
+  # Ready at /serviceregistry/q/health/ready, which is what the seed wait below curls.
+  qits-serviceregistry:
+    image: qits/serviceregistry:latest
+    container_name: qits-serviceregistry
+    environment:
+      # Same reason as the idp's twin above: the shipped default sits under \${user.home}, which
+      # this image's passwd-less UID 1001 has not got, so the binary dies at Flyway rather than
+      # writing the platform's topology into a container layer.
+      QUARKUS_DATASOURCE_SERVICEREGISTRY_JDBC_URL: jdbc:h2:file:/data/serviceregistry/h2/serviceregistry
+      # Machine auth, inbound only. The writes (the service upsert, the environment mutations cd
+      # proxies) demand a bearer addressed to qits-serviceregistry; cd is the only sender, and its
+      # oidc-client is enabled by the same switch below. This service calls no one, so it holds no
+      # client and no secret.
+      QITS_AUTH_MACHINE_REQUIRED: "${MACHINE_REQUIRED}"
+      QUARKUS_OIDC_AUTH_SERVER_URL: ${IDP}
+    volumes:
+      - qits-serviceregistry-data:/data
     networks: [qits-net]
     restart: unless-stopped
 
@@ -709,14 +759,22 @@ services:
       QUARKUS_DATASOURCE_CD_JDBC_URL: jdbc:h2:file:/data/cd/h2/cd
       # cd pulls through the HOST daemon too — same reasoning as ci's registry host.
       QITS_ARTIFACTS_REGISTRY_HOST: localhost:${REGISTRY_PORT}
+      # Where the topology is. Equals cd's own shipped default; spelled for the reason every other
+      # cross-service address in this file is spelled.
+      QITS_CD_REGISTRY_URL: http://qits-serviceregistry:8080
       # Per-application run-args live in the qits-cd-config volume (config/application.properties,
       # written below), NOT here: a self-update's successor must inherit them, and env cannot
       # nest those values.
-      # Machine auth, inbound only: /cd/api/events/build-succeeded demands a bearer addressed to
-      # qits-cd. cd calls no guarded endpoint of anyone else in phase 1, so it needs no oidc-client
-      # and holds no secret of its own — its client exists at the idp and goes unused.
+      # Machine auth, both directions now. Inbound: /cd/api/events/build-succeeded demands a bearer
+      # addressed to qits-cd. Outbound: every write to qits-serviceregistry carries one minted as
+      # the qits-cd client — which is why this is the one service that gained an oidc-client with
+      # the registry. cd spells its secret with the canonical
+      # QUARKUS_OIDC_CLIENT_CREDENTIALS_SECRET, as qits-ci does.
       QITS_AUTH_MACHINE_REQUIRED: "${MACHINE_REQUIRED}"
       QUARKUS_OIDC_AUTH_SERVER_URL: ${IDP}
+      QUARKUS_OIDC_CLIENT_CLIENT_ENABLED: "${MACHINE_CLIENT}"
+      QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL: ${IDP}
+      QUARKUS_OIDC_CLIENT_CREDENTIALS_SECRET: "${IDP_SECRET_QITS_CD}"
     volumes:
       - qits-cd-data:/data
       - qits-cd-config:/work/config
@@ -739,11 +797,24 @@ qits.cd.run-args.qits-gateway=-p ${PORT}:8080 -e QITS_GATEWAY_PROXY_HOSTS_ARTIFA
 # change that could leave a running platform locked out of its own bootstrap.
 qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive -e QITS_REPOSITORIES_GIT_PUSH_TOKEN=${PUSH_TOKEN} -e QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QITS_ARTIFACTS_CLIENT_SECRET=${IDP_SECRET_QITS_ARTIFACTS}
 qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci;DB_CLOSE_DELAY=-1 -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA} -e QITS_EVENTS_URL=http://qits-events:8080 -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CREDENTIALS_SECRET=${IDP_SECRET_QITS_CI}
-qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP}
+# cd is a SENDER now: the environment endpoints it still serves write through to
+# qits-serviceregistry, and those writes are machine-guarded. So its oidc-client is enabled and
+# carries the qits-cd secret — the same three lines qits-ci has, with the audience
+# (qits-serviceregistry) fixed in cd's own application.properties rather than here. A client
+# enabled without a secret refuses to boot.
+qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CD_REGISTRY_URL=http://qits-serviceregistry:8080 -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CREDENTIALS_SECRET=${IDP_SECRET_QITS_CD}
 # The idp's own deployment. The volume is the whole point: the signing key is in that database, and
 # a redeploy that lands on a fresh one invalidates every token in flight. The claims grant is the
 # git host's wildcard — it announces pushes for every repo, so its project claim covers every value.
-qits.cd.run-args.qits-idp=-v qits-idp-data:/data -e QUARKUS_DATASOURCE_IDP_JDBC_URL=jdbc:h2:file:/data/idp/h2/idp -e QITS_IDP_ISSUER=${IDP} -e QITS_IDP_CLIENT_QITS_CI_SECRET=${IDP_SECRET_QITS_CI} -e QITS_IDP_CLIENT_QITS_CD_SECRET=${IDP_SECRET_QITS_CD} -e QITS_IDP_CLIENT_QITS_ARTIFACTS_SECRET=${IDP_SECRET_QITS_ARTIFACTS} -e QITS_IDP_CLIENT_QITS_WORKSPACES_SECRET=${IDP_SECRET_QITS_WORKSPACES} -e QITS_IDP_CLIENT_QITS_GATEWAY_SECRET=${IDP_SECRET_QITS_GATEWAY} -e QITS_IDP_CLIENT_QITS_ARTIFACTS_CLAIMS_PROJECT=*
+# The audience line is the registry's admission ticket: qits-serviceregistry postdates the idp's
+# shipped lists, and cd asking for an audience it may not have is invalid_target. Restated in full,
+# because the key replaces the list rather than extending it.
+qits.cd.run-args.qits-idp=-v qits-idp-data:/data -e QUARKUS_DATASOURCE_IDP_JDBC_URL=jdbc:h2:file:/data/idp/h2/idp -e QITS_IDP_ISSUER=${IDP} -e QITS_IDP_CLIENT_QITS_CI_SECRET=${IDP_SECRET_QITS_CI} -e QITS_IDP_CLIENT_QITS_CD_SECRET=${IDP_SECRET_QITS_CD} -e QITS_IDP_CLIENT_QITS_ARTIFACTS_SECRET=${IDP_SECRET_QITS_ARTIFACTS} -e QITS_IDP_CLIENT_QITS_WORKSPACES_SECRET=${IDP_SECRET_QITS_WORKSPACES} -e QITS_IDP_CLIENT_QITS_GATEWAY_SECRET=${IDP_SECRET_QITS_GATEWAY} -e QITS_IDP_CLIENT_QITS_CD_AUDIENCES=qits-ci,qits-cd,qits-artifacts,qits-workspaces,qits-gateway,qits-serviceregistry -e QITS_IDP_CLIENT_QITS_ARTIFACTS_CLAIMS_PROJECT=*
+# The registry's own deployment. The volume holds the platform's topology, so the same rule as the
+# idp's applies: a redeploy that lands on a fresh one comes up healthy and empty. Machine auth
+# inbound only — it validates cd's bearer and mints nothing, so no oidc-client, no secret. No docker
+# socket: this service decides nothing about containers.
+qits.cd.run-args.qits-serviceregistry=-v qits-serviceregistry-data:/data -e QUARKUS_DATASOURCE_SERVICEREGISTRY_JDBC_URL=jdbc:h2:file:/data/serviceregistry/h2/serviceregistry -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP}
 qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speech
 # projects-volume-decoupling-plan.md BT: projects no longer mounts the shared repositories volume
 # at all — it clones its own git mirrors over the wire, through qits.artifacts.url, into its own
@@ -804,7 +875,7 @@ fi
 # container must NOT be resurrected next to it — cd's own container included, once a self-update
 # handoff has made cd one of its own deployments.
 UP=""
-for name in idp cd gateway artifacts ci; do
+for name in idp serviceregistry cd gateway artifacts ci; do
   if docker ps --format '{{.Names}}' | grep -q "^$(cd_name_prefix "$name")"; then
     echo "  qits-$name is cd-managed — compose leaves it alone"
   else
@@ -826,7 +897,11 @@ wait_seed() {
   # replayed build-succeeded needs one too. Bearer VALIDATION is lazy (discovery is off and the
   # JWKS path is configured, so no consumer fetches anything at boot), which is what makes an
   # all-at-once compose up safe — but ISSUANCE is not, so the issuer is waited for.
-  for name in idp artifacts ci cd; do
+  #
+  # serviceregistry is waited for as well, and before cd is used for anything: the environment
+  # reconcile below is a cd call that writes through to the registry, and a registry that is not
+  # answering yet turns it into a 502 rather than a retry.
+  for name in idp serviceregistry artifacts ci cd; do
     i=0
     until curl -fsS -o /dev/null "http://qits-$name:8080/$name/q/health/ready"; do
       i=$((i + 5)); [ "$i" -gt 120 ] && die "qits-$name not ready after 120s — docker logs qits-$name"
@@ -1126,15 +1201,19 @@ echo "registry:  localhost:${REGISTRY_PORT} (host daemon only)"
 echo "git host:  http://localhost:${PORT}/artifacts/git/<repoId>"
 echo "dev loop:  commit in a repo, rerun with QITS_SKIP_BUILD=1 — the push redeploys it"
 echo "deploy:    push ${ENV_BRANCH} — pushing main builds but deploys nothing;"
-echo "           qits-idp is a singleton and deploys from main instead"
+echo "           qits-idp and qits-serviceregistry are singletons and deploy from main instead"
+echo "topology:  qits-serviceregistry owns the environments, services and links; cd's"
+echo "           /cd/api/environments writes through to it (no host port, no gateway route)"
 echo "main:      written by /workspaces/{id}/release, which then fast-forwards ${ENV_BRANCH};"
 echo "           a direct push needs -o qits.token=${PUSH_TOKEN}"
 if [ "$MACHINE_AUTH" = 1 ]; then
-  echo "machines:  ENFORCED on ci, cd, artifacts — issuer ${IDP} (no host port, no gateway route)"
+  echo "machines:  ENFORCED on ci, cd, artifacts, serviceregistry — issuer ${IDP} (no host port,"
+  echo "           no gateway route)"
   echo "           a token by hand: curl -u qits-ci:\$IDP_SECRET_QITS_CI -d grant_type=client_credentials \\"
   echo "                                 -d audience=qits-cd ${IDP}/token   (secrets: .qits-bootstrap.env)"
 else
-  echo "machines:  gate OFF (QITS_MACHINE_AUTH=0) — ci, cd and artifacts trust the network as before"
+  echo "machines:  gate OFF (QITS_MACHINE_AUTH=0) — ci, cd, artifacts and serviceregistry trust the"
+  echo "           network as before"
 fi
 [ -d /out ] && echo "seed compose + state saved to /out"
 warn "not part of either set (no image exists): qits-dns, qits-spa-home"
