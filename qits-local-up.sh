@@ -820,6 +820,8 @@ qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speec
 # at all — it clones its own git mirrors over the wire, through qits.artifacts.url, into its own
 # data dir. QITS_PROJECTS_DATA_DIR is spelled here rather than left to the image default
 # (\${user.home}/...), which resolves to the literal "?" under this image's passwd-less UID 1001 —
+# (the backslash is load-bearing, exactly as in the compose heredoc above: this heredoc is
+# unquoted, and an unescaped \${user.home} is a bad substitution under busybox ash) —
 # the same reason the datasource URLs are spelled below. QITS_ARTIFACTS_URL already equals the
 # service's own shipped default; it is spelled anyway, for the same reason every other
 # cross-service address in this file is spelled: an address a deployment inherits silently is an
@@ -996,6 +998,50 @@ for name in $RELEASE_TRAIN_REPOS; do
   echo "  $repo history at $(git -C "$SRC/$repo" rev-parse --short main)"
 done
 
+# The RELEASED artifacts, published by replaying each publisher's release pipeline. The wrapper
+# builds below install RELEASED versions — SPA lockfiles pin @qits/ui-components and
+# @qits/angular from npm, service poms pin qits-eventstream (and integrations-quarkus) from
+# maven — and a clean version only ever comes from a repo's ci-event-release.yml, fired by an
+# SCMRelease event; a post-receive publish on main produces a `-main.g<sha>` prerelease nothing
+# pins. A fresh platform has had no releases, so fire the release pipeline by hand for each
+# publisher: push the release tag the pipeline checks out (the pre-seed pushes only main),
+# trigger SCMRelease through the manual event trigger, and WAIT — the deployables cannot build
+# until the artifacts exist. Publish-if-absent makes every replay idempotent. Everything else in
+# the release trains stays quiet, as before.
+say "publishing the released artifacts the wrapper builds install"
+for name in spa-ui-components integrations-angular eventstream integrations-quarkus; do
+  repo="qits-$name"
+  version=$(git -C "$SRC/$repo" describe --tags --abbrev=0 main) \
+    || die "$repo has no release tag reachable from main — nothing to replay"
+  out=$(git -C "$SRC/$repo" push -o qits.no-ci -o "qits.token=$PUSH_TOKEN" \
+    "$ARTIFACTS/artifacts/git/$repo" "refs/tags/$version" 2>&1) \
+    || die "tag push of $repo $version failed: $out"
+  # The manual trigger demands the one project=* client — the same identity the git host uses to
+  # announce pushes, because this stands in for the announcement a real release would have made.
+  if [ "$MACHINE_AUTH" = 1 ]; then
+    token=$(curl -fsS -X POST "$IDP/token" -u "qits-artifacts:$IDP_SECRET_QITS_ARTIFACTS" \
+      -d grant_type=client_credentials -d audience=qits-ci | jq -er .access_token) \
+      || die "qits-idp issued no token for the release trigger"
+    set -- -H "Authorization: Bearer $token"
+  else
+    set --
+  fi
+  curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
+    -d "{\"name\":\"SCMRelease\",\"payload\":{\"repository\":\"$repo\",\"branch\":\"main\",\"version\":\"$version\"}}" \
+    "$CI/ci/api/events/trigger" || die "SCMRelease trigger for $repo refused"
+  i=0
+  while :; do
+    status=$(curl -fsS "$CI/ci/api/runs/finished?limit=20" \
+      | jq -r --arg r "$repo" \
+        '[.runs[] | select(.repoId == $r and .triggerType == "EVENT")][0].status // empty')
+    [ "$status" = SUCCESS ] && break
+    [ -n "$status" ] && die "$repo release run ended $status — the registry never got its package"
+    i=$((i + 10)); [ "$i" -gt 1800 ] && die "$repo release run not finished after 30min"
+    sleep 10
+  done
+  echo "  $repo released $version"
+done
+
 # --- the dev environment -------------------------------------------------------------------------
 # One standing environment: name dev, branch environment/dev, the shared network (cd adopts an
 # existing network rather than recreating it). NO applications array — registration is derived: a
@@ -1046,6 +1092,27 @@ echo "  environment $ENV_NAME ($ENV_ID) — branch $ENV_BRANCH, network qits-net
 # push was a no-op but the application is not live at HEAD (an image published on an earlier run,
 # a deployment that never landed), the build-succeeded event is posted by hand: the intake is open
 # on qits-net and the image is already in the registry.
+
+# Hands qits-cd the build-succeeded event a green run should have announced. cd's intake is
+# idempotent enough for a replay: a (repo, branch, sha) it already deployed becomes a no-op
+# cutover to the same image. The branch is an argument, not 'main': cd matches the event against
+# the ref that DEPLOYS the application — environment/dev for an environment application, main for
+# a singleton — and an event naming the other ref matches nothing.
+post_build_event() {  # <repo> <sha> <deploy ref>
+  pbe_repo=$1; pbe_sha=$2; pbe_ref=$3
+  # With the gate on, cd's intake wants a bearer addressed to qits-cd. set -- carries the header
+  # as ONE argument; an unquoted ${var:+-H ...} would word-split the header in half.
+  if [ "$MACHINE_AUTH" = 1 ]; then
+    token=$(idp_token qits-cd) || die "qits-idp issued no token for the build event — is the qits-ci client's secret in place?"
+    set -- -H "Authorization: Bearer $token"
+  else
+    set --
+  fi
+  curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
+    -d "{\"runId\":\"bootstrap\",\"repoId\":\"$pbe_repo\",\"branch\":\"$pbe_ref\",\"commitSha\":\"$pbe_sha\"}" \
+    "$CD/cd/api/events/build-succeeded"
+}
+
 say "pushing the platform through its own pipeline"
 overall=0
 for name in $DEPLOYABLES; do
@@ -1124,22 +1191,14 @@ PIPELINE
     # No push, no event — and not live at HEAD either. The image exists from an earlier run; hand
     # cd the event it never got, naming the ref that deploys this repo.
     echo "  $repo unchanged but not deployed at HEAD — posting the build event"
-    # With the gate on, cd's intake wants a bearer addressed to qits-cd. set -- carries the header
-    # as ONE argument; an unquoted ${var:+-H ...} would word-split the header in half.
-    if [ "$MACHINE_AUTH" = 1 ]; then
-      token=$(idp_token qits-cd) || die "qits-idp issued no token for the build event — is the qits-ci client's secret in place?"
-      set -- -H "Authorization: Bearer $token"
-    else
-      set --
-    fi
-    curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
-      -d "{\"runId\":\"bootstrap\",\"repoId\":\"$repo\",\"branch\":\"$ref\",\"commitSha\":\"$sha\"}" \
-      "$CD/cd/api/events/build-succeeded"
+    post_build_event "$repo" "$sha" "$ref"
   else
     echo "  pushed $(echo "$sha" | cut -c1-7), waiting for the deployment (a cold native build — be patient)"
   fi
 
   waited=0
+  green_for=0
+  replayed=0
   while :; do
     if is_singleton "$name"; then
       # No row to read, so no FAILED to report either: a singleton whose deploy fails surfaces as
@@ -1169,6 +1228,24 @@ PIPELINE
       warn "$repo CI run ended $run_status before a deployment was created"
       overall=1
       break
+    fi
+    # The run's own announcement to cd is fire-and-forget and can be lost (observed: a green
+    # qits-ci build whose event vanished while another application was mid-cutover). A green run
+    # with no deployment row a minute later is that loss — hand cd the event again, once.
+    #
+    # Environment applications only. The signal is "cd created no row", which cd does the moment
+    # the event lands, so a minute of silence really is a lost event. A singleton has no row, and
+    # the stand-in — its container running the sha — only turns true once the cutover has
+    # finished, which alone can outlast a minute. Replaying on that would fire a duplicate event
+    # into a healthy in-flight cutover, the very race that loses events. A singleton that does
+    # lose its event surfaces as the timeout below.
+    if [ "$run_status" = SUCCESS ] && ! is_singleton "$name"; then
+      green_for=$((green_for + 10))
+      if [ "$green_for" -ge 60 ] && [ "$replayed" = 0 ]; then
+        warn "$repo run is green but no deployment appeared — replaying the build event"
+        post_build_event "$repo" "$sha" "$ref"
+        replayed=1
+      fi
     fi
     waited=$((waited + 10))
     [ "$waited" -ge "$DEPLOY_TIMEOUT" ] && { warn "$repo: no terminal deployment after ${DEPLOY_TIMEOUT}s (ci may still be building — watch docker ps and qits-ci logs)"; overall=1; break; }

@@ -26,10 +26,16 @@ Updated 2026-08-06. Everything shipped-and-verified has been removed; history is
   empty; itself a singleton; shape-2 execution: socketless registry, a home cd deploys
   the platform plane) — paired with second-environment readiness, not part of this
   rollout.
-- **Rollout GATED by the user**: the branched `qits-local-up.sh` has known issues being
-  fixed separately; deploy + merge wait for that fix, then reconcile the script changes
-  and run the sequenced rollout in `priority-feature.md` (cd first, PATCH env
-  immediately after — see contract amendment 7).
+- **Script gate CLEARED, rollout still to run**: the separate `qits-local-up.sh` fix
+  landed on `main` (proven by the cold bootstrap above) and is now merged into this
+  branch. The reconciliation kept both sides — main's release replays, the
+  `post_build_event` helper and the lost-event replay; the branch's dev environment,
+  PATCH-reconcile, dual-ref pushes and serviceregistry. Two details settled in the
+  merge: the build event names the ref that DEPLOYS the application (not `main`), and
+  the lost-event replay is environment-applications-only (a singleton has no row, so
+  the sixty-second signal would misfire). What remains is the sequenced rollout in
+  `priority-feature.md` (cd first, PATCH env immediately after — see contract
+  amendment 7).
 - **Userflow-tests plan parked** behind the re-model: `handover.md`.
 
 ## Awaiting user verdicts
@@ -47,6 +53,29 @@ the second time as the dfs-only binary (`508e598`). The `qits-repositories` volu
 deleted (tarball: `~/qits-git-bares-final-2026-08-06.tar.gz`), the file-backend code
 is gone, and `qits-local-up.sh` seeds over the wire (home `6843faf`). Full record at
 the top of git-host-storage-unification-plan.md.
+
+Resolved 2026-08-06: the rewritten **`qits-local-up.sh` is proven end to end** — a full
+cold bootstrap ran green in an isolated docker-in-docker daemon: seed stack, wire
+repository creation, release replays, then all ten applications built and deployed
+through the platform's own pipeline, qits-cd's self-update handoff included, gateway
+healthy and the DFS git host serving clones. Five attempts; each earlier failure was a
+real cold-start bug, all fixed: the `${user.home}` heredoc bashism (`b03bce2`); no
+released artifacts on a fresh platform — bootstrap now replays the four publishers'
+release pipelines (`3a19ed0`, `97bda56`); H2's compiled-check defect killing every run
+after pool idle — V5 had dropped constraint names V1 never created; fixed for real
+with a Java migration (qits-ci `4439c4b`, deployed live); stale webui gitlinks in
+qits-ci/qits-cd pinning pre-CalVer `@qits/ui-components@0.0.4` (`b698b99`, `8ef8a8f`,
+deployed live; qits-spa-ci's main had also never been pushed to the platform host);
+and a lost fire-and-forget build-succeeded event — the deploy wait now replays it once
+when a run is green with no deployment row (`97bda56`). Then the REAL platform was
+torn down (containers, all volumes including the DFS store, network, every seed and
+build image, the musl toolchain) and cold-bootstrapped from source on the host daemon:
+green in ~22 minutes (docker layer cache carried unchanged sources), all ten
+applications healthy, 32 repos on the fresh DFS host, blob API and clones serving, no
+bares volume. The skip-build caveat is gone — both paths are proven. NOTE the reset:
+run/deployment/event history restarted, throwaway probe repos (drift-forge, sv-train,
+the UUID imports) are gone, idp client secrets were kept (.qits-bootstrap.env). This
+unblocks the env re-model rollout (user's runbook).
 
 Resolved 2026-08-06: the git host gained **content-read endpoints** (user's ask) —
 `GET /artifacts/git/{repoId}/blob/{rev}/{path}` (raw bytes) and `…/tree/{rev}[/{path}]`
