@@ -3,6 +3,20 @@
 Updated 2026-08-06. Everything shipped-and-verified has been removed; history is in git
 (this file's own log included). What remains is open, pending, or standing.
 
+## In flight right now
+
+- **v3 IS LIVE (2026-08-06 ~20:30)**: qits-platform-deployments (the cd+serviceregistry
+  merge-back) runs the platform — 7 platform services from `platform/main`, 3 dev
+  services from `environment/dev`, deployed by the native CLI's first complete green
+  cold bootstrap (42 phases, 22m29s). 15 CLI defects found+fixed across the proving
+  runs (qits-cli-bootstrap history names each run). Verified: topology, gateway route,
+  relocated SPA, pins, deployer self-handoff.
+- **Open follow-ups**: qits-artifacts GC pins still point at qits-cd's URL (fail-closed,
+  one-line retarget); ci's image-pull/health-gate prose still names qits-cd (facts hold);
+  `target` vs `deploymentTarget` wire spelling; buildkit migration for the remaining SPA
+  pipelines; spec-aware release promotion; the enforcement flip; WebUi SSE sink for the
+  CLI (agent running at session end); userflow workstream (handover.md) still parked.
+
 ## In flight right now (userflow-tests worktree branch)
 
 - **THE RE-MODEL IS LIVE (2026-08-06 ~15:30)**: clean-start bootstrap from this worktree
