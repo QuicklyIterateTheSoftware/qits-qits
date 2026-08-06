@@ -819,7 +819,7 @@ qits.cd.run-args.qits-stt=-v qits-stt-data:/data -e QITS_SPEECH_HOME=/data/speec
 # projects-volume-decoupling-plan.md BT: projects no longer mounts the shared repositories volume
 # at all — it clones its own git mirrors over the wire, through qits.artifacts.url, into its own
 # data dir. QITS_PROJECTS_DATA_DIR is spelled here rather than left to the image default
-# (${user.home}/...), which resolves to the literal "?" under this image's passwd-less UID 1001 —
+# (\${user.home}/...), which resolves to the literal "?" under this image's passwd-less UID 1001 —
 # the same reason the datasource URLs are spelled below. QITS_ARTIFACTS_URL already equals the
 # service's own shipped default; it is spelled anyway, for the same reason every other
 # cross-service address in this file is spelled: an address a deployment inherits silently is an
