@@ -19,6 +19,18 @@ deleted (tarball: `~/qits-git-bares-final-2026-08-06.tar.gz`), the file-backend 
 is gone, and `qits-local-up.sh` seeds over the wire (home `6843faf`). Full record at
 the top of git-host-storage-unification-plan.md.
 
+Resolved 2026-08-06: the git host gained **content-read endpoints** (user's ask) —
+`GET /artifacts/git/{repoId}/blob/{rev}/{path}` (raw bytes) and `…/tree/{rev}[/{path}]`
+(JSON listing), `{rev}` a branch/tag or full sha, resolved sha in the `Git-Commit-Sha`
+header, unauthenticated like the rest of the host (qits-artifacts `3f8ca71`). qits-ci
+consumed them (`1d01e2b`): the bare-mirror cache, fetch/retry machinery, the CONTENDED
+requeue path, and the git binary itself left the image — config is read at the exact
+event sha over HTTP. Both deployed and proven live (a drift-forge push ran green with
+no other config path in existence). Natural follow-up, not done: qits-projects'
+`GitSubmoduleParser` (`git show <rev>:.gitmodules` in its mirror) is the second
+consumer of the same verb. qits-workspaces' mirror cache **stays** — merges and
+preflights are computations the wire cannot express, not file reads.
+
 Resolved 2026-08-06: the explorer copy (old item 1) shipped — lede approved as-is, the
 count punctuated, excluded rows say "not collected" (qits-spa-artifacts `85ea629`,
 live via the qits-artifacts webui bump `a72cfd7`, verified in the browser). Note the
