@@ -134,7 +134,7 @@ CORE="gateway artifacts ci cd idp"
 # API blinks while the successor takes over and adopts the row).
 DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts ci cd"
 # Repositories that participate in release trains but are not applications of qits-cd. They still
-# need a bare on the platform git host and a main push: qits-projects can then inventory them,
+# need a repository on the platform git host and a main push: qits-projects can then inventory them,
 # qits-workspaces can release them, and qits-ci can discover their event pipelines. Keep this list
 # separate from DEPLOYABLES; adding a library or SPA to the deployment loop would make cd wait for
 # an image and health endpoint that repository intentionally does not ship.
@@ -143,8 +143,8 @@ DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts 
 # deployable — but its binary is now an ordinary release-train artifact (a PUT to
 # /artifacts/daemons in its own ci-event-release.yml), and a release train needs the repository on
 # the git host: workspaces releases it, ci discovers its trigger files, projects inventories it.
-# Being in this list rather than in DEPLOYABLES also keeps the bootstrap quiet — the history is
-# pre-seeded into the bare below, so the push that follows is a no-op and fires no post-receive.
+# Being in this list rather than in DEPLOYABLES also keeps the bootstrap quiet — the history goes
+# up below with -o qits.no-ci, so the push that follows is a no-op and fires no post-receive.
 # That matters more here than for any sibling: this repo's post-receive is a cold GraalVM musl
 # build, and firing one during bootstrap would race the deliberately serial deployment train for
 # the host's memory.
@@ -239,7 +239,7 @@ if [ -f /out/.qits-bootstrap.env ]; then . /out/.qits-bootstrap.env; fi
 # gets the same Dockerfile with the mirror prefixes rewritten back to the direct upstreams, fed on
 # stdin. Nothing on disk changes: the context is untouched, and every steady-state build (CI's
 # post-receive, on a running platform) still goes through the mirror.
-# The Docker Hub refs written inline below (docker:cli, node:24-alpine) and the alpine/git runs
+# The Docker Hub refs written inline below (docker:cli, node:24-alpine) and the alpine/git run
 # further down are direct for the same reason, and are meant to stay that way.
 seed_dockerfile() {
   sed -e 's|localhost:8081/quay/|quay.io/|g' \
@@ -282,7 +282,6 @@ if [ "$SKIP_BUILD" != 1 ]; then
       docker network inspect qits-net >/dev/null 2>&1 || docker network create qits-net >/dev/null
       docker network connect qits-net "$SELF" 2>/dev/null || true
       docker volume create qits-artifacts-data >/dev/null
-      docker volume create qits-repositories >/dev/null
       if ! docker ps --format '{{.Names}}' | grep -q '^qits-artifacts$'; then
         docker rm -f qits-artifacts >/dev/null 2>&1 || true
         docker run -d --name qits-artifacts --network qits-net \
@@ -292,7 +291,7 @@ if [ "$SKIP_BUILD" != 1 ]; then
           -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive \
           -e QITS_REPOSITORIES_GIT_PUSH_TOKEN="$PUSH_TOKEN" \
           -e QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true \
-          -v qits-artifacts-data:/data -v qits-repositories:/data/repositories \
+          -v qits-artifacts-data:/data \
           qits/artifacts:latest >/dev/null
       fi
       i=0
@@ -507,13 +506,9 @@ networks:
     external: true
 
 volumes:
-  # The git host's own storage (bare origins), one-way since
-  # workspaces-volume-decoupling-plan.md SV-b: only qits-artifacts mounts it; projects and
-  # workspaces clone their own mirrors over the wire and push back. The bootstrap seeds the
-  # platform's own repos into it. Explicitly named: cd's run-args reference these volumes by
-  # name.
-  qits-repositories:
-    name: qits-repositories
+  # qits-artifacts' store: blobs, packages and the git host's repositories — which are blobs too
+  # now, so the git host needs no volume of its own. Explicitly named: cd's run-args reference
+  # these volumes by name.
   qits-artifacts-data:
     name: qits-artifacts-data
   qits-ci-data:
@@ -632,7 +627,6 @@ services:
       QITS_ARTIFACTS_CLIENT_SECRET: "${IDP_SECRET_QITS_ARTIFACTS}"
     volumes:
       - qits-artifacts-data:/data
-      - qits-repositories:/data/repositories
     networks: [qits-net]
     restart: unless-stopped
 
@@ -715,7 +709,7 @@ qits.cd.run-args.qits-gateway=-p ${PORT}:8080 -e QITS_GATEWAY_PROXY_HOSTS_ARTIFA
 # The push token rides here so it is already in place when the default branch's protection is
 # switched on: turning protection on is then one property on the artifacts side, not a two-part
 # change that could leave a running platform locked out of its own bootstrap.
-qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -v qits-repositories:/data/repositories -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive -e QITS_REPOSITORIES_GIT_PUSH_TOKEN=${PUSH_TOKEN} -e QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QITS_ARTIFACTS_CLIENT_SECRET=${IDP_SECRET_QITS_ARTIFACTS}
+qits.cd.run-args.qits-artifacts=-p 127.0.0.1:${REGISTRY_PORT}:8080 -v qits-artifacts-data:/data -e QUARKUS_DATASOURCE_ARTIFACTS_JDBC_URL=jdbc:h2:file:/data/artifacts/h2/artifacts -e QITS_ARTIFACTS_BLOBS_DIR=/data/artifacts/blobs -e QITS_CI_INTAKE_URL=http://qits-ci:8080/ci/api/events/post-receive -e QITS_REPOSITORIES_GIT_PUSH_TOKEN=${PUSH_TOKEN} -e QITS_REPOSITORIES_GIT_PROTECT_DEFAULT_BRANCH=true -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QITS_ARTIFACTS_CLIENT_SECRET=${IDP_SECRET_QITS_ARTIFACTS}
 qits.cd.run-args.qits-ci=-v qits-ci-data:/data -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CI_JDBC_URL=jdbc:h2:file:/data/ci/h2/ci;DB_CLOSE_DELAY=-1 -e QUARKUS_DATASOURCE_EVENTSTREAM_JDBC_URL=jdbc:h2:file:/data/eventstream/h2/eventstream -e QITS_CI_GIT_HOST_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_CONTAINER_GIT_URL=http://qits-artifacts:8080/artifacts -e QITS_CI_NETWORK=qits-net -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_CI_DAEMON_VERSION=${DAEMON_SHA} -e QITS_EVENTS_URL=http://qits-events:8080 -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CLIENT_ENABLED=${MACHINE_CLIENT} -e QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL=${IDP} -e QUARKUS_OIDC_CLIENT_CREDENTIALS_SECRET=${IDP_SECRET_QITS_CI}
 qits.cd.run-args.qits-cd=-v qits-cd-data:/data -v qits-cd-config:/work/config -v /var/run/docker.sock:/var/run/docker.sock --group-add ${DOCKER_GID} -e QUARKUS_DATASOURCE_CD_JDBC_URL=jdbc:h2:file:/data/cd/h2/cd -e QITS_ARTIFACTS_REGISTRY_HOST=localhost:${REGISTRY_PORT} -e QITS_AUTH_MACHINE_REQUIRED=${MACHINE_REQUIRED} -e QUARKUS_OIDC_AUTH_SERVER_URL=${IDP}
 # The idp's own deployment. The volume is the whole point: the signing key is in that database, and
@@ -865,28 +859,37 @@ else
 fi
 
 # --- the platform's own repositories on its own git host -----------------------------------------
-# repoId doubles as the on-disk directory and the clone path; the charset allows readable names,
-# and readable beats capability-opaque on a workstation.
-say "seeding the platform's repositories on the git host"
+# Creating a repository is a wire call: the git host keeps every repository as blobs in
+# qits-artifacts' own store, so there is no volume to seed and nothing on disk to initialize. It
+# therefore runs HERE, after the git host answers HTTP, and not at volume-creation time. The PUT is
+# idempotent — 201 when this call created the repository, 200 when one was already there — so a
+# rerun costs one request per repository.
+# repoId doubles as the clone path; the charset allows readable names, and readable beats
+# capability-opaque on a workstation.
+say "creating the platform's repositories on the git host"
 for name in $PLATFORM_REPOS; do
-  docker run --rm -v qits-repositories:/repos --entrypoint sh alpine/git -c \
-    "git init -q --bare -b main /repos/qits-$name/origin && chown -R 1001:0 /repos/qits-$name"
-  echo "  qits-$name -> /artifacts/git/qits-$name"
+  repo="qits-$name"
+  code=$(curl -s -o /tmp/repo.out -w '%{http_code}' -X PUT \
+    -H 'Content-Type: application/json' -d '{"defaultBranch":"main"}' \
+    "$ARTIFACTS/artifacts/git/$repo")
+  case "$code" in
+    200|201) echo "  $repo -> /artifacts/git/$repo" ;;
+    *) die "create of $repo answered $code: $(cat /tmp/repo.out)" ;;
+  esac
 done
 
 # Deployable repositories contain gitlinks to the frontend repositories. Those commits must exist
-# on the platform git host BEFORE the first wrapper pipeline clones its submodules. Populate the
-# non-deployable histories directly in the bare repositories, without going through artifacts'
-# receive path: this is storage initialization, not a push event, and firing all release-train
-# pipelines here would race them against the deliberately serial deployment train below.
+# on the platform git host BEFORE the first wrapper pipeline clones its submodules, so the
+# non-deployable histories go up now. A push is the only door into the store, and -o qits.no-ci is
+# what keeps it quiet: firing all release-train pipelines here would race them against the
+# deliberately serial deployment train below. The push loop at the end of this script then finds
+# them up to date.
 say "pre-seeding release-train histories for deployable submodules"
 for name in $RELEASE_TRAIN_REPOS; do
   repo="qits-$name"
-  git -C "$SRC/$repo" bundle create "/tmp/$repo.bundle" main
-  docker run --rm -i -v qits-repositories:/repos --entrypoint sh alpine/git -c \
-    "cat > /tmp/repo.bundle && git --git-dir=/repos/$repo/origin fetch -q /tmp/repo.bundle main:main && chown -R 1001:0 /repos/$repo" \
-    < "/tmp/$repo.bundle"
-  rm -f "/tmp/$repo.bundle"
+  out=$(git -C "$SRC/$repo" push -o qits.no-ci -o "qits.token=$PUSH_TOKEN" \
+    "$ARTIFACTS/artifacts/git/$repo" main 2>&1) \
+    || die "pre-seed push of $repo failed: $out"
   echo "  $repo history at $(git -C "$SRC/$repo" rev-parse --short main)"
 done
 
