@@ -32,9 +32,15 @@ with a Java migration (qits-ci `4439c4b`, deployed live); stale webui gitlinks i
 qits-ci/qits-cd pinning pre-CalVer `@qits/ui-components@0.0.4` (`b698b99`, `8ef8a8f`,
 deployed live; qits-spa-ci's main had also never been pushed to the platform host);
 and a lost fire-and-forget build-succeeded event — the deploy wait now replays it once
-when a run is green with no deployment row (`97bda56`). Caveat that stands: the seed
-images were preloaded (skip-build), so the cold GraalVM seed-image builds themselves
-were not exercised. This unblocks the env re-model rollout (user's runbook).
+when a run is green with no deployment row (`97bda56`). Then the REAL platform was
+torn down (containers, all volumes including the DFS store, network, every seed and
+build image, the musl toolchain) and cold-bootstrapped from source on the host daemon:
+green in ~22 minutes (docker layer cache carried unchanged sources), all ten
+applications healthy, 32 repos on the fresh DFS host, blob API and clones serving, no
+bares volume. The skip-build caveat is gone — both paths are proven. NOTE the reset:
+run/deployment/event history restarted, throwaway probe repos (drift-forge, sv-train,
+the UUID imports) are gone, idp client secrets were kept (.qits-bootstrap.env). This
+unblocks the env re-model rollout (user's runbook).
 
 Resolved 2026-08-06: the git host gained **content-read endpoints** (user's ask) —
 `GET /artifacts/git/{repoId}/blob/{rev}/{path}` (raw bytes) and `…/tree/{rev}[/{path}]`
