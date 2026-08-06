@@ -5,18 +5,9 @@ Updated 2026-08-06. Everything shipped-and-verified has been removed; history is
 
 ## Awaiting user verdicts
 
-1. **Artifacts explorer copy** (one small SPA commit once decided):
-   - the new repositories-page lede, live now: "Two things here can change it: which
-     registries are mirrored, and a repository's cleanup — the one action in this
-     explorer that deletes bytes, taken one repository at a time and never without its
-     plan on screen first." Approve or reword.
-   - nit: the repository count runs into that sentence unpunctuated ("…what it costs.
-     10 repositories Two things…").
-   - nit: excluded rows show "nothing" in the Cleanup column where "not collected"
-     would be honest.
-2. **WO-b judgment call**: the merge panel left the workspaces overview (merging lives
+1. **WO-b judgment call**: the merge panel left the workspaces overview (merging lives
    on the detail route). Keep it that way, or bring a merge entry point back.
-3. **Git-storage flip** (git-host-storage-unification-plan.md): DECISION PENDING, and
+2. **Git-storage flip** (git-host-storage-unification-plan.md): DECISION PENDING, and
    the evidence is now complete. The cheap proof ran 2026-08-06 on the **deployed
    image**: second qits-artifacts on port 8090 with `storage=dfs`, imported the real
    qits-workspaces history (6,411 objects, 0.16 s), all three checks green (`ls-remote`
@@ -25,6 +16,13 @@ Updated 2026-08-06. Everything shipped-and-verified has been removed; history is
    The AT precondition is fully cleared: since 2026-08-05 nothing but the git host
    itself touches the repositories volume (workspaces-volume-decoupling-plan.md). What
    remains is only the go/no-go on flipping the live host.
+
+Resolved 2026-08-06: the explorer copy (old item 1) shipped — lede approved as-is, the
+count punctuated, excluded rows say "not collected" (qits-spa-artifacts `85ea629`,
+live via the qits-artifacts webui bump `a72cfd7`, verified in the browser). Note the
+shape of that release: a green qits-spa-* run ships nothing by itself — the SPA goes
+live only when qits-artifacts bumps its `service/src/main/webui` submodule and
+redeploys, queue empty first (self-hosting landmine).
 
 ## Open work, not user-gated
 
