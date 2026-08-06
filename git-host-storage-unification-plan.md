@@ -33,9 +33,20 @@ Every path was then verified live on DFS, each with a real run, not an assertion
   own restart.
 
 Standing consequences: never run `DfsGarbageCollector` (§1.7 — it doubles the footprint; posture
-⚖2(b) is now live), and `qits-local-up.sh` still bootstraps a file-backend platform — a fresh
-local platform boots `file` unless its run-args say otherwise, which is consistent with ⚖4 but
-worth knowing. The `DfsBlockCache` rides JGit's 32 MiB default; today's whole git host fits in it.
+⚖2(b) is now live). The `DfsBlockCache` rides JGit's 32 MiB default; today's whole git host fits
+in it.
+
+**Later the same day the user retired the file backend entirely**, overriding ⚖4's
+one-release-cycle grace. In order, each step verified before the next: the volume mount left
+qits-artifacts' run-args and the host served all repositories without it; the `qits-repositories`
+volume was **deleted** (final tarball: `~/qits-git-bares-final-2026-08-06.tar.gz`); the file
+backend left the codebase (qits-artifacts `508e598` — provider, selection seam, `storage` and
+`data-dir` properties, Dockerfile paths, dual-backend tests; 504 tests green, packaged git ITs
+prove the native binary); and `qits-local-up.sh` stopped seeding bares — a fresh platform now
+creates repositories over the wire (`PUT` + push) once the host answers (home repo `6843faf`,
+syntax-checked but not yet exercised by a fresh bootstrap). The dfs-only image built and
+**deployed itself from the DFS store**, and a clone + branch push/delete round-trip passed on the
+new binary. Rollback is roll-forward: every prior image sha serves the same DFS store.
 
 The evidence below is the decision record as it stood. Earlier the same day the cheap proof had
 run against the **live image** — no longer the spike:
