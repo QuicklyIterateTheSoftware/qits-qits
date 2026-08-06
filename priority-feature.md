@@ -348,6 +348,43 @@ serviceregistry joins `DEPLOYABLES` (ordered after idp, before the rest) and the
 `qits-serviceregistry` audience for the `qits-cd` client. qits-spa-cd and qits-gateway:
 untouched this leg (cd proxies reads; a direct gateway route is a later nicety).
 
+## v3 (2026-08-06 late, user decisions): qits-platform-deployments — the merge-back
+
+The cd/serviceregistry split was the wrong boundary: the executor was always
+cross-environment in behavior (one socket, fan-out over every matching environment) while
+labeled as an environment citizen, and the extracted registry was the passive half. The
+correction: **one platform component owning both** — environment management AND deploying
+services into environments — named **qits-platform-deployments**
+(repo https://github.com/QuicklyIterateTheSoftware/qits-platform-deployments.git, seeded
+by hoisting qits-cd's code merged with qits-serviceregistry's domain, RE-PARTITIONED
+properly). qits-cd and qits-serviceregistry are superseded; their repos remain until the
+cutover completes.
+
+**Platform services** (cross-environment, deploy from `main`, the singleton machinery —
+vocabulary migrating `singleton` → `platform`): qits-platform-deployments, qits-idp,
+qits-artifacts, qits-ci, qits-events, qits-projects (bundles deployments/builds),
+qits-observability. **Environment services**: qits-workspaces ("ultimately the only
+non-platform service" — user), qits-gateway as each environment's hub
+(available_on_env). qits-stt: unclassified, stays environment-target pending a call.
+Deployment triggering: the target model is bus-driven (qits-ci's SoftwareRelease /
+BuildSuccessful events); the direct build-succeeded HTTP intake stays as the
+transitional and manual door.
+
+Hoist contracts (wave 1): package `eu.wohlben.qits.platformdeployments`; REST path
+`/platform-deployments/api`; module partition `environments/` (topology domain:
+environments, services, links, networks), `deployments/` (execution domain: deployment
+rows, driver, run-args, pins), `service/` (API, bus, docker adapter, webui);
+ONE fresh Flyway V1 on datasource `platformdeployments` (clean-start world — no lineage
+inheritance); config namespace `qits.pd.*`; container prefix `qits-pd-`; docker labels
+`qits.pd.*`; spec parser accepts `deployment_target: platform` as canonical with
+`singleton` as an accepted alias; audience `qits-platform-deployments`. The webui stays
+the qits-spa-cd submodule, served under `/platform-deployments` (its baseHref change is a
+wave-2 commit in that repo).
+
+Wave 2 (after the hoist lands): CLI/bootstrap cutover (PlatformModel lists, compose CORE,
+run-args family, api paths), qits-ci's notify target, gateway route, idp audience wiring,
+retiring cd/serviceregistry from the deploy sets. Rollout stays the clean-start path.
+
 ## Contract amendments (accepted from implementation, 2026-08-06)
 
 1. `qits.cd.app-name` is a container label too — reconciliation needs the alias name when
