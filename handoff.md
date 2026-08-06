@@ -7,15 +7,15 @@ Updated 2026-08-06. Everything shipped-and-verified has been removed; history is
 
 1. **WO-b judgment call**: the merge panel left the workspaces overview (merging lives
    on the detail route). Keep it that way, or bring a merge entry point back.
-2. **Git-storage flip** (git-host-storage-unification-plan.md): DECISION PENDING, and
-   the evidence is now complete. The cheap proof ran 2026-08-06 on the **deployed
-   image**: second qits-artifacts on port 8090 with `storage=dfs`, imported the real
-   qits-workspaces history (6,411 objects, 0.16 s), all three checks green (`ls-remote`
-   ref-for-ref, fresh-clone `fsck` clean, `HEAD` match), plus `--atomic` main+tag push
-   confirmed and the bytes confirmed blob-store-only. Details at the top of the plan.
-   The AT precondition is fully cleared: since 2026-08-05 nothing but the git host
-   itself touches the repositories volume (workspaces-volume-decoupling-plan.md). What
-   remains is only the go/no-go on flipping the live host.
+
+Resolved 2026-08-06: the **git-storage flip executed** — the live git host runs
+`qits.repositories.git.storage=dfs` since this day (user's go). All 41 repositories
+imported and three-check-verified; every path proven live: protection + both bypasses,
+post-receive → CI, repository create/import over HTTP, history reads, the full release
+train (SCMRelease → event run → SoftwareRelease), workspace container provisioning, a
+service deploy, and qits-artifacts redeploying itself from its own DFS store. Full
+record at the top of git-host-storage-unification-plan.md. Rollback stays a config
+flip: the file bares sit untouched on `qits-repositories`.
 
 Resolved 2026-08-06: the explorer copy (old item 1) shipped — lede approved as-is, the
 count punctuated, excluded rows say "not collected" (qits-spa-artifacts `85ea629`,
@@ -66,8 +66,16 @@ redeploys, queue empty first (self-hosting landmine).
 - idp token endpoint is not reachable via gateway; call it on `qits-net`. Machine auth
   is ON live (`QITS_AUTH_MACHINE_REQUIRED=true`); only the `qits-artifacts` idp client
   carries `project=*` (see memory: machine-token-minting).
-- Git storage: the DFS/blob engine ships in qits-artifacts but is inert
-  (`qits.repositories.git.storage=file`); the volume is the real storage.
+- Git storage: the live git host runs **dfs** since 2026-08-06 — packs and refs are
+  blobs in qits-artifacts' own store. The env lives in cd run-args (backup:
+  `application.properties.bak-prefdfs` on qits-cd-config). The file bares on
+  `qits-repositories` are the rollback — config flip + redeploy — and are never
+  deleted. **Never run `DfsGarbageCollector`**: in a store without deletes it doubles
+  the footprint (plan §1.7; posture ⚖2(b) — no git GC, in writing). The git CLI cannot
+  open a DFS repo — every operation is the wire protocol; receive-pack is the sole
+  writer of everything. `DfsBlockCache` rides its 32 MiB default, which today's whole
+  git host fits inside. A fresh `qits-local-up.sh` platform still boots `file` — the
+  bootstrap was deliberately not touched (both backends ship, ⚖4).
 - musl builder supply-chain flag stands: `FROM localhost:8081/...` + toolchain fetched
   from `more.musl.cc` per build.
 - qits-ci: a record targeted by a MapStruct mapper needs `clean` after changing (stale

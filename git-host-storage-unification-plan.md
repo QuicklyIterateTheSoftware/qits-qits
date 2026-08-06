@@ -1,9 +1,44 @@
 # Unifying the git host onto the platform's blob storage
 
-Status: **PLAUSIBILITY CHECK — DECISION PENDING.** The verdict is at the end; the measurements it
-rests on come first. Since this was written, the engine itself shipped (inert,
-`qits.repositories.git.storage=file`), and on 2026-08-06 the cheap proof ran against the **live
-image** — no longer the spike:
+Status: **EXECUTED ON THE LOCAL PLATFORM, 2026-08-06.** The user gave the go the same day the
+cheap proof ran. The flip followed section 5.4's discipline: full mirror backup of all 41
+repositories first, `-e QITS_REPOSITORIES_GIT_STORAGE=dfs` added to qits-artifacts' cd run-args
+(backup at `application.properties.bak-prefdfs` on the qits-cd-config volume), qits-cd restarted,
+the current sha redeployed by replaying `build-succeeded`, then every repository imported through
+the wire (`PUT` create + `--mirror` push, `qits-artifacts` itself last) and verified with the three
+checks: `ls-remote` ref-for-ref against the pre-flip record, fresh-clone `git fsck --full` clean,
+`HEAD` match. 41/41 passed. The file-backed bares stay untouched on the `qits-repositories` volume
+as the rollback (a config flip back), per this plan's one invariant.
+
+Every path was then verified live on DFS, each with a real run, not an assertion:
+
+- **Protection**: a tokenless direct push to `main` is refused with the documented message; the
+  `qits.token` and `qits.release` bypasses both work.
+- **Post-receive → CI**: workspace branch creations and ordinary pushes each produced a green run;
+  every run clones from the DFS host.
+- **Repository lifecycle over HTTP**: qits-projects created a repository by importing another
+  DFS-served repository (ref-for-ref identical); registration delete leaves the git repository
+  serving — correct, the host deliberately has no delete verb.
+- **History reads**: branches and commit logs through qits-projects' mirror cache.
+- **The release train**: epic + task workspaces, integrate (merge + push, branch auto-deleted),
+  release onto protected `main` (version stamp, annotated tag, `--atomic` main-plus-tag with
+  `qits.release`), then `SCMRelease` → event-triggered run on `main`'s head → `BuildSuccessful` →
+  `SoftwareRelease` (npm/sv-train), correctly parented.
+- **Workspace provisioning**: a workspace container provisioned to RUNNING with the daemon's clone
+  from the DFS host inside it, then discarded clean.
+- **Service deploy**: a qits-stt push built and deployed from a DFS-served clone
+  (container swapped to the new sha).
+- **The self-hosting path**: qits-artifacts rebuilt and redeployed **itself** from its own
+  DFS-served repository (`a84b2cb`), and the store served all repositories unchanged across its
+  own restart.
+
+Standing consequences: never run `DfsGarbageCollector` (§1.7 — it doubles the footprint; posture
+⚖2(b) is now live), and `qits-local-up.sh` still bootstraps a file-backend platform — a fresh
+local platform boots `file` unless its run-args say otherwise, which is consistent with ⚖4 but
+worth knowing. The `DfsBlockCache` rides JGit's 32 MiB default; today's whole git host fits in it.
+
+The evidence below is the decision record as it stood. Earlier the same day the cheap proof had
+run against the **live image** — no longer the spike:
 
 - A second qits-artifacts container (the deployed image, `b0718dd7`) on port 8090 with
   `storage=dfs` and a scratch store booted clean in 0.09 s; migrations V4 (pack catalog) and V5
