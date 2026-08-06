@@ -894,6 +894,43 @@ for name in $RELEASE_TRAIN_REPOS; do
   echo "  $repo history at $(git -C "$SRC/$repo" rev-parse --short main)"
 done
 
+# The release trains that PUBLISH, fired by hand. Service images embed their SPAs, and those SPA
+# builds install @qits npm packages that only these repositories' own pipelines put into the
+# fresh registry — the pre-seed above deliberately fires no events, so a cold start would 404 on
+# @qits/ui-components in every wrapper build below. Replay each repo's post-receive (the same
+# document the git host would have sent) and WAIT for the run: the deployables cannot build until
+# the packages exist. The rest of the release trains stay quiet, exactly as before — only the
+# publishers the wrapper builds consume are fired here.
+say "publishing the npm packages the wrapper builds install"
+for name in spa-ui-components integrations-angular; do
+  repo="qits-$name"
+  sha=$(git -C "$SRC/$repo" rev-parse main)
+  # The git host announces pushes with the qits-artifacts client (project=*); this replay stands
+  # in for exactly that announcement, so it borrows the same identity.
+  if [ "$MACHINE_AUTH" = 1 ]; then
+    token=$(curl -fsS -X POST "$IDP/token" -u "qits-artifacts:$IDP_SECRET_QITS_ARTIFACTS" \
+      -d grant_type=client_credentials -d audience=qits-ci | jq -er .access_token) \
+      || die "qits-idp issued no token for the post-receive replay"
+    set -- -H "Authorization: Bearer $token"
+  else
+    set --
+  fi
+  curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
+    -d "{\"repoId\":\"$repo\",\"branch\":\"main\",\"oldSha\":\"0000000000000000000000000000000000000000\",\"newSha\":\"$sha\"}" \
+    "$CI/ci/api/events/post-receive" || die "post-receive replay for $repo refused"
+  i=0
+  while :; do
+    status=$(curl -fsS "$CI/ci/api/runs/finished?limit=20" \
+      | jq -r --arg r "$repo" --arg s "$sha" \
+        '[.runs[] | select(.repoId == $r and .commitSha == $s)][0].status // empty')
+    [ "$status" = SUCCESS ] && break
+    [ -n "$status" ] && die "$repo publish run ended $status — the registry never got its package"
+    i=$((i + 10)); [ "$i" -gt 1800 ] && die "$repo publish run not finished after 30min"
+    sleep 10
+  done
+  echo "  $repo published from $(echo "$sha" | cut -c1-7)"
+done
+
 # --- the main environment ------------------------------------------------------------------------
 # One standing environment: branch main, the shared network (cd adopts an existing network rather
 # than recreating it), one application per pipeline-deployed repo. The name 'qits' is deliberate:
