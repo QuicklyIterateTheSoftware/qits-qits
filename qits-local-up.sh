@@ -20,7 +20,8 @@
 #
 # WHICH PUSH DEPLOYS WHAT comes from the repo's own .config/qits/deployments.yml. Most repos are
 # applications of the 'dev' environment (branch environment/dev, network qits-net) and deploy from
-# that branch; qits-cd and qits-idp are platform-plane SINGLETONS and deploy from main. Nothing
+# that branch; qits-cd is one of them. qits-idp is the platform-plane SINGLETON and deploys from
+# main — today the only one deployed; the planned qits-serviceregistry joins it later. Nothing
 # here declares an application: cd registers one from the repo's spec on the first green build of
 # the branch that deploys it.
 #
@@ -86,8 +87,8 @@
 #   - The environment row is reconciled by PATCH, never recreated: a DELETE tears every container
 #     of the environment down, the cd-managed core included. A platform that predates the rename
 #     (environment 'qits', branch main) is renamed in place by a rerun, but its running cd and idp
-#     containers keep their old names until each is pushed and converts to a singleton — until
-#     then the compose-skip below does not recognise them.
+#     containers keep their old names until each is pushed — cd re-registers in the environment,
+#     idp converts to a singleton — and until then the compose-skip below does not recognise them.
 #   - qits-dns ships a Dockerfile but is not a CD application here. qits-spa-home is seeded for its
 #     release train but is served by qits-gateway rather than deployed alone. qits-projects announces
 #     to qits-dns fire-and-forget; its absence is one WARN per project creation.
@@ -143,7 +144,9 @@ DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts 
 # for the whole platform, deployed from main rather than from the environment's branch and named
 # qits-cd-singleton-qits-<name>-<id8>. The authority is each repo's .config/qits/deployments.yml;
 # this list is what tells the bootstrap which ref deploys them and which container name to expect.
-SINGLETONS="cd idp"
+# qits-idp is the only one deployed today — qits-cd is an ordinary environment application, one
+# deployer per environment; the planned qits-serviceregistry is added here when that leg ships.
+SINGLETONS="idp"
 # Repositories that participate in release trains but are not applications of qits-cd. They still
 # need a repository on the platform git host and a main push: qits-projects can then inventory them,
 # qits-workspaces can release them, and qits-ci can discover their event pipelines. Keep this list
@@ -514,7 +517,7 @@ cat > "$COMPOSE" <<EOF
 # build and deploy the rest. Everything else (observability, stt, projects, workspaces, events) is
 # deployed by qits-cd through the main pipeline and is deliberately NOT in this file — look for
 # it in \`docker ps\` under qits-cd-${ENV_NAME}-qits-* container names (qits-cd-singleton-qits-* for
-# the singletons, cd and idp), redeployed on every green push.
+# the singletons, today just idp), redeployed on every green push.
 #
 # Manage with: docker compose -p qits -f $(basename "$COMPOSE") ps|logs -f|down
 # (compose down leaves cd-deployed containers running; remove those via cd's API or docker.)
@@ -1123,7 +1126,7 @@ echo "registry:  localhost:${REGISTRY_PORT} (host daemon only)"
 echo "git host:  http://localhost:${PORT}/artifacts/git/<repoId>"
 echo "dev loop:  commit in a repo, rerun with QITS_SKIP_BUILD=1 — the push redeploys it"
 echo "deploy:    push ${ENV_BRANCH} — pushing main builds but deploys nothing;"
-echo "           qits-cd and qits-idp are singletons and deploy from main instead"
+echo "           qits-idp is a singleton and deploys from main instead"
 echo "main:      written by /workspaces/{id}/release, which then fast-forwards ${ENV_BRANCH};"
 echo "           a direct push needs -o qits.token=${PUSH_TOKEN}"
 if [ "$MACHINE_AUTH" = 1 ]; then

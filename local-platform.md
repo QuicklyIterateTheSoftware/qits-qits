@@ -19,11 +19,12 @@ Two sets to keep straight:
 The cd-managed set has two shapes, and each repo's `.config/qits/deployments.yml` says which it
 is:
 
-- **environment applications** — everything but the two below. They belong to the `dev`
-  environment (branch `environment/dev`, network `qits-net`), deploy from that branch, and run as
-  `qits-cd-dev-qits-<name>-<id8>`.
-- **singletons** — `qits-cd` and `qits-idp`. One instance for the whole platform, no environment,
-  deployed from `main`, running as `qits-cd-singleton-qits-<name>-<id8>`.
+- **environment applications** — everything but the one below, `qits-cd` included: one deployer
+  per environment. They belong to the `dev` environment (branch `environment/dev`, network
+  `qits-net`), deploy from that branch, and run as `qits-cd-dev-qits-<name>-<id8>`.
+- **singletons** — today only `qits-idp`; the planned `qits-serviceregistry` joins it when that
+  leg lands. One instance for the whole platform, no environment, deployed from `main`, running as
+  `qits-cd-singleton-qits-<name>-<id8>`.
 
 Nothing registers an application by hand: a green build on the branch that deploys a repo
 registers or updates it from that repo's spec.
@@ -87,7 +88,7 @@ shape covers both:
     git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability \
         main HEAD:environment/dev
 
-For the two singletons (`qits-cd`, `qits-idp`) it is the `main` push that deploys, and
+For a singleton (today only `qits-idp`) it is the `main` push that deploys, and
 `environment/dev` that does nothing. Both refs in one push means two CI runs of the same commit —
 add `-o qits.no-ci` to a separate push of the ref that is not deploying if the second cold build
 is worth avoiding.
@@ -128,11 +129,12 @@ gate; the host port rebinds when the fresh one starts). A failed gate restarts t
 
 ## Updating qits-cd
 
-The same push as everything else, except that cd is a singleton: `main` is the ref that deploys
-it, and its deployment is in no environment listing. The handoff does the rest. If the new cd's
-gate fails, the referee restarts the old one and its sweep records the `FAILED` row; if the
-handoff dies in a way that leaves no cd running (both crash-looping images, say), recovery is
-`docker start` on the stopped predecessor or a bootstrap rerun.
+The same push as everything else — cd is an ordinary environment application, so `environment/dev`
+is the ref that deploys it and its deployment is in the environment's listing. What differs is the
+cutover: cd cannot stop its own container in-process, so it hands over. The handoff does the rest.
+If the new cd's gate fails, the referee restarts the old one and its sweep records the `FAILED`
+row; if the handoff dies in a way that leaves no cd running (both crash-looping images, say),
+recovery is `docker start` on the stopped predecessor or a bootstrap rerun.
 
 ## Updating the qits-ci-daemon
 
