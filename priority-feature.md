@@ -1,7 +1,14 @@
 # priority-feature: environments as first-class, cross-application entities — v2, DECIDED
 
-Status: **LIVE since 2026-08-06 ~15:30 — the clean-start bootstrap completed on the
-re-model.** All eleven applications healthy and pipeline-deployed (nine `dev` apps incl.
+Status: **v3 LIVE since 2026-08-06 ~20:30 — the native CLI's first complete green cold
+bootstrap (42 phases, 22m29s) stood up the full merge-back world.** Ten applications
+healthy: seven `qits-pd-platform-*` (platform-deployments, idp, artifacts, ci, events,
+projects, observability, all from `platform/main`) + three `qits-pd-dev-*` (gateway,
+workspaces, stt, from `environment/dev`); the `qits-platform` network carrying the
+platform plane; the deployer self-handed-off through its own pipeline; verified end to
+end through the gateway's `/platform-deployments` route incl. the relocated SPA and
+pins. The CLI proving runs surfaced and fixed 15 defects (each commit names its run).
+The earlier v2 status, for the record:** All eleven applications healthy and pipeline-deployed (nine `dev` apps incl.
 cd via its self-handoff, singletons idp + serviceregistry), zero compose leftovers, the
 topology byte-for-byte the pinned design (per-app networks holding app + gateway hub +
 both singletons; `qits-platform` singletons-only; `qits-net` the bundle; labels as
