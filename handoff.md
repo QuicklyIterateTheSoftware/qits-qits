@@ -3,6 +3,35 @@
 Updated 2026-08-06. Everything shipped-and-verified has been removed; history is in git
 (this file's own log included). What remains is open, pending, or standing.
 
+## In flight right now (userflow-tests worktree branch)
+
+- **Environment re-model implemented, NOT deployed** — design + decisions + contract
+  amendments in `priority-feature.md`. Committed on `main` in each submodule (none
+  pushed): qits-cd (5 commits: V4, spec source, hub-and-spoke networks, derived
+  registration, singletons, PATCH, docs), qits-workspaces (release promotes
+  `environment/dev`), qits-projects (CdEnvironmentNotifier removed), qits-idp +
+  qits-gateway (`deployments.yml` seeds). Wrapper commits on `userflow-tests`:
+  `qits-local-up.sh` (dev env, PATCH-reconcile, dual-ref pushes) + docs. All builds
+  green. The adversarial review of the qits-cd diff is DONE: one live release blocker
+  found (the forgotten `decoupling-probe` environment on branch `main` — runbook step 0
+  in priority-feature.md deletes it on the OLD cd before anything deploys) and five
+  code findings fixed on top (`69e5752`): environment-aware predecessor selection,
+  legacy-network guard on delete, join failures fail the deployment, registration
+  serialized onto the worker, singleton→environment flips rejected loudly. 106 tests
+  green.
+- **Post-review decisions**: the singletons are **qits-idp and qits-serviceregistry**
+  (idp deployed today, serviceregistry planned) — the cd-singleton call was reversed
+  (priority-feature.md decision 8; flip applied on the branch). The environment/
+  application registry extracts into **qits-serviceregistry** later (repo created,
+  empty; itself a singleton; shape-2 execution: socketless registry, a home cd deploys
+  the platform plane) — paired with second-environment readiness, not part of this
+  rollout.
+- **Rollout GATED by the user**: the branched `qits-local-up.sh` has known issues being
+  fixed separately; deploy + merge wait for that fix, then reconcile the script changes
+  and run the sequenced rollout in `priority-feature.md` (cd first, PATCH env
+  immediately after — see contract amendment 7).
+- **Userflow-tests plan parked** behind the re-model: `handover.md`.
+
 ## Awaiting user verdicts
 
 1. **WO-b judgment call**: the merge panel left the workspaces overview (merging lives
@@ -94,7 +123,9 @@ redeploys, queue empty first (self-hosting landmine).
   from `more.musl.cc` per build.
 - qits-ci: a record targeted by a MapStruct mapper needs `clean` after changing (stale
   generated impl → `NoSuchMethodError`); same family as stale `target/` after source
-  deletions.
+  deletions. qits-cd joined the family 2026-08-06: after a method-signature change,
+  plain `verify` ran callers against the stale class (32 false 500s) — use
+  `clean verify` after signature changes.
 - GC operational shape: per-repository plan/sweep are subresources under
   `/artifacts/api/gc/repositories/`; pins are fetched per run from qits-cd
   `/cd/api/pins` and qits-ci `/ci/api/daemon`, any failure aborts the whole run; blob
