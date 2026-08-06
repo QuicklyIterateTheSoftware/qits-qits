@@ -381,6 +381,25 @@ inheritance); config namespace `qits.pd.*`; container prefix `qits-pd-`; docker 
 the qits-spa-cd submodule, served under `/platform-deployments` (its baseHref change is a
 wave-2 commit in that repo).
 
+**v3 addendum (user, same day): the `platform/*` branch pattern.** Platform services do
+NOT deploy from `main` — `main` stays the trunk everywhere. Mirroring `environment/<name>`,
+the platform scope's conventional deploy branch is **`platform/main`** (the `*` slot
+deliberately open for a future staged platform plane;
+`DeploymentSpec.DEFAULT_PLATFORM_BRANCH`, spec `branch:` overrides). Releases fast-forward
+BOTH `environment/dev` and `platform/main` (spec-aware promotion selection is a recorded
+debt, the double CI build the accepted cost); the CLI pushes platform services with deploy
+ref `platform/main`, quiet ref `main`.
+
+**v3 addendum 2 (user, same day): platform is a NAMESPACE QUALIFIER**, not a compound —
+java package `eu.wohlben.qits.platform.deployments`, config namespace
+`qits.platform.deployments.*` (env `QITS_PLATFORM_DEPLOYMENTS_*`, incl. the run-args
+family and qits-ci's `qits.platform.deployments.intake-url`). The `qits.pd.*` spelling in
+the wave-1 contracts above is superseded. Kept as abbreviations by explicit decision:
+the `Pd` java class prefix, the `qits-pd-` container-name prefix (docker names carry no
+dots), artifactIds, the `/platform-deployments` URL segment, and the `platformdeployments`
+datasource name. The qits-spa-cd repo is REUSED as the webui (no new repo); its rename is
+cosmetic debt.
+
 Wave 2 (after the hoist lands): CLI/bootstrap cutover (PlatformModel lists, compose CORE,
 run-args family, api paths), qits-ci's notify target, gateway route, idp audience wiring,
 retiring cd/serviceregistry from the deploy sets. Rollout stays the clean-start path.
