@@ -12,11 +12,17 @@
 # deploys all of its components through its own pipeline.
 #
 # Every deployable (observability, idp, stt, projects, workspaces, events, gateway, artifacts, ci,
-# cd) is an application of qits-cd's "qits" main environment (branch main, network qits-net): pushed to
-# the platform's git host, built by qits-ci from the repo's own .config/qits/ci-post-receive.yml,
-# published to the platform's registry, and cut over by qits-cd's replace cutover — which stops
-# whatever holds the application's alias first, so even the compose-seeded originals of the first
-# boot hand themselves over and reappear under cd's own container names.
+# cd) is deployed by qits-cd: pushed to the platform's git host, built by qits-ci from the repo's
+# own .config/qits/ci-post-receive.yml, published to the platform's registry, and cut over by
+# qits-cd's replace cutover — which stops whatever holds the application's alias first, so even the
+# compose-seeded originals of the first boot hand themselves over and reappear under cd's own
+# container names.
+#
+# WHICH PUSH DEPLOYS WHAT comes from the repo's own .config/qits/deployments.yml. Most repos are
+# applications of the 'dev' environment (branch environment/dev, network qits-net) and deploy from
+# that branch; qits-cd and qits-idp are platform-plane SINGLETONS and deploy from main. Nothing
+# here declares an application: cd registers one from the repo's spec on the first green build of
+# the branch that deploys it.
 #
 # qits-cd updates ITSELF via the handoff: deploying qits-cd starts the successor, a detached
 # referee stops the old instance and arbitrates the health gate, and the successor's startup
@@ -77,11 +83,11 @@
 # the log to say why.
 #
 # Known gaps, stated rather than hidden:
-#   - Adding qits-idp made the environment ten applications where an existing platform's is nine,
-#     and qits-cd has no add-application endpoint. The first rerun after this change therefore
-#     takes the RECREATE branch below, which tears the environment's containers down — the
-#     cd-managed core included. Read qits-idp-local-wiring.md before rerunning against a platform
-#     that is already up.
+#   - The environment row is reconciled by PATCH, never recreated: a DELETE tears every container
+#     of the environment down, the cd-managed core included. A platform that predates the rename
+#     (environment 'qits', branch main) is renamed in place by a rerun, but its running cd and idp
+#     containers keep their old names until each is pushed and converts to a singleton — until
+#     then the compose-skip below does not recognise them.
 #   - qits-dns ships a Dockerfile but is not a CD application here. qits-spa-home is seeded for its
 #     release train but is served by qits-gateway rather than deployed alone. qits-projects announces
 #     to qits-dns fire-and-forget; its absence is one WARN per project creation.
@@ -127,12 +133,17 @@ MACHINE_CLIENT=$MACHINE_REQUIRED
 # qits-idp is in here because the three services that enforce machine auth are: a seed ci that
 # cannot reach an issuer answers 401 to the git host's very first post-receive.
 CORE="gateway artifacts ci cd idp"
-# Everything the platform deploys through itself — the environment's applications. Order matters:
-# observability first (quiets OTLP warnings earliest), idp next (every later application's tokens
-# are minted by it, and its own cutover must not fall inside another application's deploy window),
-# the seed's own repos last, cd at the very end (its deployment is the self-update handoff: the cd
-# API blinks while the successor takes over and adopts the row).
+# Everything the platform deploys through itself. Order matters: observability first (quiets OTLP
+# warnings earliest), idp next (every later application's tokens are minted by it, and its own
+# cutover must not fall inside another application's deploy window), the seed's own repos last, cd
+# at the very end (its deployment is the self-update handoff: the cd API blinks while the successor
+# takes over and adopts the row).
 DEPLOYABLES="observability idp stt projects workspaces events gateway artifacts ci cd"
+# The deployables that are NOT environment applications: platform-plane singletons, one instance
+# for the whole platform, deployed from main rather than from the environment's branch and named
+# qits-cd-singleton-qits-<name>-<id8>. The authority is each repo's .config/qits/deployments.yml;
+# this list is what tells the bootstrap which ref deploys them and which container name to expect.
+SINGLETONS="cd idp"
 # Repositories that participate in release trains but are not applications of qits-cd. They still
 # need a repository on the platform git host and a main push: qits-projects can then inventory them,
 # qits-workspaces can release them, and qits-ci can discover their event pipelines. Keep this list
@@ -156,7 +167,11 @@ PLATFORM_REPOS="$DEPLOYABLES $RELEASE_TRAIN_REPOS"
 # so an unused client costs nothing and a used one that was forgotten costs a debugging session.
 IDP_CLIENTS="qits-ci qits-cd qits-artifacts qits-workspaces qits-gateway"
 
-ENV_NAME=qits
+ENV_NAME=dev
+# The branch the dev environment deploys from. main stays the integration trunk — a release lands
+# there and then fast-forwards this ref — so this, not main, is what a direct push must move to
+# deploy an environment application.
+ENV_BRANCH=environment/$ENV_NAME
 ARTIFACTS=http://qits-artifacts:8080
 CD=http://qits-cd:8080
 CI=http://qits-ci:8080
@@ -179,6 +194,15 @@ repo_path() { case "$1" in
   integrations-quarkus) echo "integrations/qits-integrations-quarkus";;
   *) echo "services/qits-$1";;
 esac; }
+
+is_singleton() { case " $SINGLETONS " in *" $1 "*) return 0;; *) return 1;; esac; }
+# What cd names the container it manages for this application. Two shapes because the model has
+# two: environment applications carry the environment's name, singletons carry 'singleton'.
+cd_name_prefix() {
+  if is_singleton "$1"; then echo "qits-cd-singleton-qits-$1-"; else echo "qits-cd-$ENV_NAME-qits-$1-"; fi
+}
+# The ref whose green build deploys this application. The other ref is pushed too, but quietly.
+deploy_ref() { if is_singleton "$1"; then echo main; else echo "$ENV_BRANCH"; fi; }
 
 # --- preflight -----------------------------------------------------------------------------------
 say "preflight"
@@ -489,7 +513,8 @@ cat > "$COMPOSE" <<EOF
 # Generated by qits-local-up.sh — the SEED of the local qits platform: only the services that
 # build and deploy the rest. Everything else (observability, stt, projects, workspaces, events) is
 # deployed by qits-cd through the main pipeline and is deliberately NOT in this file — look for
-# it in \`docker ps\` under qits-cd-qits-* container names, redeployed on every green push.
+# it in \`docker ps\` under qits-cd-${ENV_NAME}-qits-* container names (qits-cd-singleton-qits-* for
+# the singletons, cd and idp), redeployed on every green push.
 #
 # Manage with: docker compose -p qits -f $(basename "$COMPOSE") ps|logs -f|down
 # (compose down leaves cd-deployed containers running; remove those via cd's API or docker.)
@@ -777,7 +802,7 @@ fi
 # handoff has made cd one of its own deployments.
 UP=""
 for name in idp cd gateway artifacts ci; do
-  if docker ps --format '{{.Names}}' | grep -q "^qits-cd-$ENV_NAME-qits-$name-"; then
+  if docker ps --format '{{.Names}}' | grep -q "^$(cd_name_prefix "$name")"; then
     echo "  qits-$name is cd-managed — compose leaves it alone"
   else
     UP="$UP qits-$name"
@@ -893,48 +918,56 @@ for name in $RELEASE_TRAIN_REPOS; do
   echo "  $repo history at $(git -C "$SRC/$repo" rev-parse --short main)"
 done
 
-# --- the main environment ------------------------------------------------------------------------
-# One standing environment: branch main, the shared network (cd adopts an existing network rather
-# than recreating it), one application per pipeline-deployed repo. The name 'qits' is deliberate:
-# qits-projects' self-seed will later announce the same name and land on the idempotent 409.
-say "creating the '$ENV_NAME' main environment in qits-cd"
-apps_json=$(for name in $DEPLOYABLES; do
-  hp="/$name/q/health/ready"
-  # The gateway's non-application root is /q — it owns the whole path space, no segment prefix.
-  [ "$name" = gateway ] && hp="/q/health/ready"
-  printf '{"repoId":"qits-%s","name":"qits-%s","healthPath":"%s"}\n' "$name" "$name" "$hp"
-done | jq -s .)
-payload=$(jq -n --argjson apps "$apps_json" \
-  '{name: "'"$ENV_NAME"'", branch: "main", network: "qits-net", applications: $apps}')
-code=$(curl -s -o /tmp/env.out -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-  -d "$payload" "$CD/cd/api/environments")
-case "$code" in
-  201) ENV_ID=$(jq -r .environment.id /tmp/env.out) ;;
-  409)
-    ENV_ID=$(curl -fsS "$CD/cd/api/environments" \
-      | jq -r --arg n "$ENV_NAME" '.environments[] | select(.name == $n) | .id')
-    have=$(curl -fsS "$CD/cd/api/environments/$ENV_ID" | jq '.environment.applications | length')
-    if [ "$have" != "$(echo "$apps_json" | jq length)" ]; then
-      # A leftover or seed-created environment without our applications; cd has no
-      # add-application endpoint, so replace it (tears down its containers; they redeploy).
-      warn "environment '$ENV_NAME' exists with $have applications — recreating"
-      curl -fsS -X DELETE "$CD/cd/api/environments/$ENV_ID" >/dev/null
-      code=$(curl -s -o /tmp/env.out -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-        -d "$payload" "$CD/cd/api/environments")
-      [ "$code" = 201 ] || die "environment re-create answered $code: $(cat /tmp/env.out)"
-      ENV_ID=$(jq -r .environment.id /tmp/env.out)
-    fi
-    ;;
-  *) die "environment create answered $code: $(cat /tmp/env.out)" ;;
-esac
-echo "  environment $ENV_NAME ($ENV_ID)"
+# --- the dev environment -------------------------------------------------------------------------
+# One standing environment: name dev, branch environment/dev, the shared network (cd adopts an
+# existing network rather than recreating it). NO applications array — registration is derived: a
+# green build on this branch registers the application from the repo's .config/qits/deployments.yml.
+#
+# RECONCILE, NEVER RECREATE. A DELETE tears down every container of the environment, which here is
+# the whole platform, cd included. So an existing row is PATCHed onto the wanted name and branch —
+# under both names, because a platform that predates the rename carries 'qits' on branch main.
+say "reconciling the '$ENV_NAME' environment in qits-cd"
+env_id_named() {
+  curl -fsS "$CD/cd/api/environments" \
+    | jq -r --arg n "$1" 'first(.environments[]? | select(.name == $n) | .id) // ""'
+}
+env_patch() {  # <id> <json body>
+  curl -fsS -o /dev/null -X PATCH -H 'Content-Type: application/json' -d "$2" \
+    "$CD/cd/api/environments/$1" \
+    || die "environment $1 reconcile failed: $2"
+}
+ENV_ID=$(env_id_named "$ENV_NAME")
+if [ -n "$ENV_ID" ]; then
+  env_patch "$ENV_ID" "$(jq -n --arg b "$ENV_BRANCH" '{branch: $b}')"
+  echo "  reconciled the existing '$ENV_NAME' environment onto $ENV_BRANCH"
+elif ENV_ID=$(env_id_named qits) && [ -n "$ENV_ID" ]; then
+  # The pre-rename row. Renaming it in place keeps its applications, deployments and containers.
+  env_patch "$ENV_ID" "$(jq -n --arg n "$ENV_NAME" --arg b "$ENV_BRANCH" '{name: $n, branch: $b}')"
+  echo "  renamed the 'qits' environment to '$ENV_NAME' on $ENV_BRANCH"
+else
+  payload=$(jq -n --arg n "$ENV_NAME" --arg b "$ENV_BRANCH" \
+    '{name: $n, branch: $b, network: "qits-net"}')
+  code=$(curl -s -o /tmp/env.out -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+    -d "$payload" "$CD/cd/api/environments")
+  case "$code" in
+    201) ENV_ID=$(jq -r .environment.id /tmp/env.out) ;;
+    409)
+      # Created between the listing above and this POST. Take the row and reconcile it.
+      ENV_ID=$(env_id_named "$ENV_NAME")
+      [ -n "$ENV_ID" ] || die "environment create answered 409 but '$ENV_NAME' is not listed: $(cat /tmp/env.out)"
+      env_patch "$ENV_ID" "$(jq -n --arg b "$ENV_BRANCH" '{branch: $b}')"
+      ;;
+    *) die "environment create answered $code: $(cat /tmp/env.out)" ;;
+  esac
+fi
+echo "  environment $ENV_NAME ($ENV_ID) — branch $ENV_BRANCH, network qits-net"
 
 # --- push, build, deploy — one application at a time ---------------------------------------------
 # Sequential on purpose: each push triggers a cold native build on the host daemon (~4 GB), and a
 # workstation rarely wants eight at once. Every deployable takes the same path — push, and if the
-# push was a no-op but the application still lacks an ACTIVE deployment at HEAD (a recreated
-# environment, an image published on an earlier run), the build-succeeded event is posted by hand:
-# the intake is open on qits-net and the image is already in the registry.
+# push was a no-op but the application is not live at HEAD (an image published on an earlier run,
+# a deployment that never landed), the build-succeeded event is posted by hand: the intake is open
+# on qits-net and the image is already in the registry.
 say "pushing the platform through its own pipeline"
 overall=0
 for name in $DEPLOYABLES; do
@@ -961,30 +994,57 @@ PIPELINE
       commit -q -m "Opt into CI: publish this repo's image from a green push"
   fi
 
+  # BOTH refs, one sha, and only one of them deploys: environment/dev for an environment
+  # application, main for a singleton (cd reads which from the repo's .config/qits/deployments.yml;
+  # SINGLETONS above mirrors it). The ref that does not deploy still has to exist and point here —
+  # main is the integration trunk every release trails, environment/dev is what a later release
+  # fast-forwards — so it goes up with -o qits.no-ci: a second post-receive for the same sha would
+  # queue a second cold native build of an image the first one already published.
+  #
   # -o qits.token: the bootstrap's standing exception to "release is the only door into main".
   # The very first push of a repo creates the ref and needs nothing (creates are allowed by
   # design — an empty repo has no default branch to protect), but every rerun updates it, and an
-  # update is exactly what protection guards. The option rides inside the pack protocol, so it
-  # travels identically through the gateway, qits-net and the host-mapped port; it needs a git
-  # host that advertises push-options, which every artifacts build since the protected-ref change
-  # does.
-  out=$(git -C "$SRC/$repo" push -o "qits.token=$PUSH_TOKEN" "$ARTIFACTS/artifacts/git/$repo" main 2>&1) \
-    || die "push of $repo failed: $out"
+  # update is exactly what protection guards. environment/dev is not a protected ref at all; it
+  # carries the token for uniformity. The option rides inside the pack protocol, so it travels
+  # identically through the gateway, qits-net and the host-mapped port; it needs a git host that
+  # advertises push-options, which every artifacts build since the protected-ref change does.
+  ref=$(deploy_ref "$name")
+  [ "$ref" = main ] && quiet_ref=$ENV_BRANCH || quiet_ref=main
+  out=$(git -C "$SRC/$repo" push -o qits.no-ci -o "qits.token=$PUSH_TOKEN" \
+    "$ARTIFACTS/artifacts/git/$repo" "HEAD:refs/heads/$quiet_ref" 2>&1) \
+    || die "push of $repo to $quiet_ref failed: $out"
+  out=$(git -C "$SRC/$repo" push -o "qits.token=$PUSH_TOKEN" \
+    "$ARTIFACTS/artifacts/git/$repo" "HEAD:refs/heads/$ref" 2>&1) \
+    || die "push of $repo to $ref failed: $out"
   sha=$(git -C "$SRC/$repo" rev-parse HEAD)
 
+  # "Is it live at this sha?" has two answers, because the model has two shapes. An environment
+  # application has a deployment row, and the listing wants an environmentId. A singleton has no
+  # environment, so no listing returns it — docker is the record: cd names its container
+  # qits-cd-singleton-qits-<app>-<id8> and runs the image tagged with the sha it deployed.
   newest() {
     curl -fsS "$CD/cd/api/deployments?environmentId=$ENV_ID" \
       | jq -r --arg n "$repo" '[.deployments[] | select(.applicationName == $n)][0] // {}'
   }
+  singleton_live() {
+    docker ps --format '{{.Names}} {{.Image}}' | grep -q "^$(cd_name_prefix "$name").*:$sha\$"
+  }
 
-  row=$(newest)
-  if [ "$(echo "$row" | jq -r .status)" = ACTIVE ] && [ "$(echo "$row" | jq -r .commitSha)" = "$sha" ]; then
-    echo "  $repo already ACTIVE at $(echo "$sha" | cut -c1-7)"
-    continue
+  if is_singleton "$name"; then
+    if singleton_live; then
+      echo "  $repo already live at $(echo "$sha" | cut -c1-7)"
+      continue
+    fi
+  else
+    row=$(newest)
+    if [ "$(echo "$row" | jq -r .status)" = ACTIVE ] && [ "$(echo "$row" | jq -r .commitSha)" = "$sha" ]; then
+      echo "  $repo already ACTIVE at $(echo "$sha" | cut -c1-7)"
+      continue
+    fi
   fi
   if echo "$out" | grep -qiE 'up.to.date'; then
-    # No push, no event — but no ACTIVE deployment at HEAD either. The image exists from an
-    # earlier run; hand cd the event it never got.
+    # No push, no event — and not live at HEAD either. The image exists from an earlier run; hand
+    # cd the event it never got, naming the ref that deploys this repo.
     echo "  $repo unchanged but not deployed at HEAD — posting the build event"
     # With the gate on, cd's intake wants a bearer addressed to qits-cd. set -- carries the header
     # as ONE argument; an unquoted ${var:+-H ...} would word-split the header in half.
@@ -995,7 +1055,7 @@ PIPELINE
       set --
     fi
     curl -fsS -o /dev/null -X POST -H 'Content-Type: application/json' "$@" \
-      -d "{\"runId\":\"bootstrap\",\"repoId\":\"$repo\",\"branch\":\"main\",\"commitSha\":\"$sha\"}" \
+      -d "{\"runId\":\"bootstrap\",\"repoId\":\"$repo\",\"branch\":\"$ref\",\"commitSha\":\"$sha\"}" \
       "$CD/cd/api/events/build-succeeded"
   else
     echo "  pushed $(echo "$sha" | cut -c1-7), waiting for the deployment (a cold native build — be patient)"
@@ -1003,17 +1063,26 @@ PIPELINE
 
   waited=0
   while :; do
-    row=$(newest)
-    status=$(echo "$row" | jq -r '.status // "PENDING"')
-    if [ "$(echo "$row" | jq -r '.commitSha // ""')" = "$sha" ]; then
-      case "$status" in
-        ACTIVE)
-          echo "  $repo ACTIVE ($(echo "$row" | jq -r .containerName))"; break ;;
-        FAILED|IMAGE_MISSING)
-          warn "$repo deployment $status: $(echo "$row" | jq -r '.detail // "no detail"' | head -c 400)"
-          overall=1
-          break ;;
-      esac
+    if is_singleton "$name"; then
+      # No row to read, so no FAILED to report either: a singleton whose deploy fails surfaces as
+      # the CI check below, or as the timeout.
+      if singleton_live; then
+        echo "  $repo live ($(docker ps --format '{{.Names}}' | grep "^$(cd_name_prefix "$name")" | head -1))"
+        break
+      fi
+    else
+      row=$(newest)
+      status=$(echo "$row" | jq -r '.status // "PENDING"')
+      if [ "$(echo "$row" | jq -r '.commitSha // ""')" = "$sha" ]; then
+        case "$status" in
+          ACTIVE)
+            echo "  $repo ACTIVE ($(echo "$row" | jq -r .containerName))"; break ;;
+          FAILED|IMAGE_MISSING)
+            warn "$repo deployment $status: $(echo "$row" | jq -r '.detail // "no detail"' | head -c 400)"
+            overall=1
+            break ;;
+        esac
+      fi
     fi
     run_status=$(curl -fsS "$CI/ci/api/runs?repositoryId=$repo&limit=1" 2>/dev/null \
       | jq -r --arg sha "$sha" '.runs[] | select(.commitSha == $sha) | .status' 2>/dev/null \
@@ -1053,7 +1122,10 @@ echo "gateway:   http://localhost:${PORT}/            (variant: local, UNAUTHENT
 echo "registry:  localhost:${REGISTRY_PORT} (host daemon only)"
 echo "git host:  http://localhost:${PORT}/artifacts/git/<repoId>"
 echo "dev loop:  commit in a repo, rerun with QITS_SKIP_BUILD=1 — the push redeploys it"
-echo "main:      written by /workspaces/{id}/release; a direct push needs -o qits.token=${PUSH_TOKEN}"
+echo "deploy:    push ${ENV_BRANCH} — pushing main builds but deploys nothing;"
+echo "           qits-cd and qits-idp are singletons and deploy from main instead"
+echo "main:      written by /workspaces/{id}/release, which then fast-forwards ${ENV_BRANCH};"
+echo "           a direct push needs -o qits.token=${PUSH_TOKEN}"
 if [ "$MACHINE_AUTH" = 1 ]; then
   echo "machines:  ENFORCED on ci, cd, artifacts — issuer ${IDP} (no host port, no gateway route)"
   echo "           a token by hand: curl -u qits-ci:\$IDP_SECRET_QITS_CI -d grant_type=client_credentials \\"
