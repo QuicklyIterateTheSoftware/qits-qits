@@ -5,9 +5,14 @@ workstation, all four pipeline deployments ACTIVE and healthy).
 
 [`qits-local-up.sh`](qits-local-up.sh) bootstraps the whole platform on the workstation's docker
 daemon **through the platform's own pipeline**: it hand-builds only the build/deploy core, and
-that core builds and deploys everything else the way it would in production. The script's header
-is the reference for knobs and known gaps; this document is the *flow* — what to run when
+that core builds and deploys everything else the way it would in production. The bootstrap itself
+is [`cli/qits-cli-bootstrap`](cli/qits-cli-bootstrap), a CLI the script compiles and runs; its
+README is the reference for knobs and known gaps. This document is the *flow* — what to run when
 something changes.
+
+**The rest of this document predates the v3 merge-back**: where it says qits-cd or
+qits-serviceregistry, one component — qits-platform-deployments — replaced both, and the
+`qits-cd-*` container names are `qits-pd-*` now. The flows still hold; the names do not.
 
 Two sets to keep straight:
 
@@ -60,13 +65,17 @@ and must not consume that image.
 From this repo's root, submodules initialised (sources are cloned from your local checkouts,
 local commits included — GitHub `main` is only the fallback):
 
-    docker run -it --rm \
-      -v /var/run/docker.sock:/var/run/docker.sock \
-      -v "$PWD":/out \
-      docker:cli sh /out/qits-local-up.sh
+    ./qits-local-up.sh
+
+It runs **on the host** now, not as a container: the script compiles `cli/qits-cli-bootstrap` and
+runs the binary, which shells the host's docker and git. Nothing needs the socket mounted. The run
+shows what it is doing on the terminal and at `http://localhost:8480` in a browser.
+`./qits-local-up.sh unwrap` takes the platform off the machine again.
 
 It writes `docker-compose.qits.yml` and `.qits-bootstrap.env` (the pinned ci-daemon digest) back
 into this directory. Both are generated, machine-specific state and gitignored.
+
+Every knob, mode and flag is the CLI's: see [cli/qits-cli-bootstrap/README.md](cli/qits-cli-bootstrap/README.md).
 
 ## Updating a pipeline-deployed service
 

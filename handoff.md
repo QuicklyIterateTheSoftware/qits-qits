@@ -6,6 +6,31 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **The shell bootstrap is retired** (2026-08-07): `qits-local-up.sh` is now a shim that
+  compiles `cli/qits-cli-bootstrap` and runs it, passing modes, flags and every `QITS_*`
+  variable through. It pins the wrapper directory, the clones and the log, so the run no
+  longer depends on where you stand, and recompiles only when the sources are newer than
+  the binary (`QITS_CLI_BUILD=always|never` overrides). The 1298-line POSIX port is in git
+  history; its operational comments live in the CLI's sources, which is now the only place
+  they exist. The CLI's AGENTS.md and README no longer claim the CLI is unproven — that
+  claim was already false when the v3 cutover shipped. `local-platform.md` gained the new
+  invocation and a header warning that the rest of it predates the v3 merge-back.
+  **Proved by two full `unwrap` + `bootstrap` cycles**, and each found a real bug:
+  - A **stale CI row failed a phase in zero seconds**. On a rerun nothing is pushed, so no
+    new run exists, and the CLI read the newest run at that sha as this phase's outcome.
+    qits-workspaces carries four runs at one commit from the release train, two red and two
+    green, newest red — so the phase died while the deployment it had just asked for went on
+    to land. The deployment-row side of that wait already had a baseline id; the CI-run side
+    now has the same one. A stale GREEN row still counts on purpose: it means no new run is
+    coming, which is what the lost-event replay acts on.
+  - The CLI **falls back to `bootstrap` only when given no arguments at all**, so a leading
+    flag was an unknown top-level option and `./qits-local-up.sh --skip-build` would have
+    failed. The shim names the mode when the first argument is a flag; `--help` and
+    `--version` still reach the top level.
+
+  The second cycle finished clean: 43 phases, no phase warnings, all ten applications
+  healthy, every gateway route 200, and `/workspaces/` verified in a browser (real data,
+  no console errors).
 - **v3 IS LIVE AND FULLY WIRED**: qits-platform-deployments (the cd+serviceregistry
   merge-back) runs the platform — 7 platform services from `platform/main`, 3 dev
   services from `environment/dev`, deployed by the native CLI (15 proving-run fixes,
