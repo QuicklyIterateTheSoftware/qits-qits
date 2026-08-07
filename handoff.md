@@ -51,8 +51,21 @@ handover.md (the userflow plan) is folded in below and deleted.
   triggers are gone now). Cosmetic leftovers: a handful of red quiet-ref runs, and the
   imageless release-train repos auto-registered in the services listing (amendment-7
   consequence, harmless).
-- **Open follow-ups**: qits-artifacts GC pins still point at qits-cd's URL (fail-closed,
-  one-line retarget); qits-ci's image-pull/health-gate prose still names qits-cd (facts
+- **GC pins retargeted** (2026-08-07, qits-artifacts `9779c38`): the pin source was still
+  `http://qits-cd:8080/cd/api/pins`, which resolves nowhere since the merge-back — so every
+  plan and every sweep aborted fail-closed and the cleanup page showed the outage. It reads
+  `http://qits-platform-deployments:8080/platform-deployments/api/pins` now, the same
+  `{"pins":[{"applicationName","shas"}]}` shape from `RollbackPins`. The report's source
+  name, its outcome sentences and the keep reason name the deployer too. **The `cd-` config
+  keys deliberately keep their names** — renaming one loses a deployment's override in
+  silence, and nothing sets them. Found along the way and fixed: the native
+  `PackagedProcessIT` was already red before this change, expecting an aborted sweep to
+  report an untouchable pool it never measured.
+  Still stale, cosmetic, not shipped: `qits-spa-artifacts`' cleanup-page banner prose says
+  "live pins from qits-cd and qits-ci". It only renders when the pins fail, which this fix
+  stops, and moving it costs a SPA release plus a webui bump — worth folding into the next
+  qits-spa-artifacts release rather than a cascade of its own.
+- **Open follow-ups**: qits-ci's image-pull/health-gate prose still names qits-cd (facts
   hold); `target` vs `deploymentTarget` wire spelling; buildkit migration for the
   remaining SPA-service pipelines (`--network qits-net` relies on the legacy builder);
   spec-aware release promotion (today both deploy branches push, double/triple builds);
