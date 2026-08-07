@@ -30,7 +30,7 @@ triggers the deployment.
 `maintenance/*` branches are opened automatically. When an upstream
 publishes a SoftwareRelease, a pipeline in each dependent bumps the
 version pin, commits, and pushes the branch. The pipelines live in
-`.config/qits/`. Example from `qits-spa-cd`, reacting to a new
+`.config/qits/`. Example from `qits-platform-spa-deployments`, reacting to a new
 `@qits/ui-components` release:
 
 ```yaml

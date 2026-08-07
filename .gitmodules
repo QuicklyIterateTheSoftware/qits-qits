@@ -136,12 +136,6 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-cd"]
-	path = frontends/qits-spa-cd
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-cd.git
-	ignore = all
-	update = merge
-	branch = main
 [submodule "qits-eventstream"]
 	path = libs/qits-eventstream
 	url = https://github.com/QuicklyIterateTheSoftware/qits-eventstream.git
@@ -181,6 +175,12 @@
 [submodule "qits-platform-spa-docs"]
 	path = frontends/qits-platform-spa-docs
 	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-spa-docs.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-platform-spa-deployments"]
+	path = frontends/qits-platform-spa-deployments
+	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-spa-deployments.git
 	ignore = all
 	update = merge
 	branch = main

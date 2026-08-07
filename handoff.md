@@ -262,21 +262,19 @@ UserflowContext, report emission) + writing the doctrine into the module's docte
 1. **WO-b judgment call**: the merge panel left the workspaces overview (merging lives
    on the detail route). Keep it that way, or bring a merge entry point back.
 
-2. **The `qits-spa-cd` → `qits-platform-spa-deployments` rename is in flight and UNCOMMITTED**
-   (user's work, 2026-08-07 — untouched by anyone else). Working-tree edits sit in two repos:
-   `frontends/qits-spa-cd` (`angular.json` project name and build targets, `package.json` name
-   and repository url, `package-lock.json`) and `services/qits-platform-deployments`
-   (`.config/qits/ci-post-receive.yml`, `.gitmodules`, `AGENTS.md`, `docker/Dockerfile`,
-   `service/pom.xml`, `application.properties`' `quinoa.build-dir`, `PdPackagedSurfaceIT`).
-   The committed HEAD still says `dist/qits-spa-cd/browser`, which is the only reason the
-   deploy at `20b5aff` succeeded — the Angular project name and the Quinoa build-dir must move
-   in one commit or the image build stops at a missing `dist`.
-   Consequences to know: the release train advanced `qits-spa-cd` on the git host to `48cf39d`,
-   and the local `main` (`61986bf`) **cannot fast-forward while those edits are uncommitted** —
-   so this is the one repo whose GitHub is deliberately a release behind. Still untouched by the
-   rename: the git-host repository name, the CI repository id, the deployments application row,
-   the image repository `qits/qits-spa-cd`, and the monorepo's `.gitmodules` plus the
-   `frontends/qits-spa-cd` directory. GitHub itself is already renamed (the old URL redirects).
+2. **The `qits-spa-cd` → `qits-platform-spa-deployments` rename is COMMITTED and pushed**
+   (2026-08-07). The client repo is `7543720`, qits-platform-deployments `4271a2a`, the
+   bootstrap `85ad5f5`, and this repository carries the submodule at
+   `frontends/qits-platform-spa-deployments`. The Angular project key and
+   `quarkus.quinoa.build-dir` moved together, as they had to; `docker/Dockerfile`'s
+   `RUN d=…/dist/<name>/browser` guard is the third spelling of that path and moved with them.
+   The rename was cut from `61986bf`, a release behind, and is **rebased onto `48cf39d`**
+   (`2026.807.122943`) — so GitHub is no longer a release behind, and the released
+   `^2026.807.122825` ui-components pin is kept.
+   **Still carrying the old name, all of it platform-side state**: the git-host repository, the
+   CI repository id, the deployments application row, and the image repository
+   `qits/qits-spa-cd`. A `--with-volumes` unwrap plus a rebootstrap is what recreates them under
+   the new name; until that runs, they are the whole of what is left.
 
 Resolved 2026-08-06: the **git-storage flip executed, and the file backend retired
 the same day** (user: "the disk storage should be gone"). All 41 repositories imported
