@@ -269,7 +269,7 @@ bytes that never come back.
 
 ## 3. Also in reach: what this composes with, and what it supersedes
 
-- **artifact-access-tracking.md (parked).** Last-accessed-based cleanup is *that* feature's job.
+- **Access tracking (shipped 2026-08-02).** Last-accessed-based cleanup is *that* feature's job.
   The heuristics here are **structural** — they read what things *are* (a release, a superseded
   prerelease, an untagged manifest), never how recently they were used. The composition later is
   clean and worth stating now: the structural rules define what may **never** be deleted

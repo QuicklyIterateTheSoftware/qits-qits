@@ -177,8 +177,8 @@ train (SCMRelease → event run → SoftwareRelease), workspace container provis
 service deploy, and qits-artifacts redeploying itself from its own DFS store — twice,
 the second time as the dfs-only binary (`508e598`). The `qits-repositories` volume is
 deleted (tarball: `~/qits-git-bares-final-2026-08-06.tar.gz`), the file-backend code
-is gone, and `qits-local-up.sh` seeds over the wire (home `6843faf`). Full record at
-the top of git-host-storage-unification-plan.md.
+is gone, and `qits-local-up.sh` seeds over the wire (home `6843faf`). Full record in
+git history: `git show 3d4382b:git-host-storage-unification-plan.md`.
 
 Resolved 2026-08-06: the rewritten **`qits-local-up.sh` is proven end to end** — a full
 cold bootstrap ran green in an isolated docker-in-docker daemon: seed stack, wire
