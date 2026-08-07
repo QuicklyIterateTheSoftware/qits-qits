@@ -189,4 +189,26 @@ lockfile keeps the developer-host origin, which is correct locally.
 4. Decide `ignored-path-prefixes` by enumerating every literal route — then *measure* on the
    packaged jar that mistyped machine paths 404.
 5. Dockerfile install flags, `.dockerignore` entries, CI-recipe submodule init.
-6. Prove it: package, boot the fast-jar, run the probe list.
+6. **Name the binary**, both keys — see below.
+7. Prove it: package, boot the fast-jar, run the probe list.
+
+### Naming the native binary: two keys, not one
+
+```properties
+quarkus.package.output-name=qits-<name>
+quarkus.package.jar.add-runner-suffix=false
+```
+
+Every service on the platform carries this pair, and it appeared in no document until
+qits-platform-docs shipped with only the first line. **`output-name` alone does not remove the
+suffix** — Quarkus still emits `qits-<name>-runner`, so the runtime stage's
+`COPY --from=build /src/target/qits-<name>` fails on a path that does not exist, *after* the
+multi-minute native compile has been paid for. The key says `jar.` and governs the native
+executable's name too, which is the reason it is easy to read as inapplicable and skip.
+
+The name is spelled a second time in `docker/Dockerfile`'s `COPY` line, and a third in the failsafe
+plugin's `native.image.path` where a repo has native ITs. They move together.
+
+Not strictly a Quinoa concern — it applies to every native service, SPA or not — but this is the
+platform's service-scaffolding recipe and step 5 already covers the Dockerfile, so it belongs on the
+same checklist rather than in a document nobody would think to open.

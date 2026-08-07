@@ -6,6 +6,38 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Documentation is a published artifact** (2026-08-07). A `docs` repository type in
+  qits-artifacts holds one immutable bundle per version at
+  `/artifacts/docs/docs/<site>/-/<version>`; a release pipeline declares `{type: docs}` beside
+  its package; `qits-platform-docs` is the reading surface at `/platform-docs`. The store
+  answers what exists, the reader answers what to read.
+  **Shipped and verified on the live platform**: qits-artifacts is deployed on `18c1128` and a
+  real 9.7 MB Storybook bundle publishes (201, 53 files) and serves back through it;
+  qits-gateway is deployed on `cf2129b` with the `/platform-docs` route. qits-ci (`9bd8726`,
+  the `docs` artifact type + `$QITS_DOCS_URL`) was pushed to `platform/main` and is deploying.
+  **Not finished — qits-platform-docs is built but not deployed**, and the last mile is
+  bootstrap work rather than service work:
+  - Its image is in the registry (`18e5a55`), its repo is registered in the `qits` project
+    (`1adb8e08-…`), and both new submodules are in the superproject.
+  - **It has no application row and no gateway `proxy-hosts` entry.** There is no POST on
+    `/platform-deployments/api/applications` — applications and the gateway's env both come
+    from the bootstrap's generated `qits.platform.deployments.run-args.*` on the
+    qits-platform-deployments-config volume. So adding a NEW deployable means teaching
+    `cli/qits-cli-bootstrap` about it, not calling an API; hand-editing that file is
+    overwritten by the next bootstrap run. Mind the recreate landmine before running one.
+  - Until then `/platform-docs/` answers the gateway's landing SPA (200), which is the
+    documented behaviour for a segment with no `proxy-hosts` entry.
+  - `@qits/ui-components@0.0.0-smoke` is a **hand-published docs version in the live store**
+    from the verification above. Harmless — it dedupes against the real one and the own engine
+    ages it out — but it came from no release and should not be mistaken for one.
+  - The docs half of a ui-components release only fires on `SCMRelease`; a push to `main`
+    publishes the npm prerelease and no docs version, by design.
+  Three build failures on the way, each a real gap now closed: a non-exhaustive `switch` over
+  `RepositoryType` that local incremental compilation hid, a `./mvnw` line in a step container
+  that has no JDK, and `quarkus.package.output-name` without its
+  `jar.add-runner-suffix=false` twin. The last is now on the checklist in
+  `docs/project-setup-quinoa-angular.md`, which mentioned neither key.
+
 - **The shell bootstrap is retired** (2026-08-07): `qits-local-up.sh` is now a shim that
   compiles `cli/qits-cli-bootstrap` and runs it, passing modes, flags and every `QITS_*`
   variable through. It pins the wrapper directory, the clones and the log, so the run no
