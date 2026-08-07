@@ -22,6 +22,25 @@ handover.md (the userflow plan) is folded in below and deleted.
   service resolving `latest` from the store's rows rather than the gateway's landing page
   answering 200 — a distinction that cost a false "ready" reading earlier and is worth checking
   the BODY for, never the status code alone.
+  **The reading room has its three layers** (2026-08-07, later): `/platform-docs/` lists what
+  publishes documentation by scope, `/platform-docs/@qits` lists what that scope publishes, and
+  `/platform-docs/read/<site>/-/<version>` shows one bundle with a **QitsPicker** for the version
+  beside it — which is what the picker was built for. `qits-platform-spa-docs` is the client,
+  Quinoa-served from qits-platform-docs; the store gained `GET /artifacts/docs/<repo>` (the catalog
+  it could not previously be asked) and the reader gained `/api/sites` and `/api/versions`.
+  Three things in there are worth not rediscovering:
+  - **`DocsRoutes.ROUTE_ORDER` is 20 000 and the client does not render without it.** Quinoa
+    registers static resources at 1060 and its SPA fallback near 40 000. Below 1060, `SITE` claims
+    the client's own `main-<hash>.js` — one alphanumeric segment, a perfectly good site name — asks
+    the store for its versions and answers 404: the index renders and every asset is gone. Both
+    Quinoa numbers are read off the jar and are not API.
+  - **`route.url` under a `read/**` route includes the literal `read` segment.** Leaving it in made
+    the site `read/@qits/ui-components`, which pointed the iframe back at the reader — five nested
+    rails in a screenshot before it was caught.
+  - **The client depends on the `main` dist-tag of @qits/ui-components**, not `latest`, because the
+    picker landed after the last release. A ui-components release moves it and that dependency
+    becomes an ordinary range again.
+
   Two pieces of platform state are hand-made and want a bootstrap run to become generated:
   - **The gateway's `QITS_GATEWAY_PROXY_HOSTS_PLATFORM_DOCS` entry was appended by hand** to
     `/work/config/application.properties` on the qits-platform-deployments-config volume, and the
