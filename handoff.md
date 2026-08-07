@@ -13,8 +13,9 @@ handover.md (the userflow plan) is folded in below and deleted.
   answers what exists, the reader answers what to read.
   **Shipped and verified on the live platform**: qits-artifacts is deployed on `18c1128` and a
   real 9.7 MB Storybook bundle publishes (201, 53 files) and serves back through it;
-  qits-gateway is deployed on `cf2129b` with the `/platform-docs` route. qits-ci (`9bd8726`,
-  the `docs` artifact type + `$QITS_DOCS_URL`) was pushed to `platform/main` and is deploying.
+  qits-gateway is deployed on `cf2129b` with the `/platform-docs` route; qits-ci is deployed on
+  `9bd8726`, so the `docs` artifact type and `$QITS_DOCS_URL` are live and a release pipeline can
+  now declare documentation. All ten platform containers healthy after the three rollovers.
   **Not finished — qits-platform-docs is built but not deployed**, and the last mile is
   bootstrap work rather than service work:
   - Its image is in the registry (`18e5a55`), its repo is registered in the `qits` project
