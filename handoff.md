@@ -61,8 +61,30 @@ handover.md (the userflow plan) is folded in below and deleted.
   the env re-model the environment is named `dev` while the only project's slug is `qits`. That
   convention is stale, and it predates all of this.
 
-- **Wrapper repository as a first-class concept + projects UI** (2026-08-07). **Implemented
-  and green in worktrees; NOT merged, NOT pushed, NOT deployed.** Plan:
+- **Wrapper repository as a first-class concept + projects UI** (2026-08-07). **SHIPPED AND
+  VERIFIED LIVE — both releases.** Release A (+A.1 drift-healing) and release B are deployed
+  (`qits-pd-platform-qits-projects-34098d66`); the real qits-qits history was force-pushed
+  onto the platform wrapper origin (replacing the greenfield skeleton); the reconcile
+  converged: 32 rows = wrapper + 31 components, archetypes directory-derived
+  (13 SERVICE, 2 DAEMON, 5 LIBRARY, 9 FRONTEND, 1 CLI, 1 IMAGE), legacy fixture rows
+  deregistered, all 31 wrapper entries matched, re-running reconcile is a KEPT×31 no-op.
+  The projects UI is live at `/projects/` (auto-select, picker sub-nav, type groups,
+  wrapper "in sync" + reconcile button) — screenshotted. **qits-backend (the pre-split
+  monolith) is fully removed**: row deleted over REST, seed entry deleted in release B;
+  a straggler deployment's row simply gets deregistered by its first reconcile.
+  Four origins were preseeded onto the git host so reconcile could adopt them:
+  qits-workspace-daemon, qits-repositories, qits-dns, qits-cli-bootstrap.
+  Things worth not rediscovering:
+  - The wrapper row's backup url was the stale `wohlben/qits-qits` fork; A.1's self-seed now
+    asserts manifest archetype+url onto existing rows (two-pass, shared transaction — both
+    load-bearing, see SelfSeedService comments) and the manifest constant is the org url.
+    Other adopted rows still carry historic urls (e.g. `wohlben/qits-gateway`) — cosmetic,
+    they are backup remotes only.
+  - An empty wrapper `.gitmodules` disables the membership guard and deregistration until
+    the first entry exists.
+  - Worktrees under `/home/wohlben/code/qits-wrapper-work/` still exist; every branch is
+    merged — prune with `git worktree remove` + `git branch -d` at leisure.
+  Old text follows for reference. Plan:
   `~/.claude/plans/lets-start-by-planning-valiant-dragon.md`. Branch `feat/wrapper-first-class`
   in worktrees under `/home/wohlben/code/qits-wrapper-work/` (qits-projects, qits-spa-projects,
   qits-spa-ci, qits-spa-workspaces, qits-qits, qits-cli-bootstrap); main checkouts untouched.
