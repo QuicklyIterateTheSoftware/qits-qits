@@ -74,6 +74,30 @@ handover.md (the userflow plan) is folded in below and deleted.
   UI restructure per user: `:projectId` is a lean overview (heading + "Project setup"
   action); everything else moved to `:projectId/project-setup`; every visible "wrapper"
   became **Project repository** ("wrapper" stays informal).
+  **Late-day corrections (2026-08-07 evening), all shipped:**
+  - **Release-flow correction (user-called):** direct main/platform-main pushes deploy code
+    but skip the real release flow. Everything from earlier today was squared with catch-up
+    releases through `POST /workspaces/api/branches/release?repositoryId=…` `{branch,summary}`
+    (needs the branch AHEAD of main — an empty marker commit works; the flow stamps
+    `release(<version>)`, publishes SCMRelease, promotes environment/dev + platform/main
+    itself). All six touched repos got stamped versions. NEVER push main directly again.
+  - **SIGHUP crash (the 502s):** using the sign-in terminal killed the service — ProcessBuilder
+    file redirects open in the PARENT with no O_NOCTTY, and a PID-1 session leader adopting
+    the pty slave gets the kernel's SIGHUP on teardown; Quarkus treats HUP as stop. Fixed by
+    opening the slave in the child (`sh -c 'exec 0<>"$0" …' <slave> setsid --ctty git …`) plus
+    a log-and-ignore HUP handler. Regression test reproduces the exact signature.
+    Adds /bin/sh to runtime requirements (UBI9-minimal has it).
+  - **Gitlink landmine, again:** the SIGHUP-fix commit silently dragged the webui gitlink
+    backwards (ignore=all hides it; the UI "reverted"). Restored. Check `git ls-tree` before
+    releasing qits-projects from a worktree.
+  - **Terminal paste:** the pane had no paste listener. Now a hidden-textarea capture
+    (xterm.js pattern) — Ctrl+V/Cmd+V/Shift+Insert send one data message. Chromium-measured.
+  - **Release D shipped:** `RepositoryDto.url` is gone; `backupUrl` is the only spelling;
+    ci/workspaces SPAs dropped their declarations too.
+  - **The spa-projects release train is real:** releasing qits-spa-projects fires
+    `ci-event-upstream-spa-projects.yml` in qits-projects, which force-pushes
+    `maintenance/qits-spa-projects` and cuts the webui-bump release itself — do NOT bump the
+    gitlink by hand for SPA-only changes; the train races you (it won today, harmlessly).
   **The sign-in now lives in the UI**: the project-setup page has a Backups panel —
   per-card badges from `RepositoryDto.lastBackup` (V5 records every attempt's outcome),
   "Sync backups" (project-wide `POST …/repositories/backup-sync`, 202), and "Sign in to
