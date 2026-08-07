@@ -28,9 +28,11 @@ handover.md (the userflow plan) is folded in below and deleted.
     failed. The shim names the mode when the first argument is a flag; `--help` and
     `--version` still reach the top level.
 
-  The second cycle finished clean: 43 phases, no phase warnings, all ten applications
-  healthy, every gateway route 200, and `/workspaces/` verified in a browser (real data,
-  no console errors).
+  The second cycle finished clean in 3m44s: 43 phases of 45 (2 skipped as already
+  published), no phase warnings, all ten applications healthy, every gateway route 200,
+  and `/workspaces/` verified in a browser (real data, no console errors). A warm cycle is
+  that cheap because `unwrap` removes the seed images but not docker's build cache, and the
+  volumes keep the registry blobs — so the deployables are pulled, not rebuilt.
 - **v3 IS LIVE AND FULLY WIRED**: qits-platform-deployments (the cd+serviceregistry
   merge-back) runs the platform — 7 platform services from `platform/main`, 3 dev
   services from `environment/dev`, deployed by the native CLI (15 proving-run fixes,
