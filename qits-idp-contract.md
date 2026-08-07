@@ -13,7 +13,7 @@ implementation must diverge, update this file in the same commit and say why.
   (parent + domain module `idp` + `service` module). Named H2 datasource
   `idp`, Flyway at `classpath:db/idp/migration`.
 - Shared lib: `eu.wohlben.qits:qits-auth-core`, a module inside
-  `integrations/qits-integrations-quarkus`. Services consume it the same way
+  `libs/qits-integrations-quarkus`. Services consume it the same way
   qits-ci consumes `libs/qits-eventstream` (nested submodule + reactor
   module). The lib's README documents the exact adoption steps.
 
@@ -118,7 +118,7 @@ Known and deliberately left alone in phase 1.
   qits-ci, qits-cd, qits-artifacts, or qits-integrations-quarkus — deploy
   order matters and the push is coordinated later.
 - **Push order, when that coordination happens:**
-  `integrations/qits-integrations-quarkus` **first**. The three services carry
+  `libs/qits-integrations-quarkus` **first**. The three services carry
   it as a nested gitlink at `81ed0cf`, and every one of those gitlinks dangles
   — a fresh clone cannot `submodule update --init` — until that commit is on
   its remote. Then the services, in any order.

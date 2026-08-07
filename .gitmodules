@@ -1,186 +1,186 @@
 [submodule "qits-gateway"]
 	path = services/qits-gateway
-	url = https://github.com/QuicklyIterateTheSoftware/qits-gateway.git
+	url = ../qits-gateway.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-artifacts"]
 	path = services/qits-artifacts
-	url = https://github.com/QuicklyIterateTheSoftware/qits-artifacts.git
+	url = ../qits-artifacts.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-observability"]
 	path = services/qits-observability
-	url = https://github.com/QuicklyIterateTheSoftware/qits-observability.git
+	url = ../qits-observability.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-workspace-daemon"]
 	path = daemons/qits-workspace-daemon
-	url = https://github.com/QuicklyIterateTheSoftware/qits-workspace-daemon.git
+	url = ../qits-workspace-daemon.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-userflows"]
 	path = libs/qits-userflows
-	url = https://github.com/QuicklyIterateTheSoftware/qits-userflows.git
+	url = ../qits-userflows.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-integrations-angular"]
-	path = integrations/qits-integrations-angular
-	url = https://github.com/QuicklyIterateTheSoftware/qits-integrations-angular.git
+	path = libs/qits-integrations-angular
+	url = ../qits-integrations-angular.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-integrations-quarkus"]
-	path = integrations/qits-integrations-quarkus
-	url = https://github.com/QuicklyIterateTheSoftware/qits-integrations-quarkus.git
+	path = libs/qits-integrations-quarkus
+	url = ../qits-integrations-quarkus.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-workspaces"]
 	path = services/qits-workspaces
-	url = https://github.com/QuicklyIterateTheSoftware/qits-workspaces.git
+	url = ../qits-workspaces.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-stt"]
 	path = services/qits-stt
-	url = https://github.com/QuicklyIterateTheSoftware/qits-stt.git
+	url = ../qits-stt.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-ci"]
 	path = services/qits-ci
-	url = https://github.com/QuicklyIterateTheSoftware/qits-ci.git
+	url = ../qits-ci.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-repositories"]
 	path = services/qits-repositories
-	url = https://github.com/QuicklyIterateTheSoftware/qits-repositories.git
+	url = ../qits-repositories.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-projects"]
 	path = services/qits-projects
-	url = https://github.com/QuicklyIterateTheSoftware/qits-projects.git
+	url = ../qits-projects.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-spa-home"]
 	path = frontends/qits-spa-home
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-home.git
+	url = ../qits-spa-home.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-spa-ui-components"]
 	path = libs/qits-spa-ui-components
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-ui-components.git
+	url = ../qits-spa-ui-components.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-ci-daemon"]
 	path = daemons/qits-ci-daemon
-	url = https://github.com/QuicklyIterateTheSoftware/qits-ci-daemon
+	url = ../qits-ci-daemon.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-dns"]
 	path = services/qits-dns
-	url = https://github.com/QuicklyIterateTheSoftware/qits-dns.git
+	url = ../qits-dns.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-workspaces"]
 	path = frontends/qits-spa-workspaces
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-workspaces.git
+	url = ../qits-spa-workspaces.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-ci"]
 	path = frontends/qits-spa-ci
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-ci.git
+	url = ../qits-spa-ci.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-observability"]
 	path = frontends/qits-spa-observability
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-observability.git
+	url = ../qits-spa-observability.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-artifacts"]
 	path = frontends/qits-spa-artifacts
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-artifacts.git
+	url = ../qits-spa-artifacts.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-projects"]
 	path = frontends/qits-spa-projects
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-projects.git
+	url = ../qits-spa-projects.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-events"]
 	path = services/qits-events
-	url = https://github.com/QuicklyIterateTheSoftware/qits-events.git
+	url = ../qits-events.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-events"]
 	path = frontends/qits-spa-events
-	url = https://github.com/QuicklyIterateTheSoftware/qits-spa-events.git
+	url = ../qits-spa-events.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-eventstream"]
 	path = libs/qits-eventstream
-	url = https://github.com/QuicklyIterateTheSoftware/qits-eventstream.git
+	url = ../qits-eventstream.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-idp"]
 	path = services/qits-idp
-	url = https://github.com/QuicklyIterateTheSoftware/qits-idp.git
+	url = ../qits-idp.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-oci"]
 	path = images/qits-oci
-	url = https://github.com/QuicklyIterateTheSoftware/qits-oci.git
+	url = ../qits-oci.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-cli-bootstrap"]
 	path = cli/qits-cli-bootstrap
-	url = https://github.com/QuicklyIterateTheSoftware/qits-cli-bootstrap.git
+	url = ../qits-cli-bootstrap.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-deployments"]
 	path = services/qits-platform-deployments
-	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-deployments.git
+	url = ../qits-platform-deployments.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-docs"]
 	path = services/qits-platform-docs
-	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-docs.git
+	url = ../qits-platform-docs.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-docs"]
 	path = frontends/qits-platform-spa-docs
-	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-spa-docs.git
+	url = ../qits-platform-spa-docs.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-deployments"]
 	path = frontends/qits-platform-spa-deployments
-	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-spa-deployments.git
+	url = ../qits-platform-spa-deployments.git
 	ignore = all
 	update = merge
 	branch = main

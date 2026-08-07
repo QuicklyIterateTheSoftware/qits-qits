@@ -9,9 +9,13 @@ Submodules are grouped by the role a module plays, not by its technology:
     services/      deployable backend services
     daemons/       long-running background agents
     libs/          shared code consumed by other modules
-    integrations/  framework-specific glue
     frontends/     anything served to a user at a URL
+    cli/           command-line tools
     images/        build definitions for published platform OCI images
+
+These six directories are the whole set. Framework-specific glue —
+`qits-integrations-angular`, `qits-integrations-quarkus` — is shared code, so it
+lives in `libs/` like any other lib.
 
 Role-named directories outlive the tech inside them: an entry that stops being
 a SPA and becomes server-rendered still belongs in `frontends/`, so nothing has
@@ -32,9 +36,13 @@ The gitlinks committed here are not version pins — they exist so
 `git submodule update --init` works on a fresh clone, and they are expected to
 lag behind the branches. Each entry in `.gitmodules` carries:
 
-    ignore = all      # keep the expected drift out of `git status` / `git diff`
-    branch = main     # what `--remote` follows
-    update = merge    # merge the branch instead of detaching at a commit
+    url = ../<name>.git   # relative, never an absolute URL
+    ignore = all          # keep the expected drift out of `git status` / `git diff`
+    branch = main         # what `--remote` follows
+    update = merge        # merge the branch instead of detaching at a commit
+
+The URL is relative to this repository's own origin, so the same `.gitmodules`
+resolves the siblings on GitHub and on the platform git host.
 
 ### Fresh clone
 
@@ -64,11 +72,11 @@ commit` entry, or `git submodule status`.
 
 ### Adding a submodule
 
-    git submodule add --name <name> <url> <path>
+    git submodule add --name <name> ../<name>.git <dir>/<name>
     git config -f .gitmodules submodule.<name>.ignore all
     git config -f .gitmodules submodule.<name>.update merge
-    git submodule set-branch --branch main <path>
-    git add .gitmodules <path> && git commit
+    git submodule set-branch --branch main <dir>/<name>
+    git add .gitmodules <dir>/<name> && git commit
 
 `--name` is not optional. Modern git (seen on 2.53) defaults the submodule
 *name* to the full path, so adding at `frontends/qits-spa-home` names the entry
