@@ -6,6 +6,88 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **The platform plane is readable, and the gateway is on it** (2026-08-07, late). **Shipped and
+  verified live** — eleven containers healthy, every gateway route 200, both planes screenshotted.
+  Two changes that turned out to be one question: "why does the Deployments page show three
+  applications when eleven are running?"
+  - `GET /deployments` takes a required `environmentId`, so the plane that has **no** environment id
+    could not be asked for at all — every platform row was recorded and then unreadable. It now
+    accepts `?environmentId=platform`, the stand-in `ApplicationKeys` already puts at the front of a
+    platform application's id. It cannot be mistaken for a tier (an environment id is a random
+    UUID), and it is a named plane rather than a widening: no filter is still a 400.
+  - qits-platform-spa-deployments grew a third root, **Platform services**, beside the projects and
+    the unmatched-environments bucket. `loadEnvironment` became `loadPlane`: one branch (which
+    listing holds the applications — the environment aggregate, or the flat `GET /applications`) and
+    one pair of caches keyed by an environment id *or* the word `platform`. The bucket starts
+    **closed** — the unmatched bucket is free because its contents arrive with the page, this one
+    costs the same two requests as any other expansion.
+  - **qits-gateway is a PLATFORM service now.** It publishes the host's only port and every
+    environment is reached through that one origin, so a per-tier copy was always a second binder
+    for port 8080. `available_on_env` went with the flip: it made the gateway an environment's
+    public node, and a platform service joins every environment's per-application networks
+    unconditionally — the only thing left behind is the bundle network, whose only member was the
+    gateway itself. Verified: the new container holds `qits-platform`, `qits-net` and all three
+    `qits-env-dev-*` networks.
+
+  Things worth not rediscovering:
+  - **environment → platform is a supported one-way conversion, and it is complete on the DB side.**
+    `registerPlatform` drops the links *and* absorbs every environment-scoped deployment row —
+    ACTIVE becomes DECOMMISSIONED and `environment_id` is nulled, so the tier's history moves into
+    the plane rather than being orphaned. Nothing had to be fixed by hand. The reverse is a 409.
+  - **What the conversion does NOT do is stop the old container**, and that is the whole operational
+    catch. `predecessorsOf` keeps an alias holder only when its `qits.platform.deployments.environment`
+    label is absent or equals this deployment's — and a platform deployment's is null. So the
+    tier-labelled gateway was invisible to the cutover; left alone it would have held port 8080 and
+    the successor's `docker run` would simply have failed. **Delete the old container before
+    promoting.**
+  - **`aliasHolders` uses `docker ps -q`, not `-a`** — stopping a predecessor is enough to hide it
+    from the cutover, which is what makes "stop, deploy, remove" a safe order if you want a rollback
+    in hand.
+  - **The git host is reachable directly on `localhost:8081`** (`http://localhost:8081/artifacts/git/<repo>`),
+    which is how you push while the gateway is down. CI and the deployer never need the gateway
+    either: the CI step clones `qits-artifacts:8080` and the deployer pulls `localhost:8081`.
+  - **`run-args` are keyed by application name, not by plane**, so `-p 8080:8080` survived the flip
+    untouched. They live in `/work/config/application.properties` on the deployer's config volume —
+    not in its env, which is where you will look first.
+  - Push `main`, wait for green, *then* push `platform/main`: two runs of one sha collide on the
+    shared image tag when they overlap, and sequential costs one cached rebuild.
+
+  qits-gateway's `environment/dev` branch is **deleted** on the git host — the repo now carries
+  `main` and `platform/main` only, both at the deployed sha. Its tip was already an ancestor of
+  `main`, so no commit was orphaned, and the delete triggered no build.
+
+  **Left open:** the page draws project `qits` as **"no environment"**
+  and puts `dev` in the unmatched bucket: the join is `environment.name === project.slug`, and since
+  the env re-model the environment is named `dev` while the only project's slug is `qits`. That
+  convention is stale, and it predates all of this.
+
+- **Wrapper repository as a first-class concept + projects UI** (2026-08-07). **Implemented
+  and green in worktrees; NOT merged, NOT pushed, NOT deployed.** Plan:
+  `~/.claude/plans/lets-start-by-planning-valiant-dragon.md`. Branch `feat/wrapper-first-class`
+  in worktrees under `/home/wohlben/code/qits-wrapper-work/` (qits-projects, qits-spa-projects,
+  qits-spa-ci, qits-spa-workspaces, qits-qits, qits-cli-bootstrap); main checkouts untouched.
+  What landed: (A) qits-projects release A — archetypes SERVICE/DAEMON/LIBRARY/FRONTEND/CLI/
+  IMAGE (+ deprecated INTEGRATION/APPLICATION aliases, widening-only V3), server-side wrapper
+  commits (`amendTree` + `WrapperGitmodules` + `WrapperSubmoduleWriter`), create = url XOR
+  name (blank repos seeded from new `repository-template/`), wrapper-driven reconcile +
+  `POST .../repositories/reconcile` + wrapper block on the repositories list, membership
+  guard on write paths, submodule import surface deleted, self-seed reads the wrapper (
+  `platformManifest()` deleted), `RepositoryDto.name`; full verify + PackagedSurfaceIT green,
+  native binary built and boot-checked. (B) archetype unions widened in ci/workspaces SPAs.
+  (C) qits-spa-projects fully built (sub-nav picker, six type groups, wrapper status +
+  reconcile report, create page; 69 tests green) and verified against the committed
+  openapi.yml. (D) qits-qits: all 31 `.gitmodules` urls now relative `../<name>.git`,
+  `integrations/*` moved to `libs/*`, docs updated; CLI `repoPath` follows; resolution
+  smoke-tested against both a local and the GitHub origin.
+  Empty-manifest semantics: a wrapper with no `.gitmodules` entries disables the membership
+  guard and deregistration until the first entry exists (deploy-day safety).
+  **Next steps, in order**: review diffs → merge each worktree branch to its repo's main →
+  push through the platform git host → deploy release A → deploy the wrapper bump (after A)
+  → run the repositories reconcile once → then release B (V4: row updates, qits-backend→FORK,
+  tighten constraint, drop `repository_submodule`; delete deprecated enum constants; drop
+  legacy union arms in the three SPAs). First reconcile will deregister the legacy
+  fixture-sibling rows (testing-repo etc.) — expected; host repos survive.
+
 - **The navigation is the gateway's answer now, and the sidebar has a sub-menu**
   (2026-08-07, late). **Shipped and verified on the live platform** — all eleven containers
   healthy, every gateway route 200, and the reading room screenshotted with ONE left column.
