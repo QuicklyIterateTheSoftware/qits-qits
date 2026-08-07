@@ -25,7 +25,7 @@ linked realms or duplicate accounts once we use the users for anything.
   is safe enough for now.
 - **Persistence:** H2-file datasource `idp`, Flyway — the existing pattern.
   Centralizing persistence is a separate pre-prod effort, not this plan.
-- **Shared code** goes into `integrations/qits-integrations-quarkus`
+- **Shared code** goes into `libs/qits-integrations-quarkus`
   (currently an empty stub).
 
 ## Phase 1 — issuer core, service-to-service auth

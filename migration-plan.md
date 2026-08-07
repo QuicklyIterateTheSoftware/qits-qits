@@ -94,8 +94,8 @@ not sum to a partition of the monolith — the monolith keeps all 926.
 | `services/qits-stt` | Speech-to-text | **done** | 6 |
 | `services/qits-cd` | Live deployment | **reserved** — nothing maps yet | 0 |
 | `libs/qits-userflows` | Playwright story framework | **done** | — |
-| `integrations/qits-integrations-angular` | `@qits/angular` | **done** | — |
-| `integrations/qits-integrations-quarkus` | *(unstarted, no monolith source)* | empty | 0 |
+| `libs/qits-integrations-angular` | `@qits/angular` | **done** | — |
+| `libs/qits-integrations-quarkus` | *(unstarted, no monolith source)* | empty | 0 |
 | ~~`services/qits-repositories`~~ | **dropped** — name collides with `domain.repository` | — | — |
 | *(no target)* | webui, app shell, featureflow, product userflows | monolith-only | 0 |
 | *unassigned* | `auth/*` (34), `domain.setting` (9), `cli/` (12) | open question | 55 |
