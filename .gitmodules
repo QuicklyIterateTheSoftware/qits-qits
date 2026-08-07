@@ -184,3 +184,15 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-platform-docs"]
+	path = services/qits-platform-docs
+	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-docs.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-platform-spa-docs"]
+	path = frontends/qits-platform-spa-docs
+	url = https://github.com/QuicklyIterateTheSoftware/qits-platform-spa-docs.git
+	ignore = all
+	update = merge
+	branch = main
