@@ -6,6 +6,74 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **The navigation is the gateway's answer now, and the sidebar has a sub-menu**
+  (2026-08-07, late). **Shipped and verified on the live platform** — all eleven containers
+  healthy, every gateway route 200, and the reading room screenshotted with ONE left column.
+  Two things at once, because they are the same shape.
+  `QITS_NAV_LINKS` — eight `{label, href}` entries compiled into a published npm package —
+  is **deleted**. qits-gateway answers `GET /main-navigation` from its own `RouteTable`, so a
+  component appears in the menu exactly when this gateway routes it, and `QitsMainLayout`
+  fetches it through `provideQitsNavigation()`. `QitsService` now carries display identity
+  (label + position) beside routing identity; **no label means no menu entry**, which is how
+  `stt` (no SPA) and `cd` (superseded) stay out. `/v2` is excluded by construction — it is a
+  protocol root docker hardcodes, not a page. `Home` is prepended: the landing SPA is the
+  gateway's own static output and is in no route table.
+  Underneath the *active* entry the layout renders a **sub-menu slot** — a `TemplateRef`
+  handed sideways through the injector, because `QitsMainLayout` is a route component and
+  nothing can be projected up into it. `qits-platform-spa-docs` is the only consumer: its
+  second left column is **gone**, and the catalog tree plus the version picker live in the
+  sub-menu instead. `scope.ts` is deleted (the tree *is* the scope→site list), `scopes.ts` is
+  a landing page, and the reader is the iframe alone.
+  Things worth not rediscovering:
+  - **A caret range cannot pin a prerelease.** All nine SPAs pin
+    `2026.806.184725-main.gc03ad30` **exactly**. `^2026.806.184725-main.gc03ad30` also admits
+    the plain `2026.806.184725`, which npm prefers because it sorts higher — and that release
+    predates `QitsPicker`, `QitsNavSubmenu` and `provideQitsNavigation()`. It installs
+    silently and the build dies on "has no exported member 'QitsPicker'". The old
+    `^…-main.g404b2c4` pin only worked because the stable release did not exist yet.
+  - **`ci-event-upstream-ui-components.yml` in eight SPAs follows a `SoftwareRelease` of
+    @qits/ui-components** and force-pushes a bump onto `maintenance/qits-spa-ui-components`.
+    Releasing the library mid-change would have stampeded a nine-repo train over half-finished
+    code, so **no formal release was cut** — the prerelease pin is deliberate, and a release
+    plus its cascade is a separate later step.
+  - **`git diff --cached --quiet` reports clean for a moved gitlink** under `ignore = all`,
+    so a "did anything stage?" guard silently skips every submodule bump. `git status --short
+    --ignore-submodules=none` shows the truth; so does `--ignore-submodules=none` on the diff.
+  - **`QitsNavSubmenu` must be declared in the app SHELL**, beside the `<router-outlet />`,
+    never inside a page: `RouterOutlet` rebuilds a page on every hop, so a declaration there
+    loses the tree's scroll position and open groups each time a document is opened.
+  - The slot is a **stack, not a slot** — two pages are alive at once during a hop, and a
+    single nullable field lets whichever is destroyed last clear a template still on screen.
+  - `.qits-layout-nav` needed `min-height: 0`: a grid item defaults to `min-height: auto`, so
+    a tall sub-menu grows the row instead of scrolling and the sidebar runs off the viewport.
+  - The **gateway ships twice** — once for `/main-navigation`, once for the home SPA gitlink.
+    Its `src/main/webui` is a second checkout of qits-spa-home and was three months stale
+    (`@qits/ui-components@^0.0.4`); missing it is how this cascade half-lands invisibly.
+  - Multi-module services carry the client at `service/src/main/webui`; only qits-gateway and
+    qits-platform-docs use `src/main/webui`.
+
+  Proved in a browser, not inferred: clicking a site in the tree and picking a version are both
+  **router hops** — a marker set on `window` before the click survives both, which is what says
+  the shell (and with it the tree's scroll position) was never rebuilt. `window.location.assign`
+  is gone from `onVersion`. Back leaves the versioned URL for the unversioned one rather than
+  walking the frame's own history. The iframe is version-addressed, never the bare
+  `/platform-docs/<site>` — that path is the service's redirect *to the reader*, and pointing the
+  frame at it renders the page inside itself. Below 768px the burger reveals the nav with the
+  sub-menu inside it. No console error, no page error, no failed request on any SPA.
+
+  What was NOT done, deliberately, and what it costs:
+  - **No formal @qits/ui-components release.** So npm `latest` is still the pre-picker
+    `2026.806.184725`, and the newest docs version is still the hand-published
+    `0.0.0-smoke` — which is what the reading room renders and what the version picker shows as
+    `(latest)`. With one version in the store the picker cannot be exercised across two, so the
+    switch was proved by clearing and re-selecting instead. A release fixes all three at once.
+  - The deploy order that matters if this is ever repeated: **gateway first** (a library that
+    ships before `/main-navigation` exists collapses every SPA's chrome to a single `/` link at
+    once — there is no version negotiation), then the library, then the SPAs, then the webui
+    gitlinks. qits-artifacts, qits-ci and qits-platform-deployments each went **alone against an
+    empty queue**: they host the registry and git host, build everything, and deploy everything
+    respectively.
+
 - **Documentation is a published artifact** (2026-08-07). A `docs` repository type in
   qits-artifacts holds one immutable bundle per version at
   `/artifacts/docs/docs/<site>/-/<version>`; a release pipeline declares `{type: docs}` beside
@@ -22,10 +90,16 @@ handover.md (the userflow plan) is folded in below and deleted.
   service resolving `latest` from the store's rows rather than the gateway's landing page
   answering 200 — a distinction that cost a false "ready" reading earlier and is worth checking
   the BODY for, never the status code alone.
-  **The reading room has its three layers** (2026-08-07, later): `/platform-docs/` lists what
-  publishes documentation by scope, `/platform-docs/@qits` lists what that scope publishes, and
-  `/platform-docs/read/<site>/-/<version>` shows one bundle with a **QitsPicker** for the version
-  beside it — which is what the picker was built for. `qits-platform-spa-docs` is the client,
+  **The reading room** (2026-08-07, later; **restructured the same night** — see the navigation
+  entry above, which supersedes the layout described here). It had three layers: `/platform-docs/`
+  listed what publishes documentation by scope, `/platform-docs/@qits` listed what that scope
+  publishes, and `/platform-docs/read/<site>/-/<version>` showed one bundle with a **QitsPicker**
+  beside it. The middle layer is **gone** — `scope.ts` is deleted and the `:scope` route with it,
+  because the sub-menu's catalog tree *is* the scope→site list and two implementations of it fed
+  by the same `catalog()` could disagree. `/platform-docs/` is now a landing page, the reader is
+  the iframe alone, and the picker lives in the platform sidebar. The service still falls through
+  for a single `@`-prefixed segment so a scope page could be served; nothing claims it now, and
+  `DocsPaths.NOT_RESERVED` still reserves `read/`. `qits-platform-spa-docs` is the client,
   Quinoa-served from qits-platform-docs; the store gained `GET /artifacts/docs/<repo>` (the catalog
   it could not previously be asked) and the reader gained `/api/sites` and `/api/versions`.
   Three things in there are worth not rediscovering:
@@ -37,9 +111,9 @@ handover.md (the userflow plan) is folded in below and deleted.
   - **`route.url` under a `read/**` route includes the literal `read` segment.** Leaving it in made
     the site `read/@qits/ui-components`, which pointed the iframe back at the reader — five nested
     rails in a screenshot before it was caught.
-  - **The client depends on the `main` dist-tag of @qits/ui-components**, not `latest`, because the
-    picker landed after the last release. A ui-components release moves it and that dependency
-    becomes an ordinary range again.
+  - **Every SPA now pins a prerelease of @qits/ui-components**, not `latest` — all nine at
+    `2026.806.184725-main.gc03ad30`, exactly, no caret. A ui-components release turns those back
+    into ordinary ranges. Was one client on the `main` dist-tag; it is all of them now.
 
   Two pieces of platform state are hand-made and want a bootstrap run to become generated:
   - **The gateway's `QITS_GATEWAY_PROXY_HOSTS_PLATFORM_DOCS` entry was appended by hand** to
