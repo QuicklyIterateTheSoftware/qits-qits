@@ -61,6 +61,30 @@ handover.md (the userflow plan) is folded in below and deleted.
   the env re-model the environment is named `dev` while the only project's slug is `qits`. That
   convention is stale, and it predates all of this.
 
+- **Sync targets + automatic GitHub backup** (2026-08-07, follow-on to the wrapper work).
+  **SHIPPED AND VERIFIED LIVE.** `Repository.url` is formally the backup sync target now:
+  `RepositoryDto.backupUrl` ships beside a wire-deprecated `url` twin (drop it next release —
+  tracked), the reconcile derives every member's target relationally (wrapper's backup
+  sibling via the relative `.gitmodules` url) and healed all 32 rows to the org namespace,
+  and the UI cards say **Clone** (always the platform host's name-addressed url) and
+  **Backup** — the "Origin" label is dead. Backups are automatic: the git host fans its
+  post-receive out to `POST /projects/api/events/post-receive` (`-o qits.no-ci` does NOT
+  suppress it), qits-projects debounces per repo and pushes `refs/heads/* refs/tags/*` to
+  the target; an hourly sweep (`qits.projects.backup.enabled`) covers what events miss.
+  UI restructure per user: `:projectId` is a lean overview (heading + "Project setup"
+  action); everything else moved to `:projectId/project-setup`; every visible "wrapper"
+  became **Project repository** ("wrapper" stays informal).
+  **BLOCKED ON ONE MANUAL STEP: backups fail with "want of credentials" until someone
+  signs in via a repository's remote-login terminal once** (writes the container's
+  `/data/git-credentials`). Things worth not rediscovering:
+  - The deployer reads `/work/config/application.properties` at ITS boot, not per deploy —
+    a run-args edit needs `docker restart` of the deployer before the next roll picks it up.
+    (`QITS_PROJECTS_INTAKE_URL` was added to the qits-artifacts run-args there.)
+  - Do not promote qits-artifacts and anything else to `platform/main` concurrently: the
+    artifacts cutover kills the other build's registry pulls at `localhost:8081` mid-run.
+  - spa-ci/spa-workspaces read `name`/`backupUrl` now; the ci tree label no longer
+    basename-hacks the url.
+
 - **Wrapper repository as a first-class concept + projects UI** (2026-08-07). **SHIPPED AND
   VERIFIED LIVE — both releases.** Release A (+A.1 drift-healing) and release B are deployed
   (`qits-pd-platform-qits-projects-34098d66`); the real qits-qits history was force-pushed
