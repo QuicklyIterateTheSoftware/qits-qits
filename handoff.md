@@ -16,21 +16,30 @@ handover.md (the userflow plan) is folded in below and deleted.
   qits-gateway is deployed on `cf2129b` with the `/platform-docs` route; qits-ci is deployed on
   `9bd8726`, so the `docs` artifact type and `$QITS_DOCS_URL` are live and a release pipeline can
   now declare documentation. All ten platform containers healthy after the three rollovers.
-  **Not finished — qits-platform-docs is built but not deployed**, and the last mile is
-  bootstrap work rather than service work:
-  - Its image is in the registry (`18e5a55`), its repo is registered in the `qits` project
-    (`1adb8e08-…`), and both new submodules are in the superproject.
-  - **It has no application row and no gateway `proxy-hosts` entry.** There is no POST on
-    `/platform-deployments/api/applications` — applications and the gateway's env both come
-    from the bootstrap's generated `qits.platform.deployments.run-args.*` on the
-    qits-platform-deployments-config volume. So adding a NEW deployable means teaching
-    `cli/qits-cli-bootstrap` about it, not calling an API; hand-editing that file is
-    overwritten by the next bootstrap run. Mind the recreate landmine before running one.
-  - Until then `/platform-docs/` answers the gateway's landing SPA (200), which is the
-    documented behaviour for a segment with no `proxy-hosts` entry.
-  - `@qits/ui-components@0.0.0-smoke` is a **hand-published docs version in the live store**
-    from the verification above. Harmless — it dedupes against the real one and the own engine
-    ages it out — but it came from no release and should not be mistaken for one.
+  **qits-platform-docs is deployed and serving**: `/platform-docs/@qits/ui-components/` answers
+  302 to the newest version and renders the workbench through the gateway, with no failed request
+  and no page error. Its own reading is proved separately on qits-net, so the redirect is this
+  service resolving `latest` from the store's rows rather than the gateway's landing page
+  answering 200 — a distinction that cost a false "ready" reading earlier and is worth checking
+  the BODY for, never the status code alone.
+  Two pieces of platform state are hand-made and want a bootstrap run to become generated:
+  - **The gateway's `QITS_GATEWAY_PROXY_HOSTS_PLATFORM_DOCS` entry was appended by hand** to
+    `/work/config/application.properties` on the qits-platform-deployments-config volume, and the
+    deployer was restarted to read it. `cli/qits-cli-bootstrap` now generates that line, so the
+    next bootstrap regenerates the file identically rather than diverging — but until one runs,
+    that volume is edited state.
+  - **qits-platform-docs is not registered in qits-projects.** `POST
+    /projects/api/projects/{id}/repositories` assigns a **UUID** id, and
+    qits-platform-deployments derives the image name from the repoId — so it looked for
+    `qits/1adb8e08-…:<sha>` and reported `IMAGE_MISSING` while CI had pushed
+    `qits/qits-platform-docs:<sha>`. Fixed by creating the repo on the git host under its bare
+    name (`PUT /artifacts/git/qits-platform-docs`, body `{"defaultBranch":"main"}`) and pushing
+    there; the two UUID rows were then deleted rather than left pointing at an id nothing uses.
+    **The underlying mismatch is unfixed** — either the projects API should let a caller choose
+    the id, or the deployer should resolve the image from the application name.
+  - `@qits/ui-components@0.0.0-smoke` is a **hand-published docs version in the live store** from
+    verification. Harmless — it dedupes against the real one and the own engine ages it out — but
+    it came from no release, and it is currently what `latest` resolves to.
   - The docs half of a ui-components release only fires on `SCMRelease`; a push to `main`
     publishes the npm prerelease and no docs version, by design.
   Three build failures on the way, each a real gap now closed: a non-exhaustive `switch` over
