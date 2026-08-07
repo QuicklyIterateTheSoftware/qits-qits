@@ -74,9 +74,14 @@ handover.md (the userflow plan) is folded in below and deleted.
   UI restructure per user: `:projectId` is a lean overview (heading + "Project setup"
   action); everything else moved to `:projectId/project-setup`; every visible "wrapper"
   became **Project repository** ("wrapper" stays informal).
-  **BLOCKED ON ONE MANUAL STEP: backups fail with "want of credentials" until someone
-  signs in via a repository's remote-login terminal once** (writes the container's
-  `/data/git-credentials`). Things worth not rediscovering:
+  **The sign-in now lives in the UI**: the project-setup page has a Backups panel —
+  per-card badges from `RepositoryDto.lastBackup` (V5 records every attempt's outcome),
+  "Sync backups" (project-wide `POST …/repositories/backup-sync`, 202), and "Sign in to
+  backup remote", an inline terminal driving the remote-login PTY websocket (client sends
+  JSON `{type:data|resize}`, server sends raw PTY text; close 1000 = refetch; the session
+  lingers 60s server-side so closing the pane mid-prompt is safe). One sign-in against
+  github.com fixes every repository — the credential store is host-keyed.
+  **Still pending a human: nobody has signed in yet — all 32 rows sit at AUTH_REQUIRED.** Things worth not rediscovering:
   - The deployer reads `/work/config/application.properties` at ITS boot, not per deploy —
     a run-args edit needs `docker restart` of the deployer before the next roll picks it up.
     (`QITS_PROJECTS_INTAKE_URL` was added to the qits-artifacts run-args there.)
