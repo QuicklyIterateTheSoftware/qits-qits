@@ -61,12 +61,31 @@ handover.md (the userflow plan) is folded in below and deleted.
   frame at it renders the page inside itself. Below 768px the burger reveals the nav with the
   sub-menu inside it. No console error, no page error, no failed request on any SPA.
 
-  What was NOT done, deliberately, and what it costs:
-  - **No formal @qits/ui-components release.** So npm `latest` is still the pre-picker
-    `2026.806.184725`, and the newest docs version is still the hand-published
-    `0.0.0-smoke` — which is what the reading room renders and what the version picker shows as
-    `(latest)`. With one version in the store the picker cannot be exercised across two, so the
-    switch was proved by clearing and re-selecting instead. A release fixes all three at once.
+  **The release train then ran, end to end** (`@qits/ui-components@2026.807.122825`). npm
+  `latest` moved off the pre-picker build, a real Storybook bundle joined `0.0.0-smoke` in the
+  docs store, and every SPA came off its exact prerelease pin onto an ordinary `^` range. All
+  nine services are current against their deploy branches and all eleven containers healthy.
+  Switching versions is proved across two real versions now: the URL and the iframe both
+  change, a `window` marker survives, and the tree keeps its state.
+  - **`POST /workspaces/api/branches/release` is the door, and it refuses a branch already
+    merged.** Work pushed straight to `main` via the escape hatch therefore cannot be released
+    from where it landed — the release only moves forward from a branch carrying a commit
+    `main` does not have. The CalVer stamp rides along, so that commit can be small.
+  - **The double-build races are systemic, not luck.** A release promotes to `main`,
+    `environment/dev` *and* `platform/main`, so three or four builds of one commit hit one
+    docker daemon and collide on the shared image tag. Three forms appeared in one train:
+    `No such image` at a COPY, `AlreadyExists` on tag create, and `tag does not exist` on push.
+    Two hit a deploying branch (qits-ci, qits-observability); in both the image was already
+    present and complete, so the fix was a **build-succeeded replay, not a rebuild**. This is
+    the open follow-up "spec-aware release promotion" with evidence attached.
+  - **The replay needs a token minted as the `qits-ci` client, not `qits-artifacts`.** The
+    deployer wants audience `qits-platform-deployments`; the `qits-artifacts` client is granted
+    `qits-ci, qits-cd, qits-artifacts, qits-workspaces, qits-gateway` and gets a flat 401. Its
+    idp registration was never updated after the cd merge-back. `qits-ci` carries the audience.
+  - **The train pushes to the platform git host only** — GitHub was behind on sixteen repos
+    afterwards and had to be synced by hand. Beware `git ls-remote <url> main`: it can match
+    more than one ref, and the resulting two-line "sha" makes every later git command fail in a
+    way that reads as "not a fast-forward". Ask for `refs/heads/main`.
   - The deploy order that matters if this is ever repeated: **gateway first** (a library that
     ships before `/main-navigation` exists collapses every SPA's chrome to a single `/` link at
     once — there is no version negotiation), then the library, then the SPAs, then the webui
@@ -242,6 +261,22 @@ UserflowContext, report emission) + writing the doctrine into the module's docte
 
 1. **WO-b judgment call**: the merge panel left the workspaces overview (merging lives
    on the detail route). Keep it that way, or bring a merge entry point back.
+
+2. **The `qits-spa-cd` → `qits-platform-spa-deployments` rename is in flight and UNCOMMITTED**
+   (user's work, 2026-08-07 — untouched by anyone else). Working-tree edits sit in two repos:
+   `frontends/qits-spa-cd` (`angular.json` project name and build targets, `package.json` name
+   and repository url, `package-lock.json`) and `services/qits-platform-deployments`
+   (`.config/qits/ci-post-receive.yml`, `.gitmodules`, `AGENTS.md`, `docker/Dockerfile`,
+   `service/pom.xml`, `application.properties`' `quinoa.build-dir`, `PdPackagedSurfaceIT`).
+   The committed HEAD still says `dist/qits-spa-cd/browser`, which is the only reason the
+   deploy at `20b5aff` succeeded — the Angular project name and the Quinoa build-dir must move
+   in one commit or the image build stops at a missing `dist`.
+   Consequences to know: the release train advanced `qits-spa-cd` on the git host to `48cf39d`,
+   and the local `main` (`61986bf`) **cannot fast-forward while those edits are uncommitted** —
+   so this is the one repo whose GitHub is deliberately a release behind. Still untouched by the
+   rename: the git-host repository name, the CI repository id, the deployments application row,
+   the image repository `qits/qits-spa-cd`, and the monorepo's `.gitmodules` plus the
+   `frontends/qits-spa-cd` directory. GitHub itself is already renamed (the old URL redirects).
 
 Resolved 2026-08-06: the **git-storage flip executed, and the file backend retired
 the same day** (user: "the disk storage should be gone"). All 41 repositories imported
