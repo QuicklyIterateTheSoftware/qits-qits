@@ -184,3 +184,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-projects-daemon"]
+	path = daemons/qits-projects-daemon
+	url = ../qits-projects-daemon.git
+	ignore = all
+	update = merge
+	branch = main
