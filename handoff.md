@@ -1,85 +1,26 @@
 # Handoff
 
-Updated 2026-08-06 (late). Everything shipped-and-verified has been removed; history is
+Updated 2026-08-08. Everything shipped-and-verified has been removed; history is
 in git. What remains is open, pending, or standing. This is the ONE handoff document —
 handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
-- **Boot outage root-caused: the platform's docker.sock is anchored to the Fedora distro**
-  (2026-08-08 morning). After a host reboot only the containers *without* a docker.sock
-  bind came back. Every sock-mounting container (qits-ci, qits-platform-deployments, dev
-  qits-workspaces) binds `/run/desktop/mnt/host/wsl/docker-desktop-bind-mounts/FedoraLinux-43/docker.sock`
-  — Docker Desktop rewrote `/var/run/docker.sock` to the *creating* distro's path, and the
-  platform was bootstrapped from Fedora. This boot, Desktop's WSL integration provisioned
-  neither distro: runc found a placeholder **directory** at the Fedora path, the bind
-  failed ("not a directory"), restart policy gave up, exit 127.
-  **Repaired (this boot only):** `rmdir` the placeholder, `touch` + `mount --bind` the
-  working Ubuntu socket (`/mnt/wsl/docker-desktop-bind-mounts/Ubuntu-24.04/docker.sock`)
-  over the Fedora path — /mnt/wsl propagates across distros, so the engine sees it — then
-  `docker start` the three. All 11 healthy; qits-ci confirmed the sock works (removed 4
-  orphaned step containers). Also re-planted Ubuntu's `/var/run/docker.sock` as a symlink.
-  **Both repairs die with the boot.** The durable fix is removing Docker Desktop's
-  per-distro socket path from the platform's spine (native dockerd in WSL, or re-anchor
-  on next full redeploy) — swarm would not help; the failure is the mount source, which
-  swarm services bind identically. Decision pending with the user.
-
-- **MIGRATION TO NATIVE DOCKERD (2026-08-08, follow-on, user-decided).** The platform moves
-  off Docker Desktop onto docker-ce **inside the Fedora distro** (where this session runs —
-  the working distro, which is why the old sock binds were Fedora-anchored). Swarm was
-  considered and set aside (deployer/ci/bootstrap all shell the docker CLI and lean on
-  daemon healthchecks — `DockerDeploymentDriver` gates cutovers on
-  `docker inspect .State.Health`), as were containerd (no swarm, no healthchecks, no
-  docker API — same subset-emulation objection as podman, but thinner) and podman.
-  docker-ce it is, **swarm-initialized from day one** so the deployer can target swarm
-  services later without re-plumbing. No state migration: the platform is re-bootstrapped
-  cold with `./qits-local-up.sh`; `.qits-bootstrap.env` (idp secrets + daemon sha) was
-  kept, and the GitHub backups held yesterday's release commits — the backup system's
-  first real save.
-  Done so far: Desktop killed + autostart removed + symlink litter swept, docker-ce 29.7.2
-  enabled under systemd, `wohlben` in the docker group, swarm init, old plane's deployer
-  config + container specs snapshotted to the session scratchpad. Bootstrap in flight.
-  **Landmines the first post-release cold boot found (all healed by hand, CLI fixes open):**
-  - The shim's runner path was hardcoded `1.0.0-SNAPSHOT`; the release flow stamps CalVer,
-    so a green compile still left "no such file". Fixed and committed (resolve the newest
-    `qits-cli-bootstrap-*-runner`).
-  - `.qits-bootstrap-src` clones carried origins from before the `libs/` move
-    (`integrations/qits-integrations-quarkus`), so refresh failed **quietly** every run and
-    the seed built an Aug 2 auth-core while every consumer pins `2026.807.165756`. Healed
-    by deleting the clones. Open: a failed refresh must be loud, not survivable.
-  - The auth-core-seed shutdown hook logs through the already-closed RunLog ("Stream
-    closed"), dies before removing `qits-maven-seed-http`, and the next run's
-    version-agnostic probe ("metadata present = served") then **skips seeding** behind the
-    stale nginx. Healed by `docker rm -f` + `docker volume rm qits-maven-seed`. Open: the
-    hook must not log, and the probe should check the version consumers actually pin.
-  - Docker Desktop's CLI plugins live as symlinks in `/usr/local/lib/docker/cli-plugins/`
-    (16 of them), which **outranks** dnf's `/usr/libexec/docker/cli-plugins`. With Desktop
-    gone their `/mnt/wsl` targets die and buildx SIGBUSes mid-build (exit 255, zero
-    output). Swept; remember this dir when de-Desktop-ing any distro.
-  **COMPLETE AND VERIFIED (2026-08-08 late morning).** Bootstrap run 7 finished 46/46,
-  exit 0, no warnings: all 11 containers healthy and pipeline-deployed (no compose seeds
-  left), all nine gateway routes 200, Deployments SPA screenshotted through the new
-  gateway. Docker Desktop is fully uninstalled — the `docker-desktop` distro is
-  unregistered, so the old engine's disk (and every pre-migration image and volume) is
-  reclaimed; the deployer-config snapshot lives in the session scratchpad if anything is
-  ever missed. Autostart is an HKCU Run key `qits-wsl-fedora-autostart` running
-  `wsl.exe -d FedoraLinux-43 --exec true` (schtasks mangles the quoting from WSL; the Run
-  key doesn't). **Open: a real host-reboot proof** — everything says it will hold
-  (systemd-enabled dockerd, restart policies, Run key), but it has not been watched once.
-  Two more landmines from the tail of the work:
-  - **The bootstrap CLI's plane list had the gateway stale-on-environment** — the
-    2026-08-07 platform flip never reached `PlatformModel.PLATFORM_SERVICES`, so run 6
-    re-created the deleted `environment/dev` branch, built it green, and waited on a
-    deployment row the deployer rightly never writes (the built ref is not the gateway's
-    deploy ref). Fixed + tests (`1ed351e` in qits-cli-bootstrap), stray branch deleted
-    from the git host again.
-  - **dnf installs can flush WSL's Windows-interop binfmt** (`WSLInterop` vanished from
-    binfmt_misc mid-session; every `*.exe` then dies with "Exec format error"). Restore:
-    `echo ':WSLInterop:M::MZ::/init:PF' > /proc/sys/fs/binfmt_misc/register`; now
-    persisted in `/usr/lib/binfmt.d/WSLInterop.conf` so systemd-binfmt re-registers it
-    instead of dropping it.
-  Local commits not yet pushed: wrapper (handoff + shim fix) and qits-cli-bootstrap
-  (`415ca8a` leftover-registry fixes, `1ed351e` gateway plane).
+- **The platform runs on native docker-ce in the Fedora distro** (since 2026-08-08).
+  Docker Desktop is uninstalled; the daemon is systemd-managed and a single-node swarm
+  manager (the deployer can target swarm services later without re-plumbing); containers
+  bind the real `/var/run/docker.sock`; an HKCU Run key (`qits-wsl-fedora-autostart`)
+  starts the distro at Windows logon. Rebuilt by cold `./qits-local-up.sh` bootstrap —
+  the how and the six bugs it surfaced are in this repo's and qits-cli-bootstrap's
+  2026-08-08 commit messages.
+  **Open:**
+  - Prove a full host reboot end to end (dockerd + restart policies + Run key say yes;
+    nobody has watched it happen).
+  - qits-cli-bootstrap: a failed clone refresh must fail LOUD — stale clones with dead
+    origins (pre-`libs/`-move paths) built Aug 2 sources silently until the version pins
+    caught it.
+  - Push the local commits: wrapper (handoff, shim fix) and qits-cli-bootstrap
+    (`415ca8a`, `1ed351e`).
 
 - **The platform plane is readable, and the gateway is on it** (2026-08-07, late). **Shipped and
   verified live** — eleven containers healthy, every gateway route 200, both planes screenshotted.
