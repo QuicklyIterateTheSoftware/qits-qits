@@ -6,6 +6,85 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Epic refining workspace (Refine button + refining page)** (2026-08-08, late
+  evening, IN PROGRESS): plan + decisions in `epic-refining-workspace-plan.md`.
+  A REFINING epic gets a third action **Refine** (ordered before Start
+  implementation | Abandon) that starts a REAL qits-workspaces workspace on the
+  project wrapper repo, branch `refining/<epic-slug>` (new convention, fresh
+  top-level prefix — no conflict with epic/feature/task), then opens
+  `:projectId/epics/:epicSlug/refining` — a copy of the Workspace Detail UI
+  into qits-spa-projects. Zero backend change: `POST /workspaces/api/workspaces`
+  already creates the branch itself (git-host push, post-receive fires), the
+  browser is the integrator (STT precedent), which keeps the service arrow
+  one-way. The refining workspace is LOOKED UP by rule (active workspace on
+  `refining/<slug>` in the wrapper repo), never stored. Phases: A plumbing +
+  Refine flow + shell/tabs/status-strip (running), B terminal/chat/STT,
+  C files/web-view/services/actions, then browser e2e via ng serve + proxy.
+  Note: today's Workspace Detail has NO sketch canvas (removed by design;
+  paste + prompt attachments cover it) — "mirror as of today" = no canvas.
+  ALL THREE PHASES LANDED on qits-spa-projects main (5c4b8ba, 866be52,
+  1529710 — local, not pushed): 704 tests green, prod build clean (bundle
+  warning raised to 650 kB for the copied panels). Browser e2e (ng serve
+  :4300 + proxy → live gateway): Refine click on the live epic
+  give-the-platform-a-status-page CREATED branch
+  `refining/give-the-platform-a-status-page` on the wrapper (git host
+  verified, at main's tip) + workspace row 1 (ACTIVE, preamble = rendered
+  epic outline) and navigated to the refining page — header, status strip,
+  all six tabs render.
+  **Platform gap found by the e2e (not a UI bug): the daemon-layered
+  workspace image was lost in today's unwrap.** `qits.workspace.image`
+  defaults to `qits/workspace:latest`, but today's monolith rebuild of that
+  tag is the PRE-DAEMON toolchain base (no qits-workspace-daemon binary, no
+  entrypoint) — so ensure-container fails with "no workspace-daemon dialed
+  home within 30000ms" and the container is rm'd. Recovery per
+  qits-workspace-daemon docker/Dockerfile.workspace: build
+  qits/workspace-daemon:latest (native), layer onto the base, retag as
+  qits/workspace:latest (old base preserved as qits/workspace-base:latest).
+  **Rebuild DONE and e2e PASSED (2026-08-08 ~21:06)**: daemon image
+  qits/workspace-daemon:latest built native, layered, retagged; Start on the
+  refining page → daemon dialed home instantly, self-clone materialized ALL
+  34 submodules on branch refining/give-the-platform-a-status-page
+  (container qits-ws-refining-give-the-platform-a-status-page-76f9b6a4),
+  working tree clean. Status strip live (running / connected / clean /
+  active), Files tab renders the real wrapper tree, Agents tab renders a
+  LIVE Claude Code TUI through the copied terminal (shared /claude-home
+  credential works in workspace containers too), Chat tab shows the
+  dictation + prompt surface (STT route answers through the gateway; a real
+  mic take was not driven — headless browser). Zero console errors/warnings.
+  Screenshots delivered in-session. The live refining workspace (row 1) and
+  its container were LEFT RUNNING for the user to try; ng serve is still on
+  :4300 with the proxy at the live gateway.
+  **Open:** release qits-spa-projects through the release endpoint (three
+  local commits, not pushed; the spa-projects train then bumps the webui
+  gitlink itself); decide whether the workspace-image recipe (base from the
+  retired monolith + daemon layer) finally gets a home.
+  Two genuine source-UI gaps discovered while copying (worth their own
+  tasks): prompt-attachments has a backend + SSE topic but NO SPA client
+  calls it (paste/sketch delivery is unwired in workspaces too), and the
+  ui/async.ts copies have drifted between the SPAs.
+
+- **Epics MCP wired into the refinement harness** (2026-08-08 evening, SHIPPED):
+  qits-projects 2026.808.174338 states the MCP address (`QITS_REPOSITORY_MCP_URL`
+  composed from own-host + /projects/mcp; `qits.projects.agent-mcp-url` overrides;
+  no new run-arg needed); daemon 545cdd7 pre-approves the two epic READS only,
+  `--strict-mcp-config` proven live to exclude everything else incl. the signed-in
+  account's claude.ai connectors. 15 tools (10 epic + 5 repository) reachable from
+  the container. Claude sign-in completed ~17:30 — the credential gate is PASSED.
+  **Browser e2e PASSED** (2026-08-08 ~17:53): one prompt → epic "Give the platform
+  a status page" created through the MCP, card appeared via SSE mid-turn WITHOUT
+  reload, 6 features streamed live; REFINING; epics audit rows all
+  `changed_by=mcp-agent`. Screenshots in the session scratchpad verify/ dir.
+  **Defect found (blocks task attachment)**: AgentLaunchService:604 puts the repo
+  NAME into the MCP `repositoryId` param; RepositoryMcpTools:76 filters by ID —
+  silent empty for UUID-id repos (the wrapper included), so the refinement session
+  lists zero repositories. Converged fix pending user go: launch the panel session
+  in PROJECT scope (SPA `scope:` + daemon interactive path — the panel is
+  project-level) AND fix the name/id param for legitimate REPOSITORY-scope uses.
+  (2) ScopedMcp.allowedTools is inert on the Claude path but FILTERS on Kimi ACP
+  chat (latent — shipped panel uses INTERACTIVE). Observed for the record: the
+  harness launches claude with --dangerously-skip-permissions inside the container;
+  the e2e terminal held un-submitted input text nobody typed (origin unaccounted).
+
 - **DAY-END STATE 2026-08-08, all verified live**: the prod re-model is COMPLETE
   (12 apps deployed under wire names, edge on :8080 proxying HTTP+SSE+WS —
   browser-verified incl. the PTY terminal; bootstrap rerun converges green
