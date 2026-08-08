@@ -54,10 +54,20 @@ handover.md (the userflow plan) is folded in below and deleted.
   Screenshots delivered in-session. The live refining workspace (row 1) and
   its container were LEFT RUNNING for the user to try; ng serve is still on
   :4300 with the proxy at the live gateway.
-  **Open:** release qits-spa-projects through the release endpoint (three
-  local commits, not pushed; the spa-projects train then bumps the webui
-  gitlink itself); decide whether the workspace-image recipe (base from the
-  retired monolith + daemon layer) finally gets a home.
+  **RELEASED AND LIVE (2026-08-08 ~21:15)**: qits-spa-projects
+  `2026.808.190906` cut through the branches/release endpoint (branch
+  `refining-workspace-ui`, quiet push, flow stamped + deleted it); the
+  spa-projects train did the rest itself — maintenance bump `8da096c0`
+  green, qits-projects release `55dad56c` built on environment/prod,
+  container rolled (`qits-pd-prod-qits-projects-fabe2c06` on the release
+  sha). Verified in the browser THROUGH THE GATEWAY on :8080: refining page
+  serves live, attached to the same running agent session, zero console
+  errors. GitHub backup carried the release commit automatically (the
+  AUTH_REQUIRED era appears over — `git pull` from GitHub fast-forwarded
+  onto the stamp).
+  **Open:** decide whether the workspace-image recipe (base from the
+  retired monolith + daemon layer) finally gets a home; prompt-attachments
+  still has no SPA client in either SPA (paste delivery unwired).
   Two genuine source-UI gaps discovered while copying (worth their own
   tasks): prompt-attachments has a backend + SSE topic but NO SPA client
   calls it (paste/sketch delivery is unwired in workspaces too), and the
