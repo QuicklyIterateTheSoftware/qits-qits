@@ -16,17 +16,70 @@ handover.md (the userflow plan) is folded in below and deleted.
   cache + blob-store serve + 405 on PUT). health_cmd released (2026.808.155533)
   and postgres PoC deployed on it (2026.808.160429, pg_isready gate, ACTIVE,
   reachable prod-qits-oci-postgresql:5432).
-  **OPEN, awaiting user decision:** the agent's self-clone needs the
-  name-addressed git scheme (/artifacts/git/<projectId>/<repo>) —
-  qits-platform-artifacts' RepositoryNameResolver port has NO production impl;
-  proposed: qits-projects publishes a name-resolution route + artifacts
-  implements the port as an outbound optional HTTP port. Blocks the terminal
-  e2e; agent container runs connected with an empty /workspace.
-  **In flight:** GC pin-URL fix (run-args) + qits-spa-ci repositoryLabel fix
-  (url→name after the DTO migration) — agent running, releases via the flow.
+  **Name-resolution seam SHIPPED AND PROVEN LIVE** (2026-08-08 evening), the
+  item that was blocking the terminal e2e. Repository names are PROJECT-SCOPED
+  by design; what was missing was the resolver behind the name-addressed
+  scheme. Three repos:
+  - qits-projects `2026.808.171005` publishes
+    `GET /projects/api/projects/{projectId}/repositories/by-name/{repoName}`
+    → `{"repositoryId"}`, 404 either way for unknown project/name. Unguarded
+    with a real `@Operation` — the `GitHostEventController` precedent, because
+    artifacts generates its client from docs/openapi.yml. Resolution goes
+    through ONE shared method, `RepositoryService.findByProjectAndName`, which
+    `WrapperReconcileService.view()` also calls, so the route can never honour
+    less than membership does — including the "the name IS the id" fallback
+    every adopted platform repo depends on.
+  - qits-platform-artifacts `2026.808.170239` ships `HttpRepositoryNameResolver`
+    behind `qits.projects.name-resolver-url`. Unset = the port answers nothing =
+    today's 404, so absent stays a supported configuration. `@DefaultBean` is
+    what keeps `FakeRepositoryNameResolver` winning the test classpath. **It
+    never throws** — GitHostRoutes has no exception clause, so a throw would
+    turn a 404 into a 500; the opposite of the GC pin ports, deliberately.
+    No cache: a rename must not serve a stale id.
+  - qits-projects-daemon `4f4dbd9` binds ProjectsApi **even when provision
+    fails**. The old javadoc justified not binding with "qits tears the
+    container down" — factually wrong: qits only WARN-logged the frame. The
+    result was a live container with an unbound API, so the one surface that
+    could have shown the error was the one that never bound. The projects side
+    now records the failure and reports `FAILED` + `failureDetail` on the
+    agent-container read (no sixth enum constant — the SPA switches on those
+    five strings).
+  PROVEN on the live platform: the projects route resolves the wrapper by
+  `qits-qits` and by `qits-qits.git` to `76f9b6a4-…`; `git ls-remote
+  /artifacts/git/166c1bc6-…/qits-qits` serves where it 404'd an hour earlier;
+  the agent container self-cloned and **all 34 submodules materialized, zero
+  skips** — the four UUID-keyed rows resolved too, which is exactly why the
+  route returns ids and not names; `/projects/container/<id>/agents/available`
+  answers 200 through the tunnel where it 502'd; and the launch path reaches
+  the CREDENTIAL GATE (a "Claude sign-in" TERMINAL, /claude-home empty). That
+  gate is the expected end state — no login was completed.
+  Also shipped: cli-bootstrap `af1dfa6` generates BOTH qits-projects urls in
+  the artifacts run-args. `QITS_PROJECTS_INTAKE_URL` was a live gap, not just
+  bookkeeping — the image default dials localhost, so in the standalone
+  deployment every push announced its backup to ITSELF.
+  Rode along in the projects release: **`Project.slug` is UNIQUE now** (V6),
+  reversing the recorded "deliberately non-unique" decision. A DERIVED slug
+  auto-suffixes `-2`, `-3` (the caller stated nothing about the value); a
+  SUPPLIED one that collides is a 409, because the slug names the upstream org
+  the wrapper backs up to and a silent rename would point a project's backups
+  somewhere nobody asked for. The `AgentContainers` label-ownership guard
+  stays — its real reason is that deleting a project does not remove its agent
+  container, so a later project taking the freed slug meets the old one.
+  **The webui gitlink landmine bit again** and was caught before release: the
+  first projects commit silently dragged `service/src/main/webui` back from
+  `16eaabd` to `33745db` (`ignore = all` hides it). Check
+  `git ls-tree <branch> service/src/main/webui` against main BEFORE every
+  qits-projects release, not after.
+  **Open from this workstream:** no re-provision path exists (the daemon
+  latches `provisionStarted` for the process lifetime and `ensure` no-ops on a
+  running container), so recovery is still remove-the-container-and-re-ensure;
+  the SPA does not yet render `failureDetail` (additive backend field, the
+  webui is its own repo).
   **Follow-ups recorded:** UUID repoIds remain on workspace-daemon,
-  repositories, platform-dns, cli-bootstrap + the wrapper (fix recipe in
-  memory: bare-name repo first, DELETE rewrites the wrapper — revert needed);
+  repositories, platform-dns, cli-bootstrap + the wrapper — no longer a
+  blocker now that names resolve to ids, but the rows are still inconsistent
+  (fix recipe in memory: bare-name repo first, DELETE rewrites the wrapper —
+  revert needed);
   qits/workspace:latest builds ONLY from the retired monolith checkout
   (~/code/qits-backend-devel, --target workspace) — needs a home;
   project↔environment link unset in the deployments UI (env `prod` vs project
