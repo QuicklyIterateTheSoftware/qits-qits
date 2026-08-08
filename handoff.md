@@ -6,6 +6,16 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Epic lifecycle + refinement agent harness** (2026-08-08, branch
+  `epic-refinement`, worktree `~/code/qits-qits-epics`): plan + settled decisions
+  in `epic-refinement-plan.md`. Wave 1 running in parallel: backend lifecycle
+  (statuses REFINING/IMPLEMENTATION/SUPERSEDED/ABANDONED, V3 migration, freeze
+  enforcement, transition endpoint with supersede-copy), SPA status-grouped
+  overview (refining draft cards, collapsed done/superseded/abandoned,
+  transition buttons), and the qits-projects-daemon skeleton (new submodule,
+  copy-adapt of qits-workspace-daemon). Wave 2 after: registry/proxy/tunnels in
+  qits-projects, MCP refinement tools + SSE hints, SPA terminal panel.
+
 - **Deployment re-model brainstorm** (started 2026-08-08): `deployment-model-draft.md`
   in this repo. User verdict: we made too many services platform services, and the
   deploy model itself is wrong. Only qits-gateway NEEDS the platform plane; the
