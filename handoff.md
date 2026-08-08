@@ -13,8 +13,19 @@ handover.md (the userflow plan) is folded in below and deleted.
   enforcement, transition endpoint with supersede-copy), SPA status-grouped
   overview (refining draft cards, collapsed done/superseded/abandoned,
   transition buttons), and the qits-projects-daemon skeleton (new submodule,
-  copy-adapt of qits-workspace-daemon). Wave 2 after: registry/proxy/tunnels in
-  qits-projects, MCP refinement tools + SSE hints, SPA terminal panel.
+  copy-adapt of qits-workspace-daemon). **Landed so far** (all green, local
+  commits): backend lifecycle `5dd4650` (note: a superseded epic's successor
+  mints a fresh epic slug — the unique constraint forbids reuse), SPA grouping
+  `9c64e22`, SPA SSE live-updates `5e988bf`, daemon skeleton `c5aba81..8f6d96b`
+  (242 tests, trims recorded in its AGENTS.md), backend MCP tools + SSE
+  `f1ce901` (landmine: @Transactional on dual-PU MCP tools wedges pooled
+  connections — the tools are transaction-free by design, documented in-class).
+  **In flight**: host-side registry/proxy/tunnels (qits-projects) and the SPA
+  refinement terminal panel, both against pinned contracts
+  (`/projects/api/projects/{id}/agent-container/*`, proxy
+  `/projects/container/{id}`, control `/projects/daemon/{id}` — append-only).
+  After: end-to-end verification (image build, container, terminal, propose
+  loop), then release.
 
 - **Deployment re-model brainstorm** (started 2026-08-08): `deployment-model-draft.md`
   in this repo. User verdict: we made too many services platform services, and the
