@@ -65,6 +65,17 @@ handover.md (the userflow plan) is folded in below and deleted.
   errors. GitHub backup carried the release commit automatically (the
   AUTH_REQUIRED era appears over — `git pull` from GitHub fast-forwarded
   onto the stamp).
+  **Markdown fix (user-reported, same evening)**: epic/feature/task
+  descriptions rendered raw on the draft card, epic card and refining
+  header. Fixed in qits-spa-projects `19efa89` → released
+  `2026.808.193937` (403155b): hand-rolled `renderMarkdown` in
+  src/app/ui/markdown.ts (NO npm dep — the ansi-screen precedent; all
+  source text HTML-escaped, hostile schemes refused, 46 renderer specs) +
+  `app-markdown` binding [innerHTML] with no sanitizer bypass, so Angular's
+  sanitizer stays as the second net. 757 tests green. Browser-verified on
+  both surfaces before release. Note for the next person: a stale Vite HMR
+  error overlay (NG1002) can outlive the broken intermediate state that
+  caused it — check the ng-serve log's LAST rebuild before believing it.
   **Open:** decide whether the workspace-image recipe (base from the
   retired monolith + daemon layer) finally gets a home; prompt-attachments
   still has no SPA client in either SPA (paste delivery unwired).
