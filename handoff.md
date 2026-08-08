@@ -20,12 +20,24 @@ handover.md (the userflow plan) is folded in below and deleted.
   (242 tests, trims recorded in its AGENTS.md), backend MCP tools + SSE
   `f1ce901` (landmine: @Transactional on dual-PU MCP tools wedges pooled
   connections — the tools are transaction-free by design, documented in-class).
-  **In flight**: host-side registry/proxy/tunnels (qits-projects) and the SPA
-  refinement terminal panel, both against pinned contracts
-  (`/projects/api/projects/{id}/agent-container/*`, proxy
-  `/projects/container/{id}`, control `/projects/daemon/{id}` — append-only).
-  After: end-to-end verification (image build, container, terminal, propose
-  loop), then release.
+  **All seven workstreams landed and browser-verified** (2026-08-08 afternoon):
+  registry/proxy/tunnels `b74abaa..ac0de3c` (in service/…/agenthost/ — no domain
+  aggregate owns a container here; vendored protocol module; findings:
+  vertx-http-proxy breaks on h2c inbound — qits-workspaces has the same bug,
+  own workstream; non-unique project slug guarded by label-ownership 409;
+  docker startup gated to NORMAL launch mode) and the SPA terminal panel
+  `7937d3c`+`33745db` (session resolution reads GET /commands — the lineage
+  tree can't tell running from exited; sign-in PTY recognition kept).
+  Browser-verified against the packaged jar + ng serve: grouped sections,
+  refining draft card, UI transitions (refining→implementation moved the card
+  and minted branch names), supersede successor slug `-2`, freeze 409, SSE
+  live update (curl-added feature appeared without reload), agent panel
+  dormant row. Screenshot delivered in-session.
+  **Remaining, deliberately deferred**: daemon image build + real container
+  e2e (needs the workspace toolchain BASE image + image publishing, which the
+  deployment-unification refactor is actively reshaping) and the RELEASE of
+  all three repos — do not release while that refactor has the release flow
+  and platform refs mid-surgery.
 
 - **Deployment re-model brainstorm** (started 2026-08-08): `deployment-model-draft.md`
   in this repo. User verdict: we made too many services platform services, and the
