@@ -6,6 +6,24 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Boot outage root-caused: the platform's docker.sock is anchored to the Fedora distro**
+  (2026-08-08 morning). After a host reboot only the containers *without* a docker.sock
+  bind came back. Every sock-mounting container (qits-ci, qits-platform-deployments, dev
+  qits-workspaces) binds `/run/desktop/mnt/host/wsl/docker-desktop-bind-mounts/FedoraLinux-43/docker.sock`
+  — Docker Desktop rewrote `/var/run/docker.sock` to the *creating* distro's path, and the
+  platform was bootstrapped from Fedora. This boot, Desktop's WSL integration provisioned
+  neither distro: runc found a placeholder **directory** at the Fedora path, the bind
+  failed ("not a directory"), restart policy gave up, exit 127.
+  **Repaired (this boot only):** `rmdir` the placeholder, `touch` + `mount --bind` the
+  working Ubuntu socket (`/mnt/wsl/docker-desktop-bind-mounts/Ubuntu-24.04/docker.sock`)
+  over the Fedora path — /mnt/wsl propagates across distros, so the engine sees it — then
+  `docker start` the three. All 11 healthy; qits-ci confirmed the sock works (removed 4
+  orphaned step containers). Also re-planted Ubuntu's `/var/run/docker.sock` as a symlink.
+  **Both repairs die with the boot.** The durable fix is removing Docker Desktop's
+  per-distro socket path from the platform's spine (native dockerd in WSL, or re-anchor
+  on next full redeploy) — swarm would not help; the failure is the mount source, which
+  swarm services bind identically. Decision pending with the user.
+
 - **The platform plane is readable, and the gateway is on it** (2026-08-07, late). **Shipped and
   verified live** — eleven containers healthy, every gateway route 200, both planes screenshotted.
   Two changes that turned out to be one question: "why does the Deployments page show three
