@@ -136,6 +136,67 @@ handover.md (the userflow plan) is folded in below and deleted.
   musl build MUST re-pull quay). History resets with the volumes — accepted.
   Cosmetic debt deferred: Maven artifactIds/application.name/output-name keep
   old names; spec headers still say "qits-platform-deployments" in prose.
+  **The platform is LIVE as env prod** (2026-08-08): 12 applications deployed and
+  healthy, and the bootstrap converges green (run 9, 45 phases, 5m33s).
+
+- **Epic lifecycle + refinement agent harness** (2026-08-08, branch
+  `epic-refinement`, worktree `~/code/qits-qits-epics`): plan + settled decisions
+  in `epic-refinement-plan.md`. Wave 1 running in parallel: backend lifecycle
+  (statuses REFINING/IMPLEMENTATION/SUPERSEDED/ABANDONED, V3 migration, freeze
+  enforcement, transition endpoint with supersede-copy), SPA status-grouped
+  overview (refining draft cards, collapsed done/superseded/abandoned,
+  transition buttons), and the qits-projects-daemon skeleton (new submodule,
+  copy-adapt of qits-workspace-daemon). **Landed so far** (all green, local
+  commits): backend lifecycle `5dd4650` (note: a superseded epic's successor
+  mints a fresh epic slug — the unique constraint forbids reuse), SPA grouping
+  `9c64e22`, SPA SSE live-updates `5e988bf`, daemon skeleton `c5aba81..8f6d96b`
+  (242 tests, trims recorded in its AGENTS.md), backend MCP tools + SSE
+  `f1ce901` (landmine: @Transactional on dual-PU MCP tools wedges pooled
+  connections — the tools are transaction-free by design, documented in-class).
+  **All seven workstreams landed and browser-verified** (2026-08-08 afternoon):
+  registry/proxy/tunnels `b74abaa..ac0de3c` (in service/…/agenthost/ — no domain
+  aggregate owns a container here; vendored protocol module; findings:
+  vertx-http-proxy breaks on h2c inbound — qits-workspaces has the same bug,
+  own workstream; non-unique project slug guarded by label-ownership 409;
+  docker startup gated to NORMAL launch mode) and the SPA terminal panel
+  `7937d3c`+`33745db` (session resolution reads GET /commands — the lineage
+  tree can't tell running from exited; sign-in PTY recognition kept).
+  Browser-verified against the packaged jar + ng serve: grouped sections,
+  refining draft card, UI transitions (refining→implementation moved the card
+  and minted branch names), supersede successor slug `-2`, freeze 409, SSE
+  live update (curl-added feature appeared without reload), agent panel
+  dormant row. Screenshot delivered in-session.
+  **ROLLED OUT ON THE LIVE PLATFORM** (2026-08-08 evening). Released:
+  qits-projects `2026.808.151631` then `2026.808.152415` (the webui bump the
+  spa-projects train cut), qits-spa-projects `2026.808.152119`.
+  qits-projects-daemon is on GitHub and on the git host (`8f6d96b`, no release —
+  it publishes no artifact yet). Three images built locally, none pushed to a
+  registry, because workspace-launched containers use the host daemon:
+  `qits/workspace:latest`, `qits/projects-daemon:latest`,
+  `qits/project-agent:native`. Two gaps found and closed on the way — the
+  runtime image had no docker CLI (`DockerAgentRuntime` shells it) and the
+  deployment had no docker socket; both fixed, and an agent container really
+  starts now.
+  **Where the workspace toolchain image comes from, because nothing in this
+  repository says**: it is the pre-split monolith's `workspace` stage, still only
+  at `/home/wohlben/code/qits-backend-devel/docker/qits/Dockerfile` —
+  `docker build -t qits/workspace:latest --target workspace -f docker/qits/Dockerfile .`
+  from that checkout. Three Dockerfile headers here point at it and call it
+  `workspace-base`, which is not its name. The monolith is otherwise retired, so
+  this recipe needs a home: without that checkout no project agent and no
+  workspace can be built at all.
+  **Open:**
+  - **The agent container cannot reach its host — stale wire names.**
+    `AgentContainerFactory` defaults `qits.projects.own-host=qits-projects` and
+    `qits.projects.agent-git-base=http://qits-artifacts:8080/artifacts/git`, both
+    pre-rename. On qits-net the names are `prod-qits-projects` and
+    `qits-platform-artifacts`, so the daemon boots, binds its hook webhook and
+    then blocks forever on a DNS lookup of its control socket. Same stale-plane
+    family the unification sweep chased; the fix is two run-args
+    (`QITS_PROJECTS_OWN_HOST`, `QITS_PROJECTS_AGENT_GIT_BASE`) or better
+    defaults. Until then the harness is inert.
+  - The agent-container e2e beyond "it starts": self-clone, the reverse tunnel,
+    and the refinement chat against a real agent are unproven live.
 
 - **Deployment re-model brainstorm** (started 2026-08-08): `deployment-model-draft.md`
   in this repo. Section 1 (the lifecycle today: release → refs → build → deploy, the
