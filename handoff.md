@@ -6,6 +6,100 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Deployable images (new concept)** (started 2026-08-08): docker images as
+  deployable services — first case `images/qits-oci-postgresql`
+  (GitHub repo created by the user, submodule added: wrapper `aa271d4`, unpushed).
+  A repo holds a Dockerfile (FROM postgres:18.4) + `.config/qits`, and rides the
+  NORMAL lifecycle: SCM release → CI image build → SoftwareRelease → the env's
+  qits-deployments deploys it. PoC scope = behave like any Quarkus service
+  deployment; proper configuration comes later.
+  **Design settled after a four-explorer sweep** (findings in session history):
+  - The build side needs NO platform change. CI steps are generic `{image,
+    script}`; `images/qits-oci` is the in-tree precedent (Dockerfile-only repo,
+    release pipeline, docker artifacts → SoftwareRelease). The repo carries
+    `ci-post-receive.yml` (sha-tagged image, the tag the deployer resolves:
+    `$QITS_REGISTRY/$QITS_IMAGE_REPOSITORY/<repo>:$QITS_CI_SHA`) and
+    `ci-event-release.yml` (`artifacts: [{type: docker}]` → SoftwareRelease).
+    Base images pull through the OCI mirror: `FROM localhost:8081/hub/library/postgres:18.4`.
+  - The release side needs NO change: the flow is stack-agnostic ("a repository
+    with no stack is still a release"); `deployments.yml` with
+    `deploy_branches: environment/prod` makes the release promote the deploy ref,
+    whose CI-hot push is what actually deploys.
+  - The deploy side needs ONE change: the health gate is unconditional
+    `curl -fsS http://localhost:8080<health_path>` (DockerDeploymentDriver:711),
+    which no non-HTTP image can pass, and run-args cannot carry a quoted
+    override. **New optional spec key `health_cmd`** (mutually exclusive with
+    `health_path`; used verbatim as `--health-cmd`) in the strict
+    DeploymentSpecParser + driver. Ordering: the deployer change must be LIVE
+    before this repo's first deploy (unknown key = failed deployment; the
+    workspaces reader is lenient, releases unaffected).
+  - PoC accepts: no volume (data dies with the container), `POSTGRES_PASSWORD`
+    baked as a placeholder in the Dockerfile; both go through the real
+    config mechanism later (volumes/env stay deployer-side run-args by trust
+    design). Consumers dial the wire alias `prod-qits-oci-postgresql:5432`;
+    no gateway route (routes are a gateway enum; not needed for TCP peers).
+  - Bootstrap: NOT added to PlatformModel DEPLOYABLES/SEEDED_REPOS — it enters
+    the platform through the normal repo lifecycle after bootstrap settles.
+  **Repo seeded and pushed** (`6dbfc60` on GitHub main): Dockerfile,
+  .dockerignore, both CI pipelines (release extraction uses jq — allowed here,
+  this repo is never in the bootstrap path), deployments.yml with `health_cmd:
+  pg_isready -U postgres`, README.
+  **Deployer `health_cmd` SHIPPED IN CODE** (qits-deployments `d552f1c`, main,
+  LOCAL ONLY — not pushed): optional key, any non-blank one-line string ≤512
+  chars (no charset allowlist — it IS the command, runs in the repo's own
+  container, one argv element), mutually exclusive with `health_path`; carried
+  spec→Target→Plan→StartSpec, deliberately NOT persisted (spec is re-read per
+  deploy; the catalogue-resolving arm only records FAILED rows). `clean verify`
+  green: 190 tests, 0 failures. Docs updated (README/AGENTS/spec header).
+  Spot-checked by the orchestrator: seeded pipeline files match the CI schema;
+  `QITS_CI_REPOSITORY_URL` confirmed injected (CiDaemonLauncher:508).
+  **NEXT (blocked on the cold bootstrap settling):** release qits-deployments
+  through the release endpoint (branch ahead of main + marker commit — NEVER a
+  direct main push), push wrapper `aa271d4`, get qits-oci-postgresql onto the
+  platform git host (reconcile adopts it from the wrapper), then prove the
+  lifecycle: push → sha image → release → SoftwareRelease → deployment row
+  ACTIVE with postgres passing `pg_isready`. Deploy ORDER: the health_cmd
+  deployer must be live BEFORE this repo's first deploy (strict parser fails
+  on the unknown key).
+
+- **Maven Central proxy in qits-platform-artifacts: CODE COMPLETE, UNMERGED**
+  (2026-08-08): a brainstorm about extracting the blob store exposed a gap —
+  there was NO Maven proxying anywhere; CI's `.qits-maven-settings.xml` mirrors
+  only `qits-maven`, so every step container pulls the whole Central tree from
+  repo1.maven.org directly. Implemented on the npm-proxy blueprint, commit
+  `7d1d488` on branch `feat/maven-central-proxy` in worktree
+  `/home/wohlben/code/qits-maven-proxy-work/qits-platform-artifacts` (main
+  checkout verified pristine — the bootstrap runs from it). Full `verify` green:
+  611 tests, 0 failures. Landed: `RepositoryType.MAVEN_PROXY`, seeded repo
+  `central` (repo's own recorded name, not `maven-central`); V13 migration
+  (widened type check + `maven_proxy_metadata` table; cached files are ordinary
+  `maven_artifact` rows, so census/explorer/GC needed no new liveness code);
+  `MavenUpstream` miss path; metadata TTL PT1H with ETag AND Last-Modified
+  revalidation (plain file-server mirrors have no ETag) + serve-stale; deploy to
+  proxy = 405; GC cache strategy, window P90D (maven-packages' own resolve-
+  cadence argument), identity = path not coordinate (a cache self-repairs, a
+  publish doesn't — documented contrast in both adapters); config
+  `qits.artifacts.maven.proxy.upstream` + `.metadata-ttl`. Worktree-only
+  caveat: `service/src/main/webui` submodule was tar-copied from the main
+  checkout (worktree add leaves it empty; not in the commit). Fixed in passing:
+  `PackagedProcessIT` asserted 8 repo types against a 9-constant enum (native-
+  only, never ran in verify) — now 10. Integration checklist (from the
+  implementer): base is `9a0e5c0`; if another workstream lands first, check
+  (a) V13 not taken — else renumber AND re-enumerate
+  `ck_artifact_repository_type` from the merged `RepositoryType.values()`,
+  (b) the type-count tests (`GcPlanControllerTest` 9→10, `PackagedProcessIT`
+  8→10) as conflict sites, (c) merge the `GcTypeConfigTest` maven-proxy hunk,
+  don't resolve it away. Deploy via the release endpoint, never a direct main
+  push. Post-deploy smoke (suite has no network): `curl -sI
+  <host>/artifacts/maven/central/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar`
+  → 200 with `Cache-Control: … immutable`, second call from the blob store.
+  **NEXT (user-gated)**: merge to main +
+  release (after the bootstrap settles), and the separate verdict on wiring CI
+  through it (a `central` mirror in `.qits-maven-settings.xml` — behavior
+  change across all builds, makes artifacts a hard dep of dependency
+  resolution). The blob-extraction brainstorm itself is SHELVED (shared
+  content-addressed store across envs; works, notes in session history).
+
 - **Deployment unification: CODE COMPLETE, PRE-BOOTSTRAP** (2026-08-08): all of
   `deployment-unification-plan.md` phases 1-5 implemented by parallel subagents,
   every touched repo green on its own suite. Landed: qits-platform-edge (new
@@ -26,11 +120,22 @@ handover.md (the userflow plan) is folded in below and deleted.
   (93 tests, native built: env default prod, one deploy ref, edge second-to-last
   before the deployer handoff, seed containers named by wire alias, volumes
   renamed, fail-loud sources, unwrap patterns widened). qits-platform-edge added
-  as wrapper submodule. NEXT: push all repos to GitHub, then
-  `unwrap --with-volumes` + cold bootstrap as env prod (12 containers), then the
-  plan's phase 6 verification checklist. History resets with the volumes —
-  accepted. Cosmetic debt deferred: Maven artifactIds/application.name/output-name
-  keep old names; spec headers still say "qits-platform-deployments" in prose.
+  as wrapper submodule. All repos pushed to GitHub (gateway rebased onto its two
+  backup-synced release commits first). `unwrap --with-volumes` DONE (11
+  containers, all volumes, 28 images — old world gone). COLD BOOTSTRAP IN
+  PROGRESS, runs so far: 1+2 failed on qits-ci seed testCompile —
+  MachineGuardTest used QitsClaims.CI/CD, constants deleted from
+  qits-integrations-quarkus; local verify was green only because ~/.m2 served
+  the OLD auth-core jar; the seed registry serves the new one (drift the
+  clone-alone rule hides; fixed: test owns its audience literals, qits-ci
+  4410b73, pushed). Run 3+4 + manual probe: quay.io unreachable from this host
+  (TLS connection reset, multiple CDN IPs, plain curl too) — likely edge
+  throttling after today's repeated image pulls; backoff probe retrying every
+  5 min, bootstrap resumes when quay answers (seed stack through qits/ci is
+  built and cached; unwrap deleted the mirrored builder images, so the daemon
+  musl build MUST re-pull quay). History resets with the volumes — accepted.
+  Cosmetic debt deferred: Maven artifactIds/application.name/output-name keep
+  old names; spec headers still say "qits-platform-deployments" in prose.
 
 - **Deployment re-model brainstorm** (started 2026-08-08): `deployment-model-draft.md`
   in this repo. Section 1 (the lifecycle today: release → refs → build → deploy, the
