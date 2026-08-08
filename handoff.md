@@ -6,32 +6,108 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Deployment unification: CODE COMPLETE, PRE-BOOTSTRAP** (2026-08-08): all of
+  `deployment-unification-plan.md` phases 1-5 implemented by parallel subagents,
+  every touched repo green on its own suite. Landed: qits-platform-edge (new
+  service, host-header env demux, ws+SSE passthrough, native, platform target);
+  deployer rework (aliases `<env>-qits-<app>` / bare platform names, container
+  `qits-pd-<app>-<id8>` platform shape, platform branch matching via env rows,
+  parser `deploy_branches` in / `branch:` out); workspaces spec-driven promotions
+  (+quiet trunk pushes; no-spec repos promote nothing); specs in all deployables
+  (`deploy_branches: environment/prod`; 4 platform targets: edge/idp/artifacts/
+  docs); six submodule renames locally (wrapper plumbing verified); rename
+  internals in artifacts/idp/deployments + both SPA chains; idp identity model
+  (clients prod-qits-ci, qits-platform-artifacts, prod-qits-workspaces,
+  prod-qits-gateway; +aud prod-qits-deployments; qits-cd dropped); gateway XFF
+  multi-hop semantics (ws allow-list carry-across included) + CD retirement +
+  defaultHost deletion; pipeline-file wire-name sweep (only live dials were
+  ci/workspaces maven build-args; rest comments); platform-name defaults baked
+  (incl. deployer's load-bearing git-host-url); bootstrap CLI prod rework
+  (93 tests, native built: env default prod, one deploy ref, edge second-to-last
+  before the deployer handoff, seed containers named by wire alias, volumes
+  renamed, fail-loud sources, unwrap patterns widened). qits-platform-edge added
+  as wrapper submodule. NEXT: push all repos to GitHub, then
+  `unwrap --with-volumes` + cold bootstrap as env prod (12 containers), then the
+  plan's phase 6 verification checklist. History resets with the volumes —
+  accepted. Cosmetic debt deferred: Maven artifactIds/application.name/output-name
+  keep old names; spec headers still say "qits-platform-deployments" in prose.
+
 - **Deployment re-model brainstorm** (started 2026-08-08): `deployment-model-draft.md`
-  in this repo. User verdict: we made too many services platform services, and the
-  deploy model itself is wrong. Only qits-gateway NEEDS the platform plane; the
-  qits-artifacts proxy-cache is WANTED x-stage. Section 1 (the lifecycle: release →
-  refs → build → deploy, the bus, the self-hosting knot) is written. Section 2
-  draft-settled: an ADMISSION TEST for the plane (per-env copies cannot do the job:
-  one port / one trust root / observer outside the observed — "feels cross-cutting"
-  admits nothing), and platform plane = **qits-platform-gateway (NEW, thin: reads
-  $env off `$app.$env.$domain`, forwards to that env's gateway, route table = env
-  list) + qits-idp + qits-observability** (idp: one issuer for cross-plane calls,
-  federation out of scope, safe on all env nets because inbound-only; BUT needs
-  env-qualified client ids + audiences, else dev secrets mint prod-valid tokens.
-  observability: observer can't live inside the observed; inbound except the
-  upstream tee; accepted: shared bounded buffer = noisy-neighbor risk, wants
-  per-env quota; env-tagging free via `<env>-<app>` names). qits-gateway
-  becomes an ordinary env service again; everything else per-env; one deployer per env
-  plus one platform one. Naming (settled): `<env>-<app>` used EVERYWHERE on the wire —
-  one rule, no bare/qualified split to remember (only multi-network clients strictly
-  need it; Docker DNS unions bare-name matches across joined networks). Images stay
-  env-agnostic because peer names arrive via deployer-injected config, never
-  hardcoded — that invariant is what to protect. Swarm gives
-  most of this builtin (stack-per-env → `dev_qits-ci` + bare alias in-stack, VIP
-  cutover; daemon is already a swarm manager) but no L7 host routing — the reshape
-  cost is qits-deployments' docker-run/aliasHolders machinery → `service update`.
-  Section 3 (cut lines) open. The doc is a draft by declaration — iterate, don't
-  obey it.
+  in this repo. Section 1 (the lifecycle today: release → refs → build → deploy, the
+  bus, the self-hosting knot) is written. Section 2's current sketch (after three
+  superseded iterations, all recorded in the doc: platform plane gateway+idp, then
+  +observability + admission test, then per-env idps with an issuer hierarchy —
+  dropped as too many cans of worms; then per-env artifacts with a cache
+  hierarchy — dropped as bloat): **every env runs the same full stack;
+  "qits-platform" IS production; a platform service = an application deployed ONLY
+  into prod, its REPO named `qits-platform-<x>` and dialed by that name unprefixed
+  (singletons need no instance qualifier; env services are `<env>-qits-<app>`),
+  joined to every env's networks. Exactly
+  FIVE: qits-platform-edge + qits-platform-idp + qits-platform-artifacts +
+  qits-platform-docs (the docs reader follows its store: a per-env reader = three
+  front doors onto one store) + qits-platform-dns (one zone authority, names the
+  envs, host :53 — deployment stays out of the MVP).** The bar: per-env copies
+  cannot do the job (one port, one trust root, one zone authority) OR would
+  multiply heavy shared-by-nature state for no isolation gain (the store and its
+  views). The
+  edge routes UNIFORMLY by host name — apex qits.eu → prod-qits-gateway exactly
+  like `*.dev.$domain` → dev-qits-gateway (matches qits-dns's model); route table
+  = env list, knows no app names. Idp: ONE issuer for all envs; env isolation
+  lives in the TOKEN MODEL — env-qualified client ids + audiences (`dev-qits-ci`,
+  `aud=dev-qits-deployments`); `aud=platform-…` is the normal way envs reach
+  platform services (`aud=qits-platform-artifacts`); a dev secret cannot mint
+  prod-valid tokens. Accepted cost:
+  idp changes cannot be staged in an env — idp must stay maximally boring.
+  Artifacts (user decision, supersedes the earlier no-cut/hierarchy verdict):
+  ONE store, unsplit — git host, registries, proxy caches, blobs, docs for every
+  env; promotion collapses (built once, visible everywhere, "promote" = deploy
+  that sha); the GC becomes MULTI-DEPLOYMENTS AWARE — keep = UNION of every
+  env's pins (each env's deployments + ci, endpoints via injected config),
+  fail-closed across ALL sources (one dead env blocks GC platform-wide,
+  accepted); it is the one platform service that calls INTO envs (periodic,
+  read-only). Remaining prod role: BOOTSTRAP ORIGIN (CLI boots prod; prod
+  creates + first-deploys the other envs). Observability per-env; platform
+  services export to prod's sink. Naming (settled): qualified names EVERYWHERE
+  on the wire (`<env>-qits-<app>` / `qits-platform-<app>`); images stay
+  env-agnostic (peer names only via deployer-injected config — the invariant to
+  protect). Swarm fits (stack-per-env naming for env services, platform services
+  as plain swarm services under their repo names, VIP cutover; no L7 host
+  routing — edge stays; reshape cost: deployer's docker-run/aliasHolders →
+  `service update`). Envs (settled): three, fixed —
+  dev/preprod/prod; NOT epic-scoped (maybe later). Open: lifecycle re-wiring
+  around the one store (post-receive fan-out per ref → which env's ci; who owns
+  `main` builds; per-env bus vs one store), promotion remainder (where "release
+  to prod" runs; rebuild vs reuse across deploy refs), env-creation choreography
+  (idp grants, stack, DNS, connecting the platform services + GC pin
+  endpoints), prod's self-hosting knot (contained, not dissolved). Draft by
+  declaration — iterate, don't obey it.
+  **Implementation plan APPROVED in its decisions** (user, 2026-08-08):
+  `deployment-unification-plan.md` — 7 phases to a clean cold bootstrap in the
+  target shape, MVP = ONE env named **prod** (no second env). Decisions D1–D5:
+  D1 retire `platform/main` (deploy refs = `environment/<env>` only; platform =
+  qits-platform-* repo name + prod-only + all-nets flag; fixes the stale-plane
+  release bugs by reading refs from the repo's deployments spec). D2 the edge =
+  new repo `services/qits-platform-edge` — CREATED on GitHub 2026-08-08, verified:
+  has `main` + initial commit (submodule add works directly). D3 repo naming:
+  platform repos = `qits-platform-<x>`, env repos plain. **GitHub renames DONE
+  (user, 2026-08-08), VERIFIED via ls-remote**: platform-deployments→deployments,
+  platform-spa-deployments→spa-deployments (the `qits--spa-deployments` double
+  dash was a message typo, real name correct), artifacts→platform-artifacts,
+  idp→platform-idp, dns→platform-dns, spa-artifacts→platform-spa-artifacts;
+  docs + spa-docs were already right. Local wrapper-submodule renames = phase 4
+  (GitHub redirects cover old-name remotes meanwhile). Leftover: `platform/main`
+  branches still on GitHub for platform-artifacts/platform-idp/deployments —
+  delete in phase 3 (D1). D4 no swarm in this
+  plan. D5 GC ships UNCHANGED in the MVP (single pin-source pair, new URLs only);
+  the multi-deployments reshape is deferred with a HARD GATE: must land BEFORE
+  any second env exists (else that env's pins are invisible → over-deletion).
+  Phases: 1 config plumbing (hardcoded-peer audit, deployer naming scheme +
+  injected qualified names) → 2 the edge (gateway sheds :8080; browser pass incl.
+  websockets/SSE is the gate) → 3 refs/release flow → 4 renames → 5 bootstrap CLI
+  (default env `prod`, qualified idp clients/audiences) → 6 THE CLEAN BOOTSTRAP
+  (unwrap --with-volumes; 12 containers; verification checklist in the plan;
+  history resets) → 7 deferred (GC multi-pin GATE, second env, multi-env wiring,
+  swarm, dns).
 
 - **Epics overview on the project detail page** (2026-08-08). **Released and live**:
   qits-spa-projects 2026.808.105044, qits-projects 2026.808.110015; container on the
@@ -54,9 +130,17 @@ handover.md (the userflow plan) is folded in below and deleted.
     separate workstream.
   - Compare/commits view to replace the placeholders; epic-level implemented state for
     zero-feature epics (Epic has no implemented field, so those can only show "open").
-  - quarkus:dev in qits-projects reads LIVE platform data while writes 404 (mechanism
-    unknown) — local verification must use the packaged jar with
-    `-Dqits.startup-seed.enabled=false`.
+  - quarkus:dev in qits-projects transparently reads PRODUCTION: Quinoa's dev proxy
+    matches ignored-path-prefixes (`/api,/q,/mcp`) against the RAW path, so with
+    `ui-root-path=/projects` every GET under `/projects/api` misses the ignore list,
+    goes to the Quinoa-spawned `ng serve`, whose `proxy.conf.json` (wired via
+    angular.json) targets `localhost:8080` — the live gateway. Live 404s fall through
+    to local REST; non-GETs skip Quinoa — hence "reads live, writes 404" (writes only
+    saw the local DB, which lacks the live ids). Fix candidates: point webui
+    `proxy.conf.json` at the dev backend, or add the full-path forms to the ignore
+    list for the dev proxy (prod matches them ui-root-relative — both spellings would
+    be needed). Until fixed: verify with the packaged jar
+    (`-Dqits.startup-seed.enabled=false`).
 
 - **The platform runs on native docker-ce in the Fedora distro** (since 2026-08-08).
   Docker Desktop is uninstalled; the daemon is systemd-managed and a single-node swarm
