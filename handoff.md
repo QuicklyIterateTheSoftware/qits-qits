@@ -56,9 +56,30 @@ handover.md (the userflow plan) is folded in below and deleted.
     (16 of them), which **outranks** dnf's `/usr/libexec/docker/cli-plugins`. With Desktop
     gone their `/mnt/wsl` targets die and buildx SIGBUSes mid-build (exit 255, zero
     output). Swept; remember this dir when de-Desktop-ing any distro.
-  Still open: verify the bootstrap lands green, Windows logon task
-  (`wsl -d FedoraLinux-43 --exec true`) so the platform is up without opening a terminal,
-  uninstall Docker Desktop from Windows, then prove a full host reboot.
+  **COMPLETE AND VERIFIED (2026-08-08 late morning).** Bootstrap run 7 finished 46/46,
+  exit 0, no warnings: all 11 containers healthy and pipeline-deployed (no compose seeds
+  left), all nine gateway routes 200, Deployments SPA screenshotted through the new
+  gateway. Docker Desktop is fully uninstalled — the `docker-desktop` distro is
+  unregistered, so the old engine's disk (and every pre-migration image and volume) is
+  reclaimed; the deployer-config snapshot lives in the session scratchpad if anything is
+  ever missed. Autostart is an HKCU Run key `qits-wsl-fedora-autostart` running
+  `wsl.exe -d FedoraLinux-43 --exec true` (schtasks mangles the quoting from WSL; the Run
+  key doesn't). **Open: a real host-reboot proof** — everything says it will hold
+  (systemd-enabled dockerd, restart policies, Run key), but it has not been watched once.
+  Two more landmines from the tail of the work:
+  - **The bootstrap CLI's plane list had the gateway stale-on-environment** — the
+    2026-08-07 platform flip never reached `PlatformModel.PLATFORM_SERVICES`, so run 6
+    re-created the deleted `environment/dev` branch, built it green, and waited on a
+    deployment row the deployer rightly never writes (the built ref is not the gateway's
+    deploy ref). Fixed + tests (`1ed351e` in qits-cli-bootstrap), stray branch deleted
+    from the git host again.
+  - **dnf installs can flush WSL's Windows-interop binfmt** (`WSLInterop` vanished from
+    binfmt_misc mid-session; every `*.exe` then dies with "Exec format error"). Restore:
+    `echo ':WSLInterop:M::MZ::/init:PF' > /proc/sys/fs/binfmt_misc/register`; now
+    persisted in `/usr/lib/binfmt.d/WSLInterop.conf` so systemd-binfmt re-registers it
+    instead of dropping it.
+  Local commits not yet pushed: wrapper (handoff + shim fix) and qits-cli-bootstrap
+  (`415ca8a` leftover-registry fixes, `1ed351e` gateway plane).
 
 - **The platform plane is readable, and the gateway is on it** (2026-08-07, late). **Shipped and
   verified live** — eleven containers healthy, every gateway route 200, both planes screenshotted.
