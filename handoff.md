@@ -6,6 +6,58 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Deployment re-model brainstorm** (started 2026-08-08): `deployment-model-draft.md`
+  in this repo. User verdict: we made too many services platform services, and the
+  deploy model itself is wrong. Only qits-gateway NEEDS the platform plane; the
+  qits-artifacts proxy-cache is WANTED x-stage. Section 1 (the lifecycle: release →
+  refs → build → deploy, the bus, the self-hosting knot) is written. Section 2
+  draft-settled: an ADMISSION TEST for the plane (per-env copies cannot do the job:
+  one port / one trust root / observer outside the observed — "feels cross-cutting"
+  admits nothing), and platform plane = **qits-platform-gateway (NEW, thin: reads
+  $env off `$app.$env.$domain`, forwards to that env's gateway, route table = env
+  list) + qits-idp + qits-observability** (idp: one issuer for cross-plane calls,
+  federation out of scope, safe on all env nets because inbound-only; BUT needs
+  env-qualified client ids + audiences, else dev secrets mint prod-valid tokens.
+  observability: observer can't live inside the observed; inbound except the
+  upstream tee; accepted: shared bounded buffer = noisy-neighbor risk, wants
+  per-env quota; env-tagging free via `<env>-<app>` names). qits-gateway
+  becomes an ordinary env service again; everything else per-env; one deployer per env
+  plus one platform one. Naming (settled): `<env>-<app>` used EVERYWHERE on the wire —
+  one rule, no bare/qualified split to remember (only multi-network clients strictly
+  need it; Docker DNS unions bare-name matches across joined networks). Images stay
+  env-agnostic because peer names arrive via deployer-injected config, never
+  hardcoded — that invariant is what to protect. Swarm gives
+  most of this builtin (stack-per-env → `dev_qits-ci` + bare alias in-stack, VIP
+  cutover; daemon is already a swarm manager) but no L7 host routing — the reshape
+  cost is qits-deployments' docker-run/aliasHolders machinery → `service update`.
+  Section 3 (cut lines) open. The doc is a draft by declaration — iterate, don't
+  obey it.
+
+- **Epics overview on the project detail page** (2026-08-08). **Released and live**:
+  qits-spa-projects 2026.808.105044, qits-projects 2026.808.110015; container on the
+  release sha, deployment row ACTIVE, live page verified in the browser (empty state —
+  live has no epics yet). The releasing itself: the SPA release auto-triggered the
+  `maintenance/qits-spa-projects` follow-bump in qits-projects, so a manual webui
+  gitlink bump is redundant — reconcile onto the moved main and release only the code.
+  - Backend: immutable git-safe `slug` on Epic/Feature/Task — V2 migration (backfill +
+    per-scope dedupe), `Slugs.java`, DTOs, openapi. H2 note: `regexp_replace` takes no
+    `g` flag.
+  - SPA: read-only epic→feature→task tree on the project page — client-side fan-out,
+    status badges from `implementedOn`/`implementedAt`, compare links are muted
+    placeholders (no compare UI exists yet).
+  - **Branch naming convention adopted** (per-level prefixes, no path-prefix conflicts):
+    `epic/<epic>`, `feature/<epic>/<feature>`, `task/<epic>/<feature>/<task>`.
+    Documented in qits-projects AGENTS.md ("Branch naming").
+  **Open:**
+  - qits-workspaces CaptureService mints `feature/<timestamp>` capture branches that
+    collide directory-wise with the new feature branches — needs a new prefix,
+    separate workstream.
+  - Compare/commits view to replace the placeholders; epic-level implemented state for
+    zero-feature epics (Epic has no implemented field, so those can only show "open").
+  - quarkus:dev in qits-projects reads LIVE platform data while writes 404 (mechanism
+    unknown) — local verification must use the packaged jar with
+    `-Dqits.startup-seed.enabled=false`.
+
 - **The platform runs on native docker-ce in the Fedora distro** (since 2026-08-08).
   Docker Desktop is uninstalled; the daemon is systemd-managed and a single-node swarm
   manager (the deployer can target swarm services later without re-plumbing); containers
