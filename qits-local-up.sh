@@ -29,7 +29,12 @@ set -e
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 CLI="$ROOT/cli/qits-cli-bootstrap"
-RUNNER="$CLI/target/qits-cli-bootstrap-1.0.0-SNAPSHOT-runner"
+
+# The version in the runner's name is release-stamped, so the name is not fixed. Take the newest.
+resolve_runner() {
+  RUNNER=$(ls -t "$CLI"/target/qits-cli-bootstrap-*-runner 2>/dev/null | head -n 1)
+}
+resolve_runner
 
 [ -f "$CLI/pom.xml" ] || {
   echo "cli/qits-cli-bootstrap is not checked out — run: git submodule update --init" >&2
@@ -68,6 +73,8 @@ if build_wanted; then
   echo "compiling the CLI${JAVA_HOME:+ with $JAVA_HOME}"
   # No `clean`: it wipes the runner, and a failed build would then leave nothing to run.
   ( cd "$CLI" && ./mvnw -B -ntp package -Dnative -DskipTests )
+  resolve_runner
+  [ -x "$RUNNER" ] || { echo "the build finished but left no runner in $CLI/target" >&2; exit 2; }
 elif [ ! -x "$RUNNER" ]; then
   echo "no binary at $RUNNER and QITS_CLI_BUILD=never" >&2
   exit 2
