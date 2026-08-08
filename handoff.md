@@ -21,6 +21,15 @@ handover.md (the userflow plan) is folded in below and deleted.
     caught it.
   - Push the local commits: wrapper (handoff, shim fix) and qits-cli-bootstrap
     (`415ca8a`, `1ed351e`).
+  - **The release flow still thinks the gateway is an environment service**: releasing
+    qits-gateway (2026.808.94038) promoted `environment/dev` beside `platform/main`,
+    re-creating the deleted branch (deleted again by hand). Same stale-plane bug family
+    the bootstrap CLI had — qits-workspaces should read the plane from the repo's
+    deployments spec, not assume both branches.
+  - **The release flow pushes every promoted ref CI-hot**: one release queued four
+    overlapping runs of one sha (`main` ×2, `platform/main`, `environment/dev`) — the
+    image-tag collision the bootstrap avoids with `-o qits.no-ci` on the quiet refs. All
+    four happened to pass; the flow should push non-deploy refs quietly.
 
 - **The platform plane is readable, and the gateway is on it** (2026-08-07, late). **Shipped and
   verified live** — eleven containers healthy, every gateway route 200, both planes screenshotted.
