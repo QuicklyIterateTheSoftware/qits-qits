@@ -6,9 +6,39 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **DAY-END STATE 2026-08-08, all verified live**: the prod re-model is COMPLETE
+  (12 apps deployed under wire names, edge on :8080 proxying HTTP+SSE+WS —
+  browser-verified incl. the PTY terminal; bootstrap rerun converges green
+  45ok/3skip; telemetry flowing from 12 sources after the fleet roll).
+  Epic-refinement integrated + released (projects 2026.808.152415 via the train,
+  agent harness wire PROVEN: daemon HELLO, control socket, hook webhook).
+  Maven Central proxy released (2026.808.153400) and smoke-verified (immutable
+  cache + blob-store serve + 405 on PUT). health_cmd released (2026.808.155533)
+  and postgres PoC deployed on it (2026.808.160429, pg_isready gate, ACTIVE,
+  reachable prod-qits-oci-postgresql:5432).
+  **OPEN, awaiting user decision:** the agent's self-clone needs the
+  name-addressed git scheme (/artifacts/git/<projectId>/<repo>) —
+  qits-platform-artifacts' RepositoryNameResolver port has NO production impl;
+  proposed: qits-projects publishes a name-resolution route + artifacts
+  implements the port as an outbound optional HTTP port. Blocks the terminal
+  e2e; agent container runs connected with an empty /workspace.
+  **In flight:** GC pin-URL fix (run-args) + qits-spa-ci repositoryLabel fix
+  (url→name after the DTO migration) — agent running, releases via the flow.
+  **Follow-ups recorded:** UUID repoIds remain on workspace-daemon,
+  repositories, platform-dns, cli-bootstrap + the wrapper (fix recipe in
+  memory: bare-name repo first, DELETE rewrites the wrapper — revert needed);
+  qits/workspace:latest builds ONLY from the retired monolith checkout
+  (~/code/qits-backend-devel, --target workspace) — needs a home;
+  project↔environment link unset in the deployments UI (env `prod` vs project
+  slug `qits`, the stale name-join convention); repository backups all
+  AUTH_REQUIRED (nobody signed in since the volume wipe); vertx-http-proxy
+  breaks on h2c inbound (edge + workspaces proxy family); CaptureService's
+  feature/<timestamp> branches collide with feature/<epic>/<feature>;
+  services/qits-workspaces webui checkout 13 behind origin.
+
 - **Deployable images (new concept)** (started 2026-08-08): docker images as
   deployable services — first case `images/qits-oci-postgresql`
-  (GitHub repo created by the user, submodule added: wrapper `aa271d4`, unpushed).
+  (SHIPPED: see day-end state above; design record follows).
   A repo holds a Dockerfile (FROM postgres:18.4) + `.config/qits`, and rides the
   NORMAL lifecycle: SCM release → CI image build → SoftwareRelease → the env's
   qits-deployments deploys it. PoC scope = behave like any Quarkus service
