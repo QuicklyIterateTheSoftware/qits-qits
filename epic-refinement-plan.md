@@ -143,14 +143,22 @@ reachability once instead of N failures.
 - Each phase releases through the workspaces release endpoint; SPA ships via the
   automated maintenance follow-bump (do NOT hand-bump the webui gitlink).
 
-## 5. Open decisions (flag before the affected phase)
+## 5. Decisions (user, 2026-08-08)
 
-1. DONE transition: manual button now, git-derived later — confirm.
-2. Superseding copies the old draft into the successor — confirm, or start blank.
-3. Agent runtime image toolchain: what the refinement agent needs beyond git +
-   claude CLI (node? maven? — the wrapper repo is submodules, likely git alone).
-4. One container per project is idle most of the time — stop policy (idle
-   timeout? explicit stop verb like workspaces?).
-5. The known daemon-socket auth gap (`/…/daemon/{id}` is token-free, anything on
-   qits-net can claim it) is inherited from workspaces — accept for now, fix
-   both together later (qits-idp direction, per the no-interim-tokens rule).
+1. **DONE is derived, not stored.** Stored statuses are `REFINING`,
+   `IMPLEMENTATION`, `SUPERSEDED`, `ABANDONED`. "Done" is an `IMPLEMENTATION`
+   epic with ≥1 feature and every feature's `implementedOn` set — the same
+   derivation the SPA's `epicStatus` already does. No transition, no button.
+2. **Superseding copies the full old scope** into the successor draft: new epic
+   in `REFINING` with copied title/description/features/tasks (fresh ids, same
+   slugs — legal, new scope; `dependsOn*` remapped to the new ids; implemented
+   markers reset to null).
+3. **Agent image = full workspace toolchain**, layered exactly like the
+   workspace image (`ARG BASE`/`ARG DAEMON_IMAGE` pattern), so the agent can
+   build/test components during refinement.
+4. **Stop policy: idle timeout + explicit stop verb.** Registry stops containers
+   after a configurable idle window (no agent activity); the UI gets Stop like
+   workspaces; restart is lossless (`docker start` in place).
+5. The daemon-socket auth gap (`/…/daemon/{id}` token-free on qits-net) is
+   inherited from workspaces — accepted for now, fixed together with workspaces
+   when qits-idp machine auth lands (no interim tokens).
