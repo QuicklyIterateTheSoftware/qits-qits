@@ -38,23 +38,36 @@ handover.md (the userflow plan) is folded in below and deleted.
   container name and recorded idp secret key. The old `List.of("qits","dev")`
   rename is gone with it.
 
-  Shipped: qits-spa-deployments `2026.809.65926`; qits-deployments
-  `2026.809.70001` — **V2 migrated on the live database and the backfill
-  designated prod**, `GET /platform-deployments/api/environments` answers
-  `"platform": true`, self-update handoff clean (`ce2509a6` ACTIVE, predecessor
-  decommissioned); qits-workspaces `2026.809.70426`, building.
+  **SHIPPED AND PROVEN LIVE.** qits-spa-deployments `2026.809.65926`;
+  qits-deployments `2026.809.70001` — V2 migrated on the live database and the
+  backfill designated prod, self-update handoff clean; qits-workspaces
+  `2026.809.70822`, which boots logging `Releases land on environment/prod`;
+  qits-platform-docs `2026.809.71259`.
 
-  **Still to do:** verify a platform-repo release promotes under the NEW
-  workspaces with no `deploy_branches` anywhere (qits-platform-docs is the
-  cheapest, and it carries a spec-only commit locally that would ride along).
-  The remaining spec-only commits are inert — nothing reads the key once
-  workspaces is live — so they ride with each repo's next ordinary release and do
-  NOT need eleven releases of their own. They sit on each submodule's local
-  `main`, unpushed. qits-cli-bootstrap is committed locally and unpushed, and
-  **`--platform-env` has had no real bootstrap**: `clean verify` and the rendered
-  help are all that is claimed, and that repo's AGENTS.md says a real bootstrap is
-  the only test its phases get. The refuse-on-conflict branch in particular is
-  unproven end to end.
+  That last one is the end-to-end proof and it exercises both halves at once. A
+  PLATFORM service, released with **no `deploy_branches` anywhere** — promoted
+  onto `environment/prod` from qits-workspaces' config alone — and deployed only
+  because prod carries the new flag. It landed platform-shaped: ACTIVE at
+  `9e95ac60` with no environment id, container
+  `qits-pd-qits-platform-docs-30ffe1d9`. The deployments SPA shows `platform` on
+  the prod card and `deployed from environment/prod` on the platform bucket.
+
+  **A landmine was hit and is now in memory:** `git add -A` in a repo with an
+  `ignore = all` submodule stages a moved gitlink **without showing it**, and
+  `git diff-tree`/`git show` are suppressed too. It rewound qits-workspaces'
+  webui gitlink to a commit whose lockfile pinned a dropped ui-components
+  version; the `environment/prod` build died on npm E404 and needed a second
+  release (`70426` is the burned stamp, `70822` the good one). Stage explicit
+  paths; read a gitlink with `git ls-tree <commit> <path>`.
+
+  **Still open:** the 11 remaining spec-only commits sit on each submodule's
+  local `main`, unpushed. They are inert — nothing reads `deploy_branches` any
+  more — so they ride with each repo's next ordinary release rather than costing
+  eleven builds. qits-cli-bootstrap is committed locally and unpushed, and
+  **`--platform-env` has had no real bootstrap**: `clean verify` (102 tests) and
+  the rendered help are all that is claimed, and that repo's AGENTS.md says a real
+  bootstrap is the only test its phases get. The refuse-on-conflict branch in
+  particular is unproven end to end.
 
   **Not in scope, and deliberately:** moving the platform plane between tiers on
   a live platform. The column and the PATCH exist; the undeploy/redeploy does not.
