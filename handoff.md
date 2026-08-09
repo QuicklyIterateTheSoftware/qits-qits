@@ -6,6 +6,49 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Deployment status observer LANDED in qits-deployments** (`6846614`,
+  2026-08-09; full `clean verify -DskipITs=false` green, 188+9). Periodic pass
+  on the deploy worker (bare `pd-observation-ticker`, 30s, collapses stacked
+  ticks): latest row per (app, tier) checked against its own container;
+  FAILED-but-healthy recovers to ACTIVE (detail appends, old failure kept —
+  and the recovery decommissions stale prior ACTIVE rows, keeping the
+  one-ACTIVE invariant), ACTIVE demotes to FAILED only on absent/exited over
+  two consecutive passes; restarting and running-unhealthy are patience.
+  Writes rows only, DbRetry-wrapped. NOT yet shipped — the live eaa34fbc
+  FAILED row self-corrects on the observer's first pass once qits-deployments
+  is released/re-bootstrapped.
+
+- **`QITS_DOMAIN`: Let's Encrypt on the edge, qits-platform-dns becomes a core
+  service** (2026-08-09, three Opus agents implementing; plan in
+  `qits-domain-letsencrypt-plan.md`). Package A LANDED (edge `7afa9e4`): build-time
+  `quarkus.tls.lets-encrypt.enabled` + management interface on 9000, with
+  `quarkus.smallrye-health.management.enabled=false` so `/q/health` stays on
+  :8080. Measured: challenge endpoint 503s keystore-less ("No keystore
+  configured"), management routes are `/q/lets-encrypt/{challenge,certs}`, and
+  the proxy catch-all provably cannot land on the management router (it is a
+  `ManagementInterface` event, not a `Router` observer) — no open proxy on
+  9000. Package B LANDED (dns `22613aa`):
+  quarkus-smallrye-health + `health_path: /dns/q/health/ready`; measured
+  readiness carries the agroal datasource check, liveness is an empty check
+  list, `/q/health/ready` 404s (pinned). Package C LANDED (bootstrap `090199d`): dns is
+  a core platform service (seed image, compose, deploy, run-args, health poll
+  at `/dns/q/health/ready`; new `QITS_DNS_PORT`, default 53, UDP+TCP), and the
+  new optional `QITS_DOMAIN` gates: dns NS/hostmaster env, idempotent zone
+  POST, edge TLS run-args (80/443/9000-loopback, `qits-edge-letsencrypt`
+  volume — survives `unwrap --with-data-volumes`, pinned — acme PEM keystore
+  env, reload-period), self-signed placeholder cert seeding (alpine/git +
+  `apk add openssl`; alpine/git carries no openssl, measured), and a
+  closing-report staging issuance command. Unset domain = today's rendering
+  plus only the dns additions. Cert issuance stays a host-side `quarkus tls
+  lets-encrypt` CLI step against ACME **staging** for now.
+
+  **THIS HOST cannot bind 53** (systemd-resolved + WSL stub; measured
+  `address already in use`, which fails the whole seed stack at compose up) —
+  `QITS_DNS_PORT=5353` is now in `cli/qits-cli-bootstrap/.env`. The dns repo
+  still lacks a `.config/qits/ci-post-receive.yml`, so its first deploy takes
+  the "no pipeline config" overlay path (warn + bootstrap commit) — worth
+  giving it one later. NOT yet proven by a real bootstrap run.
+
 - **The bootstrap runs in a container, and a bare box boots from a pipe**
   (2026-08-09, MERGED to both mains and pushed to GitHub; NOT yet proven by a
   real bootstrap). qits-cli-bootstrap `748eb29`, wrapper `b68e4cd`.
