@@ -6,6 +6,59 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Configurable platform environment (`--platform-env`)** (2026-08-09, IN
+  FLIGHT): plan in `~/.claude/plans/we-currently-have-the-structured-snail.md`.
+  Three things landed together.
+
+  **`pd_environment.platform`** (qits-deployments V2, backfilled onto the one
+  existing row). `DeployService.registerPlatform` now asks whether the *platform*
+  environment listens to the built branch, not whether *any* environment does.
+  That closes the hazard qits-deployments' own AGENTS.md recorded as gating
+  environment #2: under the old gate any tier's branch rolled the single platform
+  instance, which was never a fan-out — it was tiers taking turns overwriting one
+  container. Designation MOVES (clears the old holder, sets the new one, one
+  transaction) because H2 has no partial unique index; clearing it is a 409 and so
+  is deleting its holder. **A second environment is an ordinary thing to create
+  now.**
+
+  **`deploy_branches` is retired.** It was a per-repository list read only by
+  qits-workspaces' release flow, which pushed the released sha onto *every* entry
+  — a fan-out, not a ladder, and three tiers listed would have shipped into all
+  three at once. Every one of the thirteen copies named the same ref anyway.
+  Replaced by `qits.workspaces.release.entry-branch` (one branch, from config, set
+  by the bootstrap's run-args). What a repository still decides is *whether* it
+  deploys, by carrying `.config/qits/deployments.yml` at all;
+  `DeploymentSpecReader` is a five-line `isRegularFile` check now. The deployer's
+  strict parser still TOLERATES the key and must keep doing so — a spec is fetched
+  at the built sha, so rollback pins and older commits still present it.
+
+  **`qits bootstrap --platform-env <name>`.** Names the standing environment,
+  which is also the platform one. Bootstrapping over a platform whose environment
+  has another name is REFUSED, not renamed: the name is inside every wire alias,
+  container name and recorded idp secret key. The old `List.of("qits","dev")`
+  rename is gone with it.
+
+  Shipped: qits-spa-deployments `2026.809.65926`; qits-deployments
+  `2026.809.70001` — **V2 migrated on the live database and the backfill
+  designated prod**, `GET /platform-deployments/api/environments` answers
+  `"platform": true`, self-update handoff clean (`ce2509a6` ACTIVE, predecessor
+  decommissioned); qits-workspaces `2026.809.70426`, building.
+
+  **Still to do:** verify a platform-repo release promotes under the NEW
+  workspaces with no `deploy_branches` anywhere (qits-platform-docs is the
+  cheapest, and it carries a spec-only commit locally that would ride along).
+  The remaining spec-only commits are inert — nothing reads the key once
+  workspaces is live — so they ride with each repo's next ordinary release and do
+  NOT need eleven releases of their own. They sit on each submodule's local
+  `main`, unpushed. qits-cli-bootstrap is committed locally and unpushed, and
+  **`--platform-env` has had no real bootstrap**: `clean verify` and the rendered
+  help are all that is claimed, and that repo's AGENTS.md says a real bootstrap is
+  the only test its phases get. The refuse-on-conflict branch in particular is
+  unproven end to end.
+
+  **Not in scope, and deliberately:** moving the platform plane between tiers on
+  a live platform. The column and the PATCH exist; the undeploy/redeploy does not.
+
 - **Epic refining workspace (Refine button + refining page)** (2026-08-08, late
   evening, IN PROGRESS): plan + decisions in `epic-refining-workspace-plan.md`.
   A REFINING epic gets a third action **Refine** (ordered before Start
