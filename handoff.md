@@ -6,6 +6,21 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **UUID repository ids FIXED at the root in qits-projects** (`d795bdc`,
+  released as 2026.809.194051 / `e5476e0`, 2026-08-09). Every creation path
+  (`cloneOne`, `initWrapperOrigin`, `createBlankRepository`, the reconcile's
+  clone branch) now keys the row by its addressable name — entry name,
+  `<slug>-<slug>` for wrappers, url basename for plain clones — via
+  `requireCreatableId`; invalid or taken name is a hard 400, no UUID fallback
+  anywhere. Adoption unchanged; a retried clone re-adopts instead of orphaning.
+  Derived project slugs capped at 31 chars so `<slug>-<slug>` fits the id
+  shape. Full `./mvnw verify` green (new `PlatformStateReset` per-method state
+  wipe because ids are deterministic now). **Existing envs keep their six UUID
+  rows** (wrapper `b21f6d39…`, workspace-daemon, repositories, platform-dns,
+  cli-bootstrap, projects-daemon) — reconcile matches them by alias, so they
+  are stable; only a fresh seed or the manual repair recipe renames them. Next
+  fresh seed should come out UUID-free; verify that.
+
 - **Deployment status observer LANDED in qits-deployments** (`6846614`,
   2026-08-09; full `clean verify -DskipITs=false` green, 188+9). Periodic pass
   on the deploy worker (bare `pd-observation-ticker`, 30s, collapses stacked
@@ -14,9 +29,15 @@ handover.md (the userflow plan) is folded in below and deleted.
   and the recovery decommissions stale prior ACTIVE rows, keeping the
   one-ACTIVE invariant), ACTIVE demotes to FAILED only on absent/exited over
   two consecutive passes; restarting and running-unhealthy are patience.
-  Writes rows only, DbRetry-wrapped. NOT yet shipped — the live eaa34fbc
-  FAILED row self-corrects on the observer's first pass once qits-deployments
-  is released/re-bootstrapped.
+  Writes rows only, DbRetry-wrapped. SHIPPED as release 2026.809.193248
+  (env branch, deployer self-updated to `4184d93`) — and PROVEN live: the
+  eaa34fbc row flipped to ACTIVE on the observer's first pass at 19:35:56,
+  recovery stamp prepended, original JDBC failure preserved. The edge shipped
+  too: release 2026.809.194017 (`cf1adc7`), cut over healthy, management
+  interface listening on 9000 (unpublished), TLS slot dormant. dns and
+  cli-bootstrap have NO platform repo yet (git host 404s) — dns arrives with
+  the next bootstrap run; both are backed up on GitHub main along with the
+  released repos and the wrapper.
 
 - **`QITS_DOMAIN`: Let's Encrypt on the edge, qits-platform-dns becomes a core
   service** (2026-08-09, three Opus agents implementing; plan in
