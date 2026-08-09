@@ -6,6 +6,37 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **The bootstrap runs in a container, and a bare box boots from a pipe**
+  (2026-08-09, MERGED to both mains and pushed to GitHub; NOT yet proven by a
+  real bootstrap). qits-cli-bootstrap `748eb29`, wrapper `b68e4cd`.
+
+  The CLI ran on the host and dialled published ports. It now builds a payload
+  image of itself, runs inside it on `qits-net`, and dials **wire aliases**.
+  `InNetworkHttp` is gone with it — the throwaway curl container per HTTP call
+  existed only to reach services with no host port.
+
+  **The payload is the static musl native binary.** Two hard reasons, both
+  measured: a glibc-linked binary does not execute on alpine at all, and a
+  *static glibc* one cannot resolve DNS (NSS is dlopen-based) — which the wire
+  aliases need. musl-static does both. The pattern is qits-ci-daemon's
+  `Dockerfile.musl-builder`, vendored rather than shared. Image 600 MB → 350 MB.
+  **There is no jar in that repository any more, in any form** — three pom
+  changes were needed, because `quarkus.package.jar.enabled=false` alone fails
+  the JVM build with `No artifact results were produced`.
+
+  **`curl … | bash` is the point.** An absent wrapper is now cloned from GitHub
+  (the platform git host is what the bootstrap is *creating*, so it cannot be the
+  source). Submodules are deliberately NOT initialised: `sources()` clones each
+  component from the org anyway. A bare wrapper clone leaves an **empty directory
+  at every one of the 29 gitlinks**, which tripped the "exists and is not a
+  checkout → stop" guard; an empty directory now counts as absent.
+
+  Open: **the TUI has never run under a real TTY** (no agent or session here has
+  one, so only `PlainUi` is proven), and **no real bootstrap has been run**. The
+  cold path's `docker build` from the public git URL is proven; the cold run has
+  no browser view (publishing it would mean reimplementing `BootstrapConfig` in
+  shell) and logs in UTC.
+
 - **Configurable platform environment (`--platform-env`)** (2026-08-09, IN
   FLIGHT): plan in `~/.claude/plans/we-currently-have-the-structured-snail.md`.
   Three things landed together.
