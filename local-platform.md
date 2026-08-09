@@ -15,7 +15,7 @@ Two sets to keep straight:
 | set | members | managed by | updated by |
 |---|---|---|---|
 | **deployer-managed** | all eleven: observability, idp, stt, projects, workspaces, events, platform-docs, gateway, artifacts, ci, **and qits-platform-deployments itself** | qits-platform-deployments — sha-addressed registry images, `qits-pd-` container names | a git push |
-| **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, the deployer's run-args file (the `qits-platform-deployments-config` volume — the git host's push token among them) | the bootstrap | a bootstrap rerun |
+| **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, the deployer's run-args file (the `qits-platform-deployments-config` volume — the git host's push token among them), and the seed postgres with its `qits_deployments` role and database | the bootstrap | a bootstrap rerun |
 
 The deployer-managed set has two shapes, and each repo's `.config/qits/deployments.yml` says which
 it is:
@@ -72,8 +72,17 @@ runs the binary, which shells the host's docker and git. Nothing needs the socke
 shows what it is doing on the terminal and at `http://localhost:8480` in a browser.
 `./qits-local-up.sh unwrap` takes the platform off the machine again.
 
-It writes `docker-compose.qits.yml` and `.qits-bootstrap.env` (the pinned ci-daemon digest) back
-into this directory. Both are generated, machine-specific state and gitignored.
+It writes `docker-compose.qits.yml` and `.qits-bootstrap.env` back into this directory. Both are
+generated, machine-specific state and gitignored. The env file is the credential continuity: the
+pinned ci-daemon digest, the idp client secrets, and the postgres passwords
+(`PG_SUPERUSER_PASSWORD`, `PG_DEPLOYMENTS_PASSWORD`) — lose it with a surviving postgres volume
+and the superuser is locked out, because `POSTGRES_PASSWORD` only applies when the data dir is
+first created.
+
+The bootstrap starts postgres before the deployer and provisions the deployer's own role and
+database over JDBC from the host, through `127.0.0.1:5433` (`QITS_PG_PORT`). Every later
+database is created by the deployer itself: a repo declares `resources: postgresql:db` in its
+`deployments.yml`, and provisioning runs before its container starts.
 
 Every knob, mode and flag is the CLI's: see [cli/qits-cli-bootstrap/README.md](cli/qits-cli-bootstrap/README.md).
 
@@ -215,9 +224,14 @@ the bootstrap carries it too.
 
 ## Teardown
 
-    ./qits-local-up.sh unwrap --dry-run      # what would go
-    ./qits-local-up.sh unwrap                # containers, networks and images; volumes stay
-    ./qits-local-up.sh unwrap --with-volumes # ALL local state: dbs, registry blobs, git origins
+    ./qits-local-up.sh unwrap --dry-run           # what would go
+    ./qits-local-up.sh unwrap                     # containers, networks and images; volumes stay
+    ./qits-local-up.sh unwrap --with-data-volumes # also the qits-*-data volumes (dbs, registry blobs, git origins); config volumes stay
+    ./qits-local-up.sh unwrap --with-volumes      # ALL local state, the config volumes included
+
+`--with-data-volumes` is the reset that keeps identity: the run-args config volume (push token,
+client secrets) and `.qits-bootstrap.env` survive, so the next bootstrap reuses every recorded
+credential instead of minting new ones.
 
 `unwrap` sweeps both label namespaces — `qits.platform.deployments.*` and the retired
 `qits.cd.*` — so it also cleans a machine last bootstrapped before the merge-back.
