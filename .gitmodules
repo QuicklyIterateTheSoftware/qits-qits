@@ -190,6 +190,12 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-oci-workspace"]
+	path = images/qits-oci-workspace
+	url = ../qits-oci-workspace.git
+	ignore = all
+	branch = main
+	update = merge
 [submodule "qits-oci-postgresql"]
 	path = images/qits-oci-postgresql
 	url = ../qits-oci-postgresql.git
