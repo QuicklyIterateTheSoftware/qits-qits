@@ -16,12 +16,6 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-workspace-daemon"]
-	path = daemons/qits-workspace-daemon
-	url = ../qits-workspace-daemon.git
-	ignore = all
-	branch = main
-	update = merge
 [submodule "qits-userflows"]
 	path = libs/qits-userflows
 	url = ../qits-userflows.git
