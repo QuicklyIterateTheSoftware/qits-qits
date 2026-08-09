@@ -9,6 +9,11 @@ the code is written like one.
 
 Using this approach will most likely not work with brownfield projects.
 
+Set `QITS_DOMAIN` at bootstrap to serve a real domain: qits-platform-dns
+becomes its authoritative nameserver and the edge gets HTTPS with a Let's
+Encrypt certificate slot. See the qits-cli-bootstrap README for the knobs
+and the issuance step.
+
 ## Branching model
 
 Deploy branches come in two archetypes:
