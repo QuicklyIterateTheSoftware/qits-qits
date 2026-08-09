@@ -6,6 +6,203 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **The bootstrap runs in a container, and a bare box boots from a pipe**
+  (2026-08-09, MERGED to both mains and pushed to GitHub; NOT yet proven by a
+  real bootstrap). qits-cli-bootstrap `748eb29`, wrapper `b68e4cd`.
+
+  The CLI ran on the host and dialled published ports. It now builds a payload
+  image of itself, runs inside it on `qits-net`, and dials **wire aliases**.
+  `InNetworkHttp` is gone with it — the throwaway curl container per HTTP call
+  existed only to reach services with no host port.
+
+  **The payload is the static musl native binary.** Two hard reasons, both
+  measured: a glibc-linked binary does not execute on alpine at all, and a
+  *static glibc* one cannot resolve DNS (NSS is dlopen-based) — which the wire
+  aliases need. musl-static does both. The pattern is qits-ci-daemon's
+  `Dockerfile.musl-builder`, vendored rather than shared. Image 600 MB → 350 MB.
+  **There is no jar in that repository any more, in any form** — three pom
+  changes were needed, because `quarkus.package.jar.enabled=false` alone fails
+  the JVM build with `No artifact results were produced`.
+
+  **`curl … | bash` is the point.** An absent wrapper is now cloned from GitHub
+  (the platform git host is what the bootstrap is *creating*, so it cannot be the
+  source). Submodules are deliberately NOT initialised: `sources()` clones each
+  component from the org anyway. A bare wrapper clone leaves an **empty directory
+  at every one of the 29 gitlinks**, which tripped the "exists and is not a
+  checkout → stop" guard; an empty directory now counts as absent.
+
+  Open: **the TUI has never run under a real TTY** (no agent or session here has
+  one, so only `PlainUi` is proven), and **no real bootstrap has been run**. The
+  cold path's `docker build` from the public git URL is proven; the cold run has
+  no browser view (publishing it would mean reimplementing `BootstrapConfig` in
+  shell) and logs in UTC.
+
+- **Configurable platform environment (`--platform-env`)** (2026-08-09, IN
+  FLIGHT): plan in `~/.claude/plans/we-currently-have-the-structured-snail.md`.
+  Three things landed together.
+
+  **`pd_environment.platform`** (qits-deployments V2, backfilled onto the one
+  existing row). `DeployService.registerPlatform` now asks whether the *platform*
+  environment listens to the built branch, not whether *any* environment does.
+  That closes the hazard qits-deployments' own AGENTS.md recorded as gating
+  environment #2: under the old gate any tier's branch rolled the single platform
+  instance, which was never a fan-out — it was tiers taking turns overwriting one
+  container. Designation MOVES (clears the old holder, sets the new one, one
+  transaction) because H2 has no partial unique index; clearing it is a 409 and so
+  is deleting its holder. **A second environment is an ordinary thing to create
+  now.**
+
+  **`deploy_branches` is retired.** It was a per-repository list read only by
+  qits-workspaces' release flow, which pushed the released sha onto *every* entry
+  — a fan-out, not a ladder, and three tiers listed would have shipped into all
+  three at once. Every one of the thirteen copies named the same ref anyway.
+  Replaced by `qits.workspaces.release.entry-branch` (one branch, from config, set
+  by the bootstrap's run-args). What a repository still decides is *whether* it
+  deploys, by carrying `.config/qits/deployments.yml` at all;
+  `DeploymentSpecReader` is a five-line `isRegularFile` check now. The deployer's
+  strict parser still TOLERATES the key and must keep doing so — a spec is fetched
+  at the built sha, so rollback pins and older commits still present it.
+
+  **`qits bootstrap --platform-env <name>`.** Names the standing environment,
+  which is also the platform one. Bootstrapping over a platform whose environment
+  has another name is REFUSED, not renamed: the name is inside every wire alias,
+  container name and recorded idp secret key. The old `List.of("qits","dev")`
+  rename is gone with it.
+
+  **SHIPPED AND PROVEN LIVE.** qits-spa-deployments `2026.809.65926`;
+  qits-deployments `2026.809.70001` — V2 migrated on the live database and the
+  backfill designated prod, self-update handoff clean; qits-workspaces
+  `2026.809.70822`, which boots logging `Releases land on environment/prod`;
+  qits-platform-docs `2026.809.71259`.
+
+  That last one is the end-to-end proof and it exercises both halves at once. A
+  PLATFORM service, released with **no `deploy_branches` anywhere** — promoted
+  onto `environment/prod` from qits-workspaces' config alone — and deployed only
+  because prod carries the new flag. It landed platform-shaped: ACTIVE at
+  `9e95ac60` with no environment id, container
+  `qits-pd-qits-platform-docs-30ffe1d9`. The deployments SPA shows `platform` on
+  the prod card and `deployed from environment/prod` on the platform bucket.
+
+  **A landmine was hit and is now in memory:** `git add -A` in a repo with an
+  `ignore = all` submodule stages a moved gitlink **without showing it**, and
+  `git diff-tree`/`git show` are suppressed too. It rewound qits-workspaces'
+  webui gitlink to a commit whose lockfile pinned a dropped ui-components
+  version; the `environment/prod` build died on npm E404 and needed a second
+  release (`70426` is the burned stamp, `70822` the good one). Stage explicit
+  paths; read a gitlink with `git ls-tree <commit> <path>`.
+
+  **Still open:** the 11 remaining spec-only commits sit on each submodule's
+  local `main`, unpushed. They are inert — nothing reads `deploy_branches` any
+  more — so they ride with each repo's next ordinary release rather than costing
+  eleven builds. qits-cli-bootstrap is committed locally and unpushed, and
+  **`--platform-env` has had no real bootstrap**: `clean verify` (102 tests) and
+  the rendered help are all that is claimed, and that repo's AGENTS.md says a real
+  bootstrap is the only test its phases get. The refuse-on-conflict branch in
+  particular is unproven end to end.
+
+  **Not in scope, and deliberately:** moving the platform plane between tiers on
+  a live platform. The column and the PATCH exist; the undeploy/redeploy does not.
+
+- **Epic refining workspace (Refine button + refining page)** (2026-08-08, late
+  evening, IN PROGRESS): plan + decisions in `epic-refining-workspace-plan.md`.
+  A REFINING epic gets a third action **Refine** (ordered before Start
+  implementation | Abandon) that starts a REAL qits-workspaces workspace on the
+  project wrapper repo, branch `refining/<epic-slug>` (new convention, fresh
+  top-level prefix — no conflict with epic/feature/task), then opens
+  `:projectId/epics/:epicSlug/refining` — a copy of the Workspace Detail UI
+  into qits-spa-projects. Zero backend change: `POST /workspaces/api/workspaces`
+  already creates the branch itself (git-host push, post-receive fires), the
+  browser is the integrator (STT precedent), which keeps the service arrow
+  one-way. The refining workspace is LOOKED UP by rule (active workspace on
+  `refining/<slug>` in the wrapper repo), never stored. Phases: A plumbing +
+  Refine flow + shell/tabs/status-strip (running), B terminal/chat/STT,
+  C files/web-view/services/actions, then browser e2e via ng serve + proxy.
+  Note: today's Workspace Detail has NO sketch canvas (removed by design;
+  paste + prompt attachments cover it) — "mirror as of today" = no canvas.
+  ALL THREE PHASES LANDED on qits-spa-projects main (5c4b8ba, 866be52,
+  1529710 — local, not pushed): 704 tests green, prod build clean (bundle
+  warning raised to 650 kB for the copied panels). Browser e2e (ng serve
+  :4300 + proxy → live gateway): Refine click on the live epic
+  give-the-platform-a-status-page CREATED branch
+  `refining/give-the-platform-a-status-page` on the wrapper (git host
+  verified, at main's tip) + workspace row 1 (ACTIVE, preamble = rendered
+  epic outline) and navigated to the refining page — header, status strip,
+  all six tabs render.
+  **Platform gap found by the e2e (not a UI bug): the daemon-layered
+  workspace image was lost in today's unwrap.** `qits.workspace.image`
+  defaults to `qits/workspace:latest`, but today's monolith rebuild of that
+  tag is the PRE-DAEMON toolchain base (no qits-workspace-daemon binary, no
+  entrypoint) — so ensure-container fails with "no workspace-daemon dialed
+  home within 30000ms" and the container is rm'd. Recovery per
+  qits-workspace-daemon docker/Dockerfile.workspace: build
+  qits/workspace-daemon:latest (native), layer onto the base, retag as
+  qits/workspace:latest (old base preserved as qits/workspace-base:latest).
+  **Rebuild DONE and e2e PASSED (2026-08-08 ~21:06)**: daemon image
+  qits/workspace-daemon:latest built native, layered, retagged; Start on the
+  refining page → daemon dialed home instantly, self-clone materialized ALL
+  34 submodules on branch refining/give-the-platform-a-status-page
+  (container qits-ws-refining-give-the-platform-a-status-page-76f9b6a4),
+  working tree clean. Status strip live (running / connected / clean /
+  active), Files tab renders the real wrapper tree, Agents tab renders a
+  LIVE Claude Code TUI through the copied terminal (shared /claude-home
+  credential works in workspace containers too), Chat tab shows the
+  dictation + prompt surface (STT route answers through the gateway; a real
+  mic take was not driven — headless browser). Zero console errors/warnings.
+  Screenshots delivered in-session. The live refining workspace (row 1) and
+  its container were LEFT RUNNING for the user to try; ng serve is still on
+  :4300 with the proxy at the live gateway.
+  **RELEASED AND LIVE (2026-08-08 ~21:15)**: qits-spa-projects
+  `2026.808.190906` cut through the branches/release endpoint (branch
+  `refining-workspace-ui`, quiet push, flow stamped + deleted it); the
+  spa-projects train did the rest itself — maintenance bump `8da096c0`
+  green, qits-projects release `55dad56c` built on environment/prod,
+  container rolled (`qits-pd-prod-qits-projects-fabe2c06` on the release
+  sha). Verified in the browser THROUGH THE GATEWAY on :8080: refining page
+  serves live, attached to the same running agent session, zero console
+  errors. GitHub backup carried the release commit automatically (the
+  AUTH_REQUIRED era appears over — `git pull` from GitHub fast-forwarded
+  onto the stamp).
+  **Markdown fix (user-reported, same evening)**: epic/feature/task
+  descriptions rendered raw on the draft card, epic card and refining
+  header. Fixed in qits-spa-projects `19efa89` → released
+  `2026.808.193937` (403155b): hand-rolled `renderMarkdown` in
+  src/app/ui/markdown.ts (NO npm dep — the ansi-screen precedent; all
+  source text HTML-escaped, hostile schemes refused, 46 renderer specs) +
+  `app-markdown` binding [innerHTML] with no sanitizer bypass, so Angular's
+  sanitizer stays as the second net. 757 tests green. Browser-verified on
+  both surfaces before release. Note for the next person: a stale Vite HMR
+  error overlay (NG1002) can outlive the broken intermediate state that
+  caused it — check the ng-serve log's LAST rebuild before believing it.
+  **Open:** decide whether the workspace-image recipe (base from the
+  retired monolith + daemon layer) finally gets a home; prompt-attachments
+  still has no SPA client in either SPA (paste delivery unwired).
+  Two genuine source-UI gaps discovered while copying (worth their own
+  tasks): prompt-attachments has a backend + SSE topic but NO SPA client
+  calls it (paste/sketch delivery is unwired in workspaces too), and the
+  ui/async.ts copies have drifted between the SPAs.
+
+- **Epics MCP wired into the refinement harness** (2026-08-08 evening, SHIPPED):
+  qits-projects 2026.808.174338 states the MCP address (`QITS_REPOSITORY_MCP_URL`
+  composed from own-host + /projects/mcp; `qits.projects.agent-mcp-url` overrides;
+  no new run-arg needed); daemon 545cdd7 pre-approves the two epic READS only,
+  `--strict-mcp-config` proven live to exclude everything else incl. the signed-in
+  account's claude.ai connectors. 15 tools (10 epic + 5 repository) reachable from
+  the container. Claude sign-in completed ~17:30 — the credential gate is PASSED.
+  **Browser e2e PASSED** (2026-08-08 ~17:53): one prompt → epic "Give the platform
+  a status page" created through the MCP, card appeared via SSE mid-turn WITHOUT
+  reload, 6 features streamed live; REFINING; epics audit rows all
+  `changed_by=mcp-agent`. Screenshots in the session scratchpad verify/ dir.
+  **Defect found (blocks task attachment)**: AgentLaunchService:604 puts the repo
+  NAME into the MCP `repositoryId` param; RepositoryMcpTools:76 filters by ID —
+  silent empty for UUID-id repos (the wrapper included), so the refinement session
+  lists zero repositories. Converged fix pending user go: launch the panel session
+  in PROJECT scope (SPA `scope:` + daemon interactive path — the panel is
+  project-level) AND fix the name/id param for legitimate REPOSITORY-scope uses.
+  (2) ScopedMcp.allowedTools is inert on the Claude path but FILTERS on Kimi ACP
+  chat (latent — shipped panel uses INTERACTIVE). Observed for the record: the
+  harness launches claude with --dangerously-skip-permissions inside the container;
+  the e2e terminal held un-submitted input text nobody typed (origin unaccounted).
+
 - **DAY-END STATE 2026-08-08, all verified live**: the prod re-model is COMPLETE
   (12 apps deployed under wire names, edge on :8080 proxying HTTP+SSE+WS —
   browser-verified incl. the PTY terminal; bootstrap rerun converges green
