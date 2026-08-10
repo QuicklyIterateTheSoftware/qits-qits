@@ -6,6 +6,23 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Causation over REST landed in qits-eventstream (2026-08-10 evening, lib
+  `2aadf40`, local main — not yet on the platform git host).** The chain now
+  crosses a service boundary: `CausationClientFilter` writes
+  `CausationScope.current()` into every REST-client request as
+  `X-Qits-Causation-Id`, `CausationServerFilter` restores it around the
+  receiving resource method, so event 1 in service A triggering event 2 in
+  service B keeps its parentId with neither side passing anything. Both are
+  `@Provider`-discovered; the header sits in the gateway's stripped
+  `X-Qits-*` namespace so outsiders cannot forge a cause. The pom gained
+  `jakarta.ws.rs-api` (API jar only — never quarkus-rest, which would bolt a
+  server onto the daemons); suite is 110 green, and the wire test proves the
+  filter/method one-worker thread assumption. Consumers reach it through the
+  train on the lib's next release. Note most services speak
+  `java.net.http.HttpClient`, not the REST client — those callers stamp
+  `CausationHeader.NAME` by hand (snippet in the lib README) and are untouched
+  until someone does.
+
 - **WP6 DONE — the platform is bus-only, proven from scratch (2026-08-10
   evening).** qits-events is a CORE seed service (cli-bootstrap `a69d989`; 59
   phases cold, 7 seeded databases) and ci's direct PdBuildNotifier POST is
