@@ -6,8 +6,64 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Causation rows: RELEASED and wired into qits-ci (2026-08-10 night).**
+  Libs released through the real door: qits-eventstream `2026.810.184513`
+  (causation over REST + CausedRow rows) and qits-integrations-quarkus
+  `2026.810.184518` (qits-arch-rules; its release recipe now names/probes both
+  modules). Registry verified, train fired: ci + workspaces auto-bumped;
+  workspaces' bump released cleanly. qits-ci's bump release MERGED but its
+  native build FAILED environmentally (GraalVM `Compilation exceeded 300s`
+  bailout — two native builds of one commit racing my local suite on one
+  host); superseded by the causation release below, not replayed. The
+  auth-core train bump 409'd (pom conflict, adjacent property lines vs the
+  eventstream bump) — folded into the qits-ci release below; its stale
+  `maintenance/qits-integrations-quarkus` branch can be ignored.
+  **qits-ci is the worked example** (`b9e0dd2`): CiRun implements CausedRow
+  (V2 adds nullable `causation_id`; trigger_event_id untouched), CiStep +
+  CiDaemonPin are `@Uncaused` with reasons, ArchRulesTest enforces the
+  decision, and AGENTS.md narrows "ci/ free of the bus" to "free of the bus's
+  SEAMS" — the persistence trio rides into the domain module deliberately,
+  whose suite now feeds the eventstream PU (`eventstream_ci_domain`) and
+  keeps it dark. Reactor green (371 tests). WATCH ITEM: first native binary
+  with an @EntityListeners listener — Quarkus registers JPA listeners for
+  reflection, but the proof is the deployed binary stamping a real row.
+  Remaining fan-out for other services (workspaces/deployments/projects
+  entities + their ArchRulesTests) follows the qits-ci pattern.
+  **Live rollout (same night):** qits-ci `2026.810.191049` built green on
+  both branches and deployed (container on image tag `bc24bdc9…`, V2 applied,
+  `causation_id uuid` confirmed in qits_ci). The FIRST live event runs then
+  measured the gap the javadoc had hand-waved: `trigger_event_id` full,
+  `causation_id` EMPTY — the row is written on `ci-trigger-worker` behind the
+  queue hop, where the ambient scope is dead, so the stamp wrote null. Fixed
+  as data, the repo's own idiom: `acceptEventRun` sets the cause explicitly
+  and the stamp yields; the manual trigger keeps the stamp path (request
+  thread, REST-restored scope). Released as qits-ci `2026.810.191920`
+  (`9fecbcc`) with `CiEventRunCausationTest` driving evaluate from a
+  scopeless thread. Eventstream Alpine fix also released
+  (`2026.810.191553`; the Alpine/musl zonky binaries the main-branch verify
+  run dies without — its train wave went green: workspaces + ci + deployments
+  bumps all released). **Two builds were eaten by qits-ci's own redeploy**
+  landing mid-wave (RUNNING push rows → FAILED at boot reconciliation, the
+  documented restart semantics; the main event runs were reset and finished
+  green): qits-ci env/dev @`a869fe57` and qits-deployments env/dev
+  @`4ec65654`. Both squared by the rewind-replay trick the same night — with
+  one lesson bought twice: **replay the self-hosting qits-ci's own deploy
+  build LAST and ALONE**, because its green build redeploys qits-ci, whose
+  boot sweep then eats every other push build in flight (it ate the
+  deployments replay's first attempt; the second, against an empty queue,
+  went through).
+  **Confirmation probe still open**: every EVENT run row so far was created
+  by the pre-fix binary (empty `causation_id`); the first organic event run
+  after `2026.810.192119` deployed must show `causation_id ==
+  trigger_event_id` — `select trigger_event_id, causation_id from ci_run
+  where trigger_type='EVENT' order by created_at desc limit 3` on qits_ci.
+  Also open: the auth-core train bump never landed for qits-deployments (its
+  `maintenance/qits-integrations-quarkus` build failed on the same pom
+  adjacency); harmless — auth-core content is unchanged — and it self-heals
+  on the next integrations release.
+
 - **Causation reaches the rows, with an arch-rules guard (2026-08-10 night,
-  local mains — not yet on the platform git host).** qits-eventstream
+  superseded by the entry above).** qits-eventstream
   `13048b4`: `CausedRow` + `CausationStamp` (JPA `@PrePersist` listener) stamp
   a nullable `causation_id` column from `CausationScope` at `persist()` — on
   the calling thread, not at flush, proved by closing the scope before the
