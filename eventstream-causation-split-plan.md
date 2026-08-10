@@ -114,8 +114,14 @@ carrying a server at all.
    - `services/qits-workspaces/domain`: same triple + darkness keys (removable phase 1); the
      8081 collision was worked around with `-Dquarkus.http.test-port=0` at invocation, nothing
      committed.
-   - qits-deployments / qits-projects entity modules: same pattern, same removal (confirm
-     against what tonight's agents landed).
+   - `services/qits-projects` `domain/` and `epics/`: committed `quarkus.http.test-port=0` in
+     both modules' test properties (feature-caused — removable phase 1, or phase 2 if kept as a
+     general guard), plus `epics/src/test/resources/archunit.properties`
+     (`archRule.failOnEmptyShould=false`) — removable as soon as the consumer pins a
+     qits-arch-rules release carrying `f4bb41a` (`allowEmptyShould` on all three rules).
+   - `services/qits-deployments`: NOTHING to remove — its entity modules run no `@QuarkusTest`,
+     so the eventstream PU never boots there and no wiring was added; the service module's
+     eventstream triple predates the feature and stays.
    - `libs/qits-eventstream/src/test/resources/application.properties` `test-port=0`: stays in
      phase 1 (its own suite still hosts the websocket client's server), removable in phase 2.
 

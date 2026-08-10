@@ -27,17 +27,58 @@ handover.md (the userflow plan) is folded in below and deleted.
   keeps it dark. Reactor green (371 tests). WATCH ITEM: first native binary
   with an @EntityListeners listener — Quarkus registers JPA listeners for
   reflection, but the proof is the deployed binary stamping a real row.
-  **Fan-out sweep IN FLIGHT (same night):** three Opus subagents wiring
-  workspaces (domain: 6 entities), deployments (deployments+environments: 5)
-  and projects (domain+epics: 7) — each with entity decisions from real
-  write sites, appended migrations, ArchRulesTests over the full entity
-  packages, and the qits-ci consumer-contract test wiring; orchestrator
-  reviews then releases sequentially. **Deliberately excluded**: qits-events
-  (the bus server — its rows ARE the events, client dep would be circular),
+  **Fan-out sweep DONE, LOCAL ONLY (rebootstrap started mid-sweep — NOTHING
+  pushed, all three commits sit on local submodule mains and ship via
+  bootstrap or the post-rebootstrap releases):**
+  - qits-workspaces `5caa2f5` (+ merge `e42d4dc` — local main also carries
+    two OLDER unpushed "PushCausation" commits from before tonight):
+    Workspace + WorkspaceEvent are CausedRows (request-thread writes, stamp
+    via restored REST scope; V2 migration); ServiceEvent (scheduler threads),
+    BootstrapRun (overwritten singleton), WorkspacePromptDraft (NATIVE
+    upsert — @PrePersist can never see it) and WorkspacePromptAttachment are
+    @Uncaused with reasons. 464 tests green.
+  - qits-deployments `a07d1e9`: PdDeployment + PdService + PdEnvironment are
+    CausedRows — PdDeployment carries the cause AS DATA through a new fifth
+    `BuildAnnouncements.announce` parameter (subscriber passes `frame.id()`,
+    HTTP intake passes `CausationScope.current()`), because everything past
+    announce runs on `pd-deploy-worker` where no scope stands; PdServiceLink
+    (wholesale-rewritten link set) + PdResource (converging registry) are
+    @Uncaused. One V2 migration in environments/ (the single lineage owner).
+    ArchRulesTest in service/ — the only classpath seeing all five entities —
+    and proven non-vacuous. Also folds the auth-core bump to 2026.810.184518.
+    286 tests green.
+  - qits-projects `0333745`: Project, Repository, Epic, Feature, Task AND
+    AuditEntry are CausedRows (request/MCP threads; audit rows cover what
+    insert-only stamping on live rows cannot — updates and deletes); only
+    RepositoryName is @Uncaused (derived alias minted off any request
+    context). Two V2 migrations (domain, epics lineages). Bumped eventstream
+    to 2026.810.191553 by hand — **this repo has NO
+    ci-event-upstream-eventstream.yml, so the train never bumps it; add the
+    recipe** (follow-up). 536 tests green; webui gitlink verified unmoved.
+  - qits-arch-rules `f4bb41a` (LOCAL, unreleased): all three rules gain
+    `allowEmptyShould(true)` — projects' epics module (all-participating,
+    zero opt-outs) went red under ArchUnit's fail-on-empty default, the
+    ideal state read as a misconfigured rule. Its interim workaround
+    (`epics/src/test/resources/archunit.properties`) is removable once a
+    release carrying this is pinned.
+  **POST-REBOOTSTRAP TODO, in order:** release qits-integrations-quarkus
+  (the empty-should fix), then workspaces / deployments / projects through
+  the release door sequentially (each also needs its ArchRulesTest happy —
+  projects is, via the workaround); then drop the workaround on projects'
+  next touch. The three service repos' working trees also carry the byte-
+  plane split's UNCOMMITTED Dockerfile mirror moves (8081→8082) — the other
+  party's, not part of these commits.
+  **Deliberately excluded from the sweep**: qits-events (the bus server —
+  its rows ARE the events, a client dep would be circular),
   qits-platform-idp/dns + qits-artifacts (not on the bus; wiring means the
   whole eventstream jar + a provisioned database just to say @Uncaused —
-  decide when they adopt the bus), and githost/blobstore/registries (the
-  byte-plane split's in-flight repos, hands off).
+  decide when they adopt the bus, cheaper after
+  eventstream-causation-split-plan.md lands), and
+  githost/blobstore/registries (byte-plane split, in flight, hands off).
+  **Tomorrow's cleanup**: eventstream-causation-split-plan.md — split
+  qits-causation out of the eventstream jar so entity modules stop
+  inheriting an HTTP server, a persistence unit and darkness keys; the
+  plan carries the exact per-repo removal inventory.
   **Live rollout (same night):** qits-ci `2026.810.191049` built green on
   both branches and deployed (container on image tag `bc24bdc9…`, V2 applied,
   `causation_id uuid` confirmed in qits_ci). The FIRST live event runs then
