@@ -6,6 +6,34 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **WP6 DONE — the platform is bus-only, proven from scratch (2026-08-10
+  evening).** qits-events is a CORE seed service (cli-bootstrap `a69d989`; 59
+  phases cold, 7 seeded databases) and ci's direct PdBuildNotifier POST is
+  GONE (qits-ci `2bf8d880`; the deployer's HTTP intake stays as the manual
+  door only). Gate run: `unwrap --with-volumes` + ONE bootstrap call → exit 0,
+  57 ok + 2 skipped, 15m49s, zero warns — every deployment rode ci → outbox →
+  seeded bus → the deployer's durable subscriber. Four defects were flushed
+  out by the proving runs and fixed at the source: (1) the eventstream lib's
+  EventPage/EventFrame were not reflection-registered — catch-up dead in
+  NATIVE images only, JVM green (`7290397`); (2) ci's manual trigger endpoint
+  202'd events it then silently lost — it now evaluates on the request thread,
+  200 = run rows exist, 503 = retry losslessly (`9ac6094`), and the CLI
+  retries (`7b1979d` also made the replayed SCMRelease carry BOTH
+  `repository` and `repositoryName`, which the daemon repos match); (3) the
+  replay skip/wait misidentified runs twice — trigger name and sha BOTH
+  collide with upstream-fired bump runs — the identity is `configPath ==
+  .config/qits/ci-event-release.yml` at main's head (`58138c2`); (4) an
+  event-triggered run records MAIN'S HEAD, not the tag's commit.
+  **Bootstrap UI**: the lower region is two columns now — step output left,
+  a live qits-events feed right (`18e72c2`, `ev|` in plain logs), and the
+  browser page reloads itself when the boot under it changes (`539f341`) —
+  a stale tab was measured reading a new run through an old layout.
+  **Known state, deliberate:** qits-projects-daemon's images are NOT in this
+  fresh registry (the pre-fix over-skip); the user tests with later builds —
+  its next release (or any base release driving its bump) republishes them
+  through the train. The lib's first-boot watermark-race WARN and the
+  workspace-daemon surefire flake remain open cosmetics.
+
 - **Event delivery guarantees SHIPPED (2026-08-10 afternoon; plan:
   event-delivery-guarantees-plan.md).** All on the live dev platform through
   the release endpoint: qits-eventstream `2026.810.103202` (outbox never
