@@ -6,6 +6,80 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Event delivery guarantees SHIPPED (2026-08-10 afternoon; plan:
+  event-delivery-guarantees-plan.md).** All on the live dev platform through
+  the release endpoint: qits-eventstream `2026.810.103202` (outbox never
+  abandons an unreachable bus — refusals alone consume the attempt budget; new
+  `QitsDurableEventListener`: consumed-event table + watermark + catch-up
+  sweep on the consumer's eventstream datasource, exactly-once effect,
+  consume-from-now init, selective storage, lib migrations V2/V3);
+  qits-events `2026.810.104520` (`order=asc` on the list endpoint, tie-safe
+  both directions); qits-ci `2026.810.110535` (three durable listeners:
+  `ci-event-triggers`, `ci-release-train`, `ci-daemon-adopt` — the last with
+  the pin-rollback tip check); qits-deployments `2026.810.111624` (wave 3 as
+  BuildAnnouncements recorded: durable `pd-build-succeeded` subscriber with a
+  newest-green tip guard, HTTP intake kept as the manual door). The TRAIN
+  itself propagated the lib: one release auto-bumped and auto-released ci AND
+  workspaces. **Bus side of the deployer is LIVE** (marker release
+  `2026.810.123234`; the successor boots with the injected eventstream triple
+  + QITS_EVENTS_URL and logs `durable consumer pd-build-succeeded initialized
+  at the head of the log`). WP6 — retiring ci's direct PdBuildNotifier POST —
+  waits until the bus door has visibly carried a few organic releases.
+  Known cosmetic lib bug for its next release: on a consumer's FIRST boot the
+  startup sweep and the scheduler race to insert the initial watermark and the
+  loser WARNs a `consumer_watermark_pkey` violation — make the init insert
+  idempotent. Second known flake: qits-workspace-daemon's surefire suite
+  failed once on a maintenance-branch REBUILD of a tree that had built green —
+  unreproduced, worth an eye.
+  **Tag discipline, learned the hard way:** a branch-only `git pull` carries a
+  release commit but NOT its tag, and the release replay reads the version off
+  the newest reachable tag — converge-7 re-released qits-oci-workspace at the
+  PREVIOUS version and drove qits-projects-daemon's base pin backwards through
+  the follow-bumps (self-consistent; the next real base release walks it
+  forward). Fixed twice over: local syncs fetch --tags and the CLI's sources
+  refresh pulls --tags (`574b04f`); replays also skip entirely when a green
+  run for the version already exists (`45c21bf`). Fitting last act of
+  the old world: the base image's SoftwareRelease fired inside qits-events'
+  own redeploy window and was the final manually-replayed lost event — the
+  durable consumers make the class impossible now.
+
+- **Workspace images ride the train, END TO END PROVEN (2026-08-10; plan:
+  workspace-image-train-plan.md).** No more hand-built `qits/*:latest`. The
+  full cascade ran live: qits-oci-workspace release `2026.810.104734` put
+  `qits/workspace-base` into the registry for the FIRST time (the old pin
+  always dangled — the wipe had taken the image and nothing rebuilds images/
+  repos unprompted) → qits-workspace-daemon's FROM-pin bump → its release
+  `2026.810.112023` published `qits/workspace` (one build: native daemon
+  layered onto the pinned base; the two old names retired; consumers' spelling
+  kept deliberately) → qits-workspaces' pin bump → release `2026.810.113255`
+  deployed the pull-if-absent launcher
+  (`qits.workspace.image=localhost:8081/qits/workspace:2026.810.112023`,
+  15-min bounded pull, loud failure naming image+registry). Image pull
+  verified on the host daemon (970 MB, entrypoint qits-workspace-daemon).
+  The PROJECTS side had been train-wired on 08-09 and completed ITSELF the
+  moment real artifacts existed: projects-daemon released `2026.810.104935`
+  (its own base-pin bump, publishing versioned qits/projects-daemon +
+  qits/project-agent) and qits-projects followed with `2026.810.105222`.
+  Bootstrap carries it all (cli-bootstrap `6959271`): three image publishers
+  in the release-replay set (base strictly before each daemon), 58 phases
+  cold, deployer bus env in compose + run-args, sixth seed database
+  `qits_deployments_eventstream` with recorded password.
+  **Gotcha now recorded in two trigger files:** `$QITS_REGISTRY` is the HOST
+  daemon's `localhost:8081` and is unreachable from inside a step container —
+  registry probes must derive the origin from `$QITS_MAVEN_REGISTRY_URL`
+  (measured twice; the workspaces bump died on it once before the fix,
+  6e7f656).
+
+- **The standing environment is `dev` now (2026-08-10, user decision).** Run 5:
+  `unwrap --with-data-volumes` (config volumes kept) + one bootstrap with
+  `QITS_ENV_NAME=dev` (wrapper .env) — exit 0, zero warns, 11m27s. First real
+  proof of `--platform-env`: nine env services live as `qits-pd-dev-qits-*`,
+  five platform services bare, deploy ref `environment/dev`, edge 200. The
+  kept config volumes carried the push token; run-args were rewritten in dev
+  shape; the prod-named recorded secrets are unused, dev ones recorded beside
+  them. All of the day's commits are pushed to GitHub main (wrapper `4ca068b`
+  + six submodules).
+
 - **From-scratch rebootstrap campaign (2026-08-10): DONE — run 4 GREEN.** One
   `./qits-local-up.sh` call, exit 0, 54 phases ok + 1 skipped, ZERO warned
   phases, 19m17s, no manual pokes. 14 containers healthy, edge 200, and the
