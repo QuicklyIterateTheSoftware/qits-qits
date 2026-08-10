@@ -27,8 +27,17 @@ handover.md (the userflow plan) is folded in below and deleted.
   keeps it dark. Reactor green (371 tests). WATCH ITEM: first native binary
   with an @EntityListeners listener — Quarkus registers JPA listeners for
   reflection, but the proof is the deployed binary stamping a real row.
-  Remaining fan-out for other services (workspaces/deployments/projects
-  entities + their ArchRulesTests) follows the qits-ci pattern.
+  **Fan-out sweep IN FLIGHT (same night):** three Opus subagents wiring
+  workspaces (domain: 6 entities), deployments (deployments+environments: 5)
+  and projects (domain+epics: 7) — each with entity decisions from real
+  write sites, appended migrations, ArchRulesTests over the full entity
+  packages, and the qits-ci consumer-contract test wiring; orchestrator
+  reviews then releases sequentially. **Deliberately excluded**: qits-events
+  (the bus server — its rows ARE the events, client dep would be circular),
+  qits-platform-idp/dns + qits-artifacts (not on the bus; wiring means the
+  whole eventstream jar + a provisioned database just to say @Uncaused —
+  decide when they adopt the bus), and githost/blobstore/registries (the
+  byte-plane split's in-flight repos, hands off).
   **Live rollout (same night):** qits-ci `2026.810.191049` built green on
   both branches and deployed (container on image tag `bc24bdc9…`, V2 applied,
   `causation_id uuid` confirmed in qits_ci). The FIRST live event runs then
