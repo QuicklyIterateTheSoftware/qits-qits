@@ -52,11 +52,13 @@ handover.md (the userflow plan) is folded in below and deleted.
   boot sweep then eats every other push build in flight (it ate the
   deployments replay's first attempt; the second, against an empty queue,
   went through).
-  **Confirmation probe still open**: every EVENT run row so far was created
-  by the pre-fix binary (empty `causation_id`); the first organic event run
-  after `2026.810.192119` deployed must show `causation_id ==
-  trigger_event_id` — `select trigger_event_id, causation_id from ci_run
-  where trigger_type='EVENT' order by created_at desc limit 3` on qits_ci.
+  **Confirmation probe: CLOSED, proven live.** A fresh-id SoftwareRelease
+  replay of eventstream 191553 through the manual trigger (machine token:
+  client qits-platform-artifacts, audience `dev-qits-ci` — the dev spelling,
+  `qits-ci` is refused) recorded three event runs on the fixed binary, all
+  with `causation_id == trigger_event_id`, and the bump recipes no-op'd
+  (same version, no release). Causation rows work end to end on the live
+  platform.
   Also open: the auth-core train bump never landed for qits-deployments (its
   `maintenance/qits-integrations-quarkus` build failed on the same pom
   adjacency); harmless — auth-core content is unchanged — and it self-heals
