@@ -4,9 +4,9 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-platform-artifacts"]
-	path = services/qits-platform-artifacts
-	url = ../qits-platform-artifacts.git
+[submodule "qits-artifacts"]
+	path = services/qits-artifacts
+	url = ../qits-artifacts.git
 	ignore = all
 	branch = main
 	update = merge
@@ -112,9 +112,9 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-artifacts"]
-	path = frontends/qits-platform-spa-artifacts
-	url = ../qits-platform-spa-artifacts.git
+[submodule "qits-spa-artifacts"]
+	path = frontends/qits-spa-artifacts
+	url = ../qits-spa-artifacts.git
 	ignore = all
 	update = merge
 	branch = main
@@ -166,15 +166,15 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-docs"]
-	path = services/qits-platform-docs
-	url = ../qits-platform-docs.git
+[submodule "qits-docs"]
+	path = services/qits-docs
+	url = ../qits-docs.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-docs"]
-	path = frontends/qits-platform-spa-docs
-	url = ../qits-platform-spa-docs.git
+[submodule "qits-spa-docs"]
+	path = frontends/qits-spa-docs
+	url = ../qits-spa-docs.git
 	ignore = all
 	update = merge
 	branch = main
@@ -205,6 +205,30 @@
 [submodule "qits-projects-daemon"]
 	path = daemons/qits-projects-daemon
 	url = ../qits-projects-daemon.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-blobstore"]
+	path = libs/qits-blobstore
+	url = ../qits-blobstore.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-registries"]
+	path = libs/qits-registries
+	url = ../qits-registries.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-platform-mirror"]
+	path = services/qits-platform-mirror
+	url = ../qits-platform-mirror.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-githost"]
+	path = services/qits-githost
+	url = ../qits-githost.git
 	ignore = all
 	update = merge
 	branch = main
