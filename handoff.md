@@ -6,6 +6,25 @@ handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
 
+- **Causation reaches the rows, with an arch-rules guard (2026-08-10 night,
+  local mains — not yet on the platform git host).** qits-eventstream
+  `13048b4`: `CausedRow` + `CausationStamp` (JPA `@PrePersist` listener) stamp
+  a nullable `causation_id` column from `CausationScope` at `persist()` — on
+  the calling thread, not at flush, proved by closing the scope before the
+  commit against a real default persistence unit (suite now 115). Insert-only,
+  author's value wins, never an FK; `@Uncaused` is the written opt-out.
+  qits-integrations-quarkus `0369591`: NEW MODULE `qits-arch-rules` (ArchUnit
+  1.4.1) — one test-scope dep + a three-line `ArchRulesTest` makes every
+  `@Entity` decide (implement CausedRow with the listener, or declare
+  `@Uncaused`); types are matched BY NAME so the module depends on neither
+  eventstream nor the registry, and renaming CausedRow/CausationStamp/Uncaused
+  over there breaks this contract knowingly. Enabling the rules is now step 7
+  of docs/project-setup-quinoa-angular.md's checklist. NOT DONE YET: no
+  existing service entity participates and none carries the rules test —
+  wiring one real service (entity + migration + ArchRulesTest + @Uncaused
+  sweep over its remaining entities) is the natural next workstream; both
+  libs also still need their releases cut so consumers can pin them.
+
 - **Causation over REST landed in qits-eventstream (2026-08-10 evening, lib
   `2aadf40`, local main — not yet on the platform git host).** The chain now
   crosses a service boundary: `CausationClientFilter` writes

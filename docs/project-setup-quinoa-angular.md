@@ -138,6 +138,35 @@ What the SPA is actually served as is proven only against the **packaged artifac
 - `/<segment>/api/<real>` → the API's own answer, `/<segment>/api/nope` → 404, never HTML
 - every literal machine path, mistyped → 404, never HTML
 
+### The platform arch rules
+
+Every new service enables the shared ArchUnit rules from day one — they are how platform
+conventions fail a build instead of a review. One test-scope dependency:
+
+```xml
+<dependency>
+    <groupId>eu.wohlben.qits</groupId>
+    <artifactId>qits-arch-rules</artifactId>
+    <version>${qits.arch-rules.version}</version>
+    <scope>test</scope>
+</dependency>
+```
+
+and one test class in the service module:
+
+```java
+@AnalyzeClasses(packages = "eu.wohlben.qits.<service>",
+    importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchRulesTest {
+  @ArchTest static final ArchTests CAUSATION = ArchTests.in(CausationRowRules.class);
+}
+```
+
+Today the rules guard causation-traced rows: every `@Entity` either implements `CausedRow` (with
+`@EntityListeners(CausationStamp.class)` and its own `causation_id` migration) or declares
+`@Uncaused`. The qits-integrations-quarkus README is the reference; new rule sets added there
+arrive here as one more `@ArchTest` line.
+
 ### Known wart
 
 Bare `/<segment>` (no trailing slash) is a **404** — Quinoa mounts at `/<segment>/*`, which does not
@@ -190,7 +219,9 @@ lockfile keeps the developer-host origin, which is correct locally.
    packaged jar that mistyped machine paths 404.
 5. Dockerfile install flags, `.dockerignore` entries, CI-recipe submodule init.
 6. **Name the binary**, both keys — see below.
-7. Prove it: package, boot the fast-jar, run the probe list.
+7. Enable the platform arch rules: test-scope `qits-arch-rules` plus the three-line
+   `ArchRulesTest` above.
+8. Prove it: package, boot the fast-jar, run the probe list.
 
 ### Naming the native binary: two keys, not one
 
