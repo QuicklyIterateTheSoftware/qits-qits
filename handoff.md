@@ -1,10 +1,66 @@
 # Handoff
 
-Updated 2026-08-08. Everything shipped-and-verified has been removed; history is
+Updated 2026-08-10. Everything shipped-and-verified has been removed; history is
 in git. What remains is open, pending, or standing. This is the ONE handoff document —
 handover.md (the userflow plan) is folded in below and deleted.
 
 ## In flight right now
+
+- **From-scratch rebootstrap campaign (2026-08-10): DONE — run 4 GREEN.** One
+  `./qits-local-up.sh` call, exit 0, 54 phases ok + 1 skipped, ZERO warned
+  phases, 19m17s, no manual pokes. 14 containers healthy, edge 200, and the
+  fresh seed came out **UUID-free (36 repositories, 0 UUID-keyed rows)** — the
+  d795bdc verification the entry below asked for is done. Runs 1–3 each failed
+  differently; every failure was root-caused and fixed at its source (see the
+  measured list below). Run 3 added one more: the CLI's shared HttpClient
+  reused a connection made during idp's crash-restart DNS flux and read 90s of
+  404 from a WRONG peer while idp was healthy — fixed in cli-bootstrap
+  `8dfa60c`, a fresh client (fresh lookup, fresh connection) per request;
+  pooling must not come back (AGENTS.md gotcha). Follow-on workstream settled
+  with the user and planned: `event-delivery-guarantees-plan.md` — durable
+  consumption in qits-eventstream (consumed-event table + watermark + catch-up
+  against the query API, selective storage), outbox give-up split
+  (unreachable ≠ refused), qits-events ascending list mode, deployments wave 3,
+  then retire ci's direct PdBuildNotifier POST. Still standing after any
+  volume wipe: qits/workspace:latest must be re-layered (recipe in memory) —
+  the closing report prints this.
+  What the proving runs measured:
+  - **Lost post-receive (artifacts→ci), deterministic.** Phase 41 deploys
+    qits-oci-postgresql — the platform's own database — and the cutover severs
+    every pool; phase 42's idp push announcement arrived at ci in that exact
+    window (`FATAL: terminating connection due to administrator command`), the
+    fire-and-forget notifier swallowed the refusal at debug, no run was ever
+    enqueued. Hit identically on both runs.
+  - **Lost build-succeeded (ci→deployments), transient.** qits-platform-docs'
+    green run at 06:36:07 left no trace at the deployer; the same POST replayed
+    by hand minutes later answered 202. Most plausibly the idp cutover's
+    token/JWKS trailing edge. Platform services have no CLI-side replay, so it
+    cost a 1h timeout.
+  - **Dead event bus from the seed ci.** The eventstream jar bakes
+    `qits.events.url=http://qits-events:8080` (pre-rename); the seed compose
+    never overrode it, so every outbox delivery (BuildSuccessful,
+    SoftwareRelease) died on ConnectException after its five attempts. The
+    deployed ci gets the right value from run-args; only the seed was blind.
+  - **qits-projects webui gitlink named a vanished commit** (`e8d020e5…`, a
+    release-train commit that lived only on the old git host — the
+    AUTH_REQUIRED backup era never carried it to GitHub, the wipe destroyed
+    it). Every CI build of qits-projects died on "unadvertised object".
+    Full sweep done: all other webui gitlinks resolve against their spa's
+    local main.
+  - **dns had no ci-post-receive.yml** — the known Package C gap; the overlay
+    path works but warns, which fails the green bar.
+  Fixes, all committed on local mains (they ship via the bootstrap):
+  qits-cli-bootstrap `db9d3de` (re-announce a pushed sha with no run after 60s
+  — uses the existing reannouncePush; plus `pd|` deployer-log relay beside the
+  `ci|` one, so deploy waits talk) and `b85fd7e` (seed ci gets
+  QITS_EVENTS_URL); qits-projects `cdc34e6` (webui gitlink → spa main head
+  `61fb5c1`); qits-platform-dns `64bf337` (both CI pipeline files, edge's
+  shape); qits-platform-artifacts + qits-ci: bounded-retry + WARN-on-give-up
+  for the two direct announcers (subagents, shas in their logs). Also new:
+  `.env` at the WRAPPER root (the CLI reads `.env` from the run directory,
+  which qits-local-up.sh pins to the wrapper — the copy in
+  cli/qits-cli-bootstrap/.env is NOT read on the warm path; QITS_DNS_PORT=5353
+  lives in both now).
 
 - **UUID repository ids FIXED at the root in qits-projects** (`d795bdc`,
   released as 2026.809.194051 / `e5476e0`, 2026-08-09). Every creation path
