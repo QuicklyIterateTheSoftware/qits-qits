@@ -161,15 +161,28 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   contract requires a per-tunnel secret (the sources' path-param impersonation
   weakness deliberately not reproduced); the release pipeline is the
   platform's FIRST dual maven+docker publisher (two steps — no build image
-  carries JDK+docker; artifact spelled `qits/qits-containers`). IN FLIGHT:
-  WP8 bootstrap core-service seeding (dns precedent + seed maven publish of
-  the two 1.0.0-SNAPSHOT jars — step containers have no host .m2), then WP9
-  qits-ci hard cutover (CiProcess dies, boot reap → owner-scoped
-  destroyAllOwned(createdBefore), ci loses its socket mount), then the USER
-  DIRECTIVE: full clean rebootstrap KEEPING CONFIG VOLUMES, green
-  start-to-finish with no manual nudges (failures fixed at source, whole
-  re-run), live restart proof on the fresh platform, then SHUT DOWN the
-  Windows host.
+  carries JDK+docker; artifact spelled `qits/qits-containers`).
+  **ALL NINE CODE PACKAGES DONE (same day).** WP8: cli-bootstrap `b3262e3` —
+  containers is a core seed service (dns precedent), seed maven publish
+  extended to `-pl core,client` (step-container builds have no host .m2),
+  receive-only idp audience like the deployer, cold plan 70 phases, 232
+  tests. WP9: qits-ci `ae9d779` (425 tests) — CiDaemonLauncher builds specs
+  and calls the client, CiProcess DELETED, boot reap = owner-scoped
+  destroyAllOwned(createdBefore) with PT60S patience, owner =
+  `${quarkus.oidc-client.client-id:qits-ci}`, ref = the container name,
+  ContainersWireReflection added for the native binary; cli-bootstrap
+  `407e2e5` (233 tests) — QITS_CONTAINERS_URL into ci's block + run-args,
+  oidc audience repointed deployments→containers, **ci's docker socket mount
+  and --group-add REMOVED**, read-shaped orchestrator warm probe. Wrapper
+  `8b308f0` (gitlink + plan doc + handoff) is PUSHED to GitHub — today's
+  wrapper commits are backed up now; submodule contents still are not
+  (except qits-containers, fully pushed). NOW RUNNING the user directive:
+  unwrap keeping config volumes + one bootstrap, green start-to-finish with
+  no manual nudges (failures fixed at source, whole re-run); then the live
+  qits-containers restart proof on the fresh platform; then SHUT DOWN the
+  Windows host. The rebootstrap also carries tonight's other-session work
+  (githost+mirror SPAs, gateway/cli rename pair, the nine db-patience
+  releases) — one run proves it all.
 
 - **DB PATIENCE: SHIPPED FLEET-WIDE AND LIVE (2026-08-11).** Every postgres
   service runs PatientPgDriver (requests HELD at connection-open through a

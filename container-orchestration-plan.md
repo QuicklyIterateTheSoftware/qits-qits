@@ -85,10 +85,10 @@ doc tracks the campaign.
 | 4 | real driver + REST + auth + ContainersRestartAdoptionIT (real docker) | DONE (add8513, 111 JVM tests + 5 ITs, pushed; ADOPTION PROVEN on real docker 29.7.2 — Id/StartedAt unchanged, bystander survived; measured: docker's combined-inspect needs `index .State "Health"` on the raw-JSON path; wrong audience is 401 not 403) |
 | 5 | client lib | DONE (755d8dd, 152 JVM tests, pushed; sealed four-outcome answers + client-owned UNREADABLE; native reflection debt documented not shipped — ContainersWireReflection paste in README) |
 | 6 | proxy skeleton, flag off | DONE (3520fff, 160 tests, pushed; per-tunnel secret required from day one — the sources' path-parameter impersonation weakness NOT reproduced; round-trip proven in-JVM) |
-| 7 | ship: Dockerfile, pipelines (first dual maven+docker release), deployments.yml, submodule wiring | IN FLIGHT (2026-08-11; live deploy + restart proof moved AFTER the WP10 rebootstrap — bootstrap IS the deploy path) |
-| 8 | bootstrap seeding as core service (incl. seed maven publish of the two 1.0.0-SNAPSHOT jars — step-container image builds have no host .m2) | IN FLIGHT (2026-08-11, parallel with 7 — different repos) |
-| 9 | qits-ci hard cutover + its ComposeTemplate side (QITS_CONTAINERS_URL, audience repoint, socket-mount removal) | pending |
-| 10 | USER DIRECTIVE: full clean rebootstrap keeping config volumes, green start-to-finish with no manual nudges (failures fixed at source, whole re-run), then live restart proof on the fresh platform, then SHUT DOWN the Windows host | pending |
+| 7 | ship: Dockerfile, pipelines (first dual maven+docker release), deployments.yml, submodule wiring | DONE (2df567c + wrapper 8b308f0; two-step release — no build image carries JDK+docker; docker artifact spelled qits/qits-containers; submodule wired per ritual, gitdir absorbed) |
+| 8 | bootstrap seeding as core service | DONE (cli-bootstrap b3262e3, 232 tests; seed maven publish extended to `-pl core,client`; receive-only idp audience like the deployer; cold plan 70 phases) |
+| 9 | qits-ci hard cutover + its ComposeTemplate side | DONE (qits-ci ae9d779, 425 tests — CiProcess deleted, owner=`${quarkus.oidc-client.client-id:qits-ci}`, ref = the container name; cli-bootstrap 407e2e5, 233 tests — QITS_CONTAINERS_URL in, socket mount + --group-add OUT of qits-ci, audience repointed, read-shaped warm probe) |
+| 10 | USER DIRECTIVE: full clean rebootstrap keeping config volumes, green start-to-finish with no manual nudges (failures fixed at source, whole re-run), then live restart proof on the fresh platform, then SHUT DOWN the Windows host | RUNNING (2026-08-11 night) |
 
 GitHub remote (created empty 2026-08-11):
 `https://github.com/QuicklyIterateTheSoftware/qits-containers.git` — scaffold
