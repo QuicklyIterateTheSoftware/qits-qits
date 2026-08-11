@@ -124,6 +124,21 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   image is node-docker-base, NOT ci-base — their fix class 6 works because
   `--network host` is legal on the legacy builder too; buildkit was never
   actually involved anywhere in CI until `f9c1f12`.
+  **qits-net→host doctrine sweep COMPLETE (same night, user go-ahead):**
+  artifacts `33be1ef`, ci `9bf9b88`, workspaces `00da24c`, projects
+  `b0731b9` — both pipeline files each, identical diff (`--network host` +
+  `http://$QITS_REGISTRY/artifacts/maven/maven` build-arg), the four
+  qits-net prose blocks rewritten honestly, bash -n clean. Full-tree
+  classification: NO `--network qits-net` docker build remains, no RUN
+  dials a wire alias anywhere, every other build's verdict under buildkit
+  is fine (gateway/stt/edge/observability/docs/daemons/images all default
+  networking or host). node-docker-base now ships buildx (images/qits-oci
+  `f95611e`) — INERT until the image ships: the next rebootstrap builds it
+  from source, or a qits-oci release + host pull/retag of the bare local
+  tag (that starts the image train — deliberate trigger, NOT taken
+  tonight). The gateway pipelines' apk-install prelude becomes a no-op
+  once it ships. This closes the standing "remaining --network qits-net
+  builds" item in code; proof is each repo's next build on the new image.
 
 - **CONTAINER ORCHESTRATION CAMPAIGN STARTED (2026-08-11): building
   `services/qits-containers`.** Plan approved and tracked in
