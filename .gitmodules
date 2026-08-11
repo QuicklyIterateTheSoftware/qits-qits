@@ -244,3 +244,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-containers"]
+	path = services/qits-containers
+	url = ../qits-containers.git
+	ignore = all
+	update = merge
+	branch = main

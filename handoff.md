@@ -149,15 +149,27 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   rows-only observer — the qits-deployments model generalized; policies
   EPHEMERAL/IDLE_STOP/EXPLICIT). User decisions: qits-ci first adopter;
   service owns lifecycle AND data plane (proxy ships flag-off in round 1).
-  GitHub remote created empty:
-  `https://github.com/QuicklyIterateTheSoftware/qits-containers.git` (push
-  scaffold main there before the WP7 submodule add). WP1 (scaffold,
-  clone-alone green) is running on an Opus subagent; implementation is
-  Opus-subagent work throughout. Later WPs: real driver + restart-adoption IT,
-  client lib, proxy skeleton, ship + the platform's FIRST dual maven+docker
-  release pipeline, bootstrap core-service seeding (dns precedent), qits-ci
-  cutover (removes ci's docker socket mount; boot reap becomes owner-scoped
-  destroyAllOwned with createdBefore).
+  **WP1-7 DONE (same day): the repo is BUILT and WIRED** — 160 JVM tests + 5
+  ITs green, GitHub main current
+  (`https://github.com/QuicklyIterateTheSoftware/qits-containers.git`,
+  2df567c), submodule added to the wrapper per the ritual (name
+  qits-containers, gitdir absorbed). Highlights: restart ADOPTION PROVEN on
+  real docker 29.7.2 (ContainersRestartAdoptionIT — Id/StartedAt unchanged,
+  unlabelled bystander survives); causation stamp measured firing despite the
+  augmentation PU warning; docker 29.x combined-inspect needs
+  `index .State "Health"` on the raw-JSON path (pinned in tests); tunnel
+  contract requires a per-tunnel secret (the sources' path-param impersonation
+  weakness deliberately not reproduced); the release pipeline is the
+  platform's FIRST dual maven+docker publisher (two steps — no build image
+  carries JDK+docker; artifact spelled `qits/qits-containers`). IN FLIGHT:
+  WP8 bootstrap core-service seeding (dns precedent + seed maven publish of
+  the two 1.0.0-SNAPSHOT jars — step containers have no host .m2), then WP9
+  qits-ci hard cutover (CiProcess dies, boot reap → owner-scoped
+  destroyAllOwned(createdBefore), ci loses its socket mount), then the USER
+  DIRECTIVE: full clean rebootstrap KEEPING CONFIG VOLUMES, green
+  start-to-finish with no manual nudges (failures fixed at source, whole
+  re-run), live restart proof on the fresh platform, then SHUT DOWN the
+  Windows host.
 
 - **DB PATIENCE: SHIPPED FLEET-WIDE AND LIVE (2026-08-11).** Every postgres
   service runs PatientPgDriver (requests HELD at connection-open through a
