@@ -90,9 +90,40 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   build finishing (its pipeline even ends `docker rmi "$ref"`) released the
   shared intermediate mid-export. Recovered by the rewind-replay on
   environment/dev — which in the SCM-events world fires a build for BOTH
-  pushes (the rewind sha built too; harmless, same image). Standing fix:
-  fold qits-gateway into the `--network host` buildkit-doctrine conversion
-  list (buildkit cache does not share this failure mode).
+  pushes (the rewind sha built too; harmless, same image).
+  **Rebootstrap-readiness audited (same night): one boot-blocker found and
+  fixed.** cli-bootstrap `65eeb46` (231 green): the seed never npm-builds a
+  SPA — it writes a placeholder index.html at an enumerated `seedUiPath`,
+  and githost/platform-mirror were recorded there as "no client", so a cold
+  boot would die at the new Dockerfiles' `test -f` in phases 9/11 of 67,
+  before any native compile. Both repos joined `SEEDED_REPOS` +
+  `seedUiPath` (webui dist paths verified against the real trees);
+  sources()/git-repo/preseed derive from the same lists (39 repos now).
+  Seed webui submodule init was already generic (`submodulesShallow`). The
+  SPA repos are deliberately NOT in `RELEASE_PUBLISHERS` or the deploy
+  train, pinned by a new test. Proof rides the next rebootstrap.
+  **Gateway pipelines converted to buildkit (`f9c1f12`, rides the next
+  release automatically):** measured first — NO CI build on this platform
+  ran buildkit before (node-docker-base ships no buildx; `DOCKER_BUILDKIT=1`
+  alone hard-errors "buildx component missing"), and both racing gateway
+  builds were `QITS_VARIANT=local` (env/dev carried an older .config
+  snapshot — identical cache chain, a tighter race than first written up
+  here; self-heals at the next release, which advances env/dev's .config).
+  Both pipeline files now carry a prelude proven from the real step image
+  against this daemon: install `docker-cli-buildx` if absent,
+  `DOCKER_BUILDKIT=1`, `BUILDX_NO_DEFAULT_ATTESTATIONS=1` (keeps the export
+  a single manifest — the platform's first buildkit push against its own
+  registry should not change artifact shape unverified). The trailing
+  `docker rmi "$ref"` is DROPPED in both halves — it was the
+  reference-release in the race and freed nothing. Fleet path, deliberately
+  NOT taken unilaterally: adding docker-cli-buildx to
+  images/qits-oci/node-docker-base flips eight repos' builds to buildkit
+  implicitly (the CLI auto-uses buildx once present) — that is a train
+  decision; until then every other repo stays on the legacy builder.
+  CORRECTION to the rebootstrap entry below: githost's and mirror's step
+  image is node-docker-base, NOT ci-base — their fix class 6 works because
+  `--network host` is legal on the legacy builder too; buildkit was never
+  actually involved anywhere in CI until `f9c1f12`.
 
 - **CONTAINER ORCHESTRATION CAMPAIGN STARTED (2026-08-11): building
   `services/qits-containers`.** Plan approved and tracked in
