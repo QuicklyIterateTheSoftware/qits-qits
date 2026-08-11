@@ -232,3 +232,15 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-spa-githost"]
+	path = frontends/qits-spa-githost
+	url = ../qits-spa-githost.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-platform-spa-mirror"]
+	path = frontends/qits-platform-spa-mirror
+	url = ../qits-platform-spa-mirror.git
+	ignore = all
+	update = merge
+	branch = main

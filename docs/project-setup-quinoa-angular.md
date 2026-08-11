@@ -75,6 +75,10 @@ quarkus.quinoa.ignored-path-prefixes=/api,/q[,per-service extras]
   - Values are matched **after** `ui-root-path` is stripped, so they are **relative** (`/api`,
     never `/<segment>/api`). An absolute value matches nothing and is indistinguishable from an
     unset key — the failure that hides.
+  - A path **outside** the ui-root is not out of reach: the SPA fallback catches unmatched paths
+    there too, and such a prefix is listed **raw** — qits-artifacts' `/v2` is the precedent. A
+    service whose wire protocol lives at a root-level prefix (`/git`, `/v2`, `/artifacts/npm`)
+    lists it as spelled on the wire.
 
   websockets-next claims **only the upgrade handshake**: a plain GET on a `@WebSocket` path falls
   through to the SPA, which is why daemon sockets need an entry even though route ordering protects
@@ -88,7 +92,9 @@ quarkus.quinoa.ignored-path-prefixes=/api,/q[,per-service extras]
   | qits-workspaces | `/api,/q,/daemon,/service,/container` | daemon socket + two proxies + stream dial-back |
   | qits-ci | `/api,/q,/daemon` | `@WebSocket("/ci/daemon")` |
   | qits-observability | `/api,/q,/mcp` | MCP root |
-  | qits-artifacts | `/api,/q,/git,/v2` | git host routes; `/v2` so a misrouted registry client gets a 404 |
+  | qits-artifacts | `/api,/q,/npm,/maven,/daemons,/docs,/v2` | hosted registry, daemon-binary and docs routes under `/artifacts`; `/v2` so a misrouted registry client gets a 404 |
+  | qits-githost | `/api,/q,/git` | the git wire protocol at root-level `/git` |
+  | qits-platform-mirror | `/api,/q,/artifacts/npm,/artifacts/maven,/v2` | the three cache protocol roots, all outside `/mirror` |
 
   Add a literal route and its prefix entry **in the same commit**.
 
