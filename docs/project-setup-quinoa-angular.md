@@ -225,28 +225,70 @@ repository from qits-net to host networking touches the recipe only.
 
 ### The datasource resilience baseline
 
-**Every postgresql datasource carries exactly these two lines**, substituting the service's own
-datasource name:
+Every service depends on `qits-db-core` at **runtime**:
 
-```properties
-quarkus.datasource.<name>.jdbc.acquisition-timeout=15S
-quarkus.datasource.<name>.jdbc.validate-on-borrow=true
+```xml
+<dependency>
+    <groupId>eu.wohlben.qits</groupId>
+    <artifactId>qits-db-core</artifactId>
+    <version>…</version>
+</dependency>
 ```
 
+…and **every postgresql datasource carries exactly these three lines**, substituting the service's
+own datasource name:
+
+```properties
+quarkus.datasource.<name>.jdbc.driver=eu.wohlben.qits.db.PatientPgDriver
+quarkus.datasource.<name>.jdbc.validate-on-borrow=true
+quarkus.datasource.<name>.jdbc.acquisition-timeout=15S
+```
+
+- **`jdbc.driver`** points the pool at `PatientPgDriver`, which delegates to `org.postgresql.Driver`
+  and, when the database is not there, keeps asking for up to 14s instead of failing at once. It
+  retries SQLState `08*` (refused, unreachable, connect timeout) and `57P03` ("the database system
+  is starting up"); a wrong password or a missing database fails on the first attempt. The URL stays
+  a plain `jdbc:postgresql:` one — the injected `QITS_RESOURCE_*_URL` contract is untouched.
 - **`validate-on-borrow`** (Quarkus default `false`) tests a connection before handing it to a
   caller and evicts it if it is dead. Without it, a database restart leaves the pool full of dead
-  connections that are handed out until something else notices.
+  connections that are handed out until something else notices — and the patient driver never runs,
+  because nothing ever asks for a new connection.
 - **`acquisition-timeout`** (Quarkus default `5S`) bounds how long a request waits on a starved
-  pool. 15S because a real cutover takes longer than five seconds to settle and a caller failing
-  early is a caller that has to be retried anyway.
+  pool. 15S because a real cutover takes longer than five seconds to settle, and because it must
+  outlast the driver's own 14s deadline — otherwise the caller gets a generic acquisition timeout
+  instead of the database's real refusal.
 
-**What this pair does not do, stated honestly.** `acquisition-timeout` is not "wait for the database
-to come back" — it bounds the wait for a *pooled* connection, and a connection *attempt* that is
-refused still surfaces immediately. Nothing here makes an operation survive a cutover. Operations
-that must survive one wrap in **`DbRetry`** (`eu.wohlben.qits:qits-db-core`), which retries
-connection-class failures only, to a short deadline, and rethrows everything else at once. The two
-halves need each other: without `validate-on-borrow` the retry spends its deadline receiving the
-same dead connection.
+All three or none. Each line does less than it reads as without the other two.
+
+**Why holding is safe, including for writes.** Patience sits at connection **creation**, before the
+request has executed anything: no early acknowledgement, no buffering, no deferred apply. A request
+that outlives the deadline gets the real failure and nothing has happened anywhere. That is what
+makes this universal, where retrying an *operation* is not — a write whose commit acknowledgement
+was lost still committed, and a second attempt would do it twice. Measured 2026-08-11: 240 calls
+across an 8.2s hard outage, zero failures, straddling calls held ~8.6s and succeeded ~0.3s after
+postgres accepted again; the measurements are in `db-patience-plan.md`.
+
+**Where it does not reach: a connection that died mid-flight**, after statements ran. Retrying those
+is only safe for reads, so it stays explicit: wrap the seam in **`DbRetry`** (same jar), which
+retries connection-class failures only, to a short deadline, and rethrows everything else at once.
+Reads a caller is waiting on and bookkeeping that runs after something irreversible are its call
+sites; a bare `insert` is not.
+
+**Enforce it, do not remember it.** With the test-scope `qits-arch-rules` dependency already added
+in step 7:
+
+```java
+class DatasourceBaselineTest {
+  @Test
+  void everyPostgresDatasourceCarriesTheBaseline() {
+    DatasourceBaselineRules.assertBaseline();
+  }
+}
+```
+
+It finds every datasource the service declares as `db-kind=postgresql` and fails the build naming
+each one that is missing a line. A future service that skips the baseline learns it from its own
+build, not from a review.
 
 Two companion rules, both bought with the 2026-08-11 incident:
 
@@ -313,8 +355,9 @@ lockfile keeps the developer-host origin, which is correct locally.
    `ArchRulesTest` above.
 8. Give the image build the Maven repository address: `.qits-maven-settings.xml`, the Dockerfile's
    `ARG`/`ENV`/`-s` trio, and the CI recipe's `--build-arg` in the doctrine its network requires.
-9. Set the two datasource resilience lines on every postgresql datasource, and reach for `DbRetry`
-   where an operation must survive a cutover.
+9. Depend on `qits-db-core`, set the three datasource resilience lines on every postgresql
+   datasource, add the `DatasourceBaselineTest`, and reach for `DbRetry` at read seams that must
+   survive a cutover mid-flight.
 10. Prove it: package, boot the fast-jar, run the probe list.
 
 ### Naming the native binary: two keys, not one
