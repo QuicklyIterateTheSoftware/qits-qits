@@ -1,10 +1,310 @@
 # Handoff
 
-Updated 2026-08-10. Everything shipped-and-verified has been removed; history is
-in git. What remains is open, pending, or standing. This is the ONE handoff document —
-handover.md (the userflow plan) is folded in below and deleted.
+Updated 2026-08-11 evening. Everything shipped-and-verified has been removed;
+history is in git. What remains is open, pending, or standing. This is the ONE
+handoff document — handover.md (the userflow plan) is folded in below and deleted.
+
+## Session close 2026-08-11 ~20:15 — where to pick up
+
+- **Platform state: healthy and current.** 16 containers green, edge 200,
+  everything released tonight is deployed (see the DB PATIENCE entry below
+  for the nine versions). No builds in flight, no red runs EXCEPT
+  qits-events' release-recipe run for 171736 (fix committed, `7b23dba`,
+  rides its next release — the deploy itself was green).
+- **NOTHING from today is on GitHub.** Every commit sits on local submodule
+  mains and on the platform git host only — including the superproject's own
+  commits (docs `784dfac`/`c1d7da9`/`80a1ac3`, scm-plan removal `228defb`).
+  The byte-plane split itself is STILL not on GitHub either. A backup push
+  sweep (superproject + all touched submodules) is the biggest un-done
+  hygiene item. Uncommitted in the superproject working tree: handoff.md
+  (this file) and the untracked plan docs (db-patience-plan.md,
+  container-orchestration-plan.md, .env, .claude/ — same set as before).
+- **A second session is running the container-orchestration campaign** (top
+  entry) and edits this file too — merge, don't clobber.
+- **Next-step candidates, in rough value order:** (1) the GitHub backup
+  sweep; (2) live cutover chaos proof — either the next rebootstrap or a
+  cheap targeted one: `docker stop -t0` the platform postgres for ~10s
+  under a push + a few API calls, everything should hold (that would close
+  db-patience-plan.md's last big open item); (3) an ordinary qits-events
+  release to green its release recipe; (4) the deferred byte-plane items in
+  the REBOOTSTRAP entry (blobstore/registries calver releases + consumer
+  bumps, remaining `--network qits-net` build conversions, dockerd
+  registry-mirrors + git-remote host steps, mirror admin UI, spa-artifacts
+  key rename).
+- Today's memory files are current (db-patience, wrapper-push-keeps-catalog,
+  scm-domain-events, byte-plane campaign); trust MEMORY.md's index.
 
 ## In flight right now
+
+- **GITHOST + MIRROR GOT FRONTENDS (2026-08-11): both split services serve a
+  SPA now — ALL LOCAL; ships with the next rebootstrap (or a coordinated
+  gateway+cli release).** New repos, both on GitHub main: `qits-spa-githost`
+  (`bf69c6a`) and `qits-platform-spa-mirror` (`4d90de8`) — Angular 21.2,
+  `@qits/ui-components` 2026.807.122825, QitsMainLayout + provideQitsNavigation,
+  submoduled twice each (wrapper `99a34b5`; backend webui gitlinks). Segments:
+  the githost UI lives at `/githost` (SPA + `/githost/api` + `/githost/q`) and
+  the wire protocol stays at `/git` as an extra prefix — gateway `a382701`
+  (`GITHOST("Githost", 9, "/git")`, `MIRROR("Mirror", 10)`); cli-bootstrap
+  `47a0472` renames proxy-hosts key `git`→`githost`, adds `mirror`, moves the
+  githost health poll to `/githost/q/health/ready`. **Gateway and cli commits
+  must ship together** — the old key is a gateway startup error and vice versa
+  (bootstrap ships local mains, so a rebootstrap satisfies this by itself).
+  Backends: qits-githost `77090be` (Quinoa 2.8.2, `GET /githost/api/repositories`
+  with failed-read-is-500, non-app root `/git/q`→`/githost/q`, 85 tests green,
+  packaged bundle proven at `/githost/` with the right base href); qits-platform-
+  mirror `3ad7ee1` (Quinoa, `/mirror/api/repositories` + `/upstreams`, 52 tests
+  green, and the FULL packaged-surface probe list measured against a throwaway
+  postgres — deep links fall back, mistyped api and protocol paths all 404).
+  This closes byte-plane-split orphan (1), the mirror admin API + explorer UI.
+  Doctrine correction that came out of it (docs/project-setup-quinoa-angular.md):
+  Quinoa's SPA fallback mounts at `/<segment>/*` only and ignore entries are
+  ui-root-relative (read from 2.8.2 sources, then measured on the mirror) —
+  artifacts' `/v2` entry is really the `/artifacts/v2` misroute guard; the
+  doc's stale artifacts row fixed, githost + mirror rows added. UNPROVEN:
+  native + image builds for both backends and the CI-recipe webui halves
+  (transcribed from artifacts' working pipelines); githost packaged-surface
+  probes (needs the DB env triple — rides the bootstrap); the live nav shows
+  Githost/Mirror only once the new gateway is deployed. Wrapper pushed to the
+  platform githost after this commit (catalog rule) so the reconcile adopts
+  both SPA repos by name.
+
+- **CONTAINER ORCHESTRATION CAMPAIGN STARTED (2026-08-11): building
+  `services/qits-containers`.** Plan approved and tracked in
+  `container-orchestration-plan.md` (rewritten to the refined state — decisions,
+  one-page design, WP table). Round 1 = new repo (core lib + service + client
+  lib) + qits-ci hard cutover. Headline requirement: the service's own restart
+  never invalidates running containers (adopt-on-boot, row-before-run,
+  rows-only observer — the qits-deployments model generalized; policies
+  EPHEMERAL/IDLE_STOP/EXPLICIT). User decisions: qits-ci first adopter;
+  service owns lifecycle AND data plane (proxy ships flag-off in round 1).
+  GitHub remote created empty:
+  `https://github.com/QuicklyIterateTheSoftware/qits-containers.git` (push
+  scaffold main there before the WP7 submodule add). WP1 (scaffold,
+  clone-alone green) is running on an Opus subagent; implementation is
+  Opus-subagent work throughout. Later WPs: real driver + restart-adoption IT,
+  client lib, proxy skeleton, ship + the platform's FIRST dual maven+docker
+  release pipeline, bootstrap core-service seeding (dns precedent), qits-ci
+  cutover (removes ci's docker socket mount; boot reap becomes owner-scoped
+  destroyAllOwned with createdBefore).
+
+- **DB PATIENCE: SHIPPED FLEET-WIDE AND LIVE (2026-08-11).** Every postgres
+  service runs PatientPgDriver (requests HELD at connection-open through a
+  <15s outage, reads and writes alike), the DatasourceBaselineRules build
+  enforcement, DbRetry read seams and inNewTx write seams — deployed to the
+  dev platform through nine releases tonight: events 2026.811.171736, dns
+  .172356, idp .172659, mirror .173447, githost .173728, projects .174012,
+  workspaces .175121, deployments .175636, ci .180123 (last and alone,
+  nothing eaten). All 16 containers healthy, edge 200. Libs released:
+  qits-integrations-quarkus 2026.811.152803 + .165001, qits-eventstream
+  2026.811.155429. The causation-sweep commits (workspaces/deployments/
+  projects, V2 migrations applied at boot) and the SCM tag versionsort
+  dedupe shipped WITH these releases — the old post-rebootstrap release
+  queue is DONE. Doctrine + measurements: db-patience-plan.md and the guide
+  step 9; per-repo rules in each AGENTS.md. Merge note: workspaces/ci pom
+  conflicts against platform train bumps were resolved by merging platform
+  main into local main before re-releasing (deployments merged clean).
+  Open:
+  - Live cutover chaos proof rides the next rebootstrap (phases 50-59):
+    pushes surviving on held requests without the CLI Waiter saving them.
+  - qits-events' RELEASE-recipe run for 171736 is red (its release docker
+    build lacked the host-network maven doctrine; fixed at source `7b23dba`,
+    rides its next release — the deploy itself was green). dns got the full
+    image-build wiring (`8b5765e`) BEFORE its release and shipped green.
+  - Wave-2 remnant: the mirror libs' registry require*/resolve* reads ride
+    blobstore/registries' calver releases.
+  - inNewTx residue by design: a non-idempotent write failing inside the
+    commit ack errors honestly; TM-reported failures never retry (Narayana's
+    RollbackException is ambiguous — measured, in the lib README).
+  - Lib README still carries the stale PatientPgDriver native watch item
+    (native is PROVEN live); drop on next touch.
+  - db-patience-plan.md STAYS for now: 14 by-name references across five
+    submodules plus the open items above.
+  - Step containers run as ROOT and zonky initdb refuses root: eventstream's
+    CI verify su's to a build user (`7b50cad`); the lib's wire tests
+    @EnabledIf-skip as root (classifier units still run).
+
+- **PROJECTS CATALOG HEALED; THE WRAPPER ON THE GITHOST IS POST-SPLIT NOW
+  (2026-08-11 evening).** Found while releasing: the githost's qits-qits
+  main was PRE-SPLIT (`9df0a41` — the bootstrap seeds the wrapper from its
+  GitHub state and the split was never pushed to GitHub), so qits-projects'
+  self-seed had built a pre-split catalog and the release endpoint knew
+  neither qits-githost nor qits-platform-mirror ("Repository not found").
+  Fixed: local wrapper main fast-forwarded to the githost
+  (`9df0a41..80a1ac3`, quiet push), projects restarted → the reconcile
+  ADOPTED all 8 split repos by name and deregistered the stale pre-split
+  rows (deregisterRow is the light path — githost repositories untouched).
+  40 rows, catalog matches the split. Standing rule this implies: after any
+  wrapper-shape change, push the wrapper to the platform git host too, or
+  the catalog drifts.
+
+- **REBOOTSTRAP CAMPAIGN CONTINUED (2026-08-11, session live).** Attempt 7 was
+  aborted with the session; the host rebooted overnight and docker auto-started
+  its partial stack. Today: `unwrap --with-data-volumes` (config kept) + one
+  bootstrap. Attempt 8 reached phase 52/67 and taught two lessons, both fixed
+  at the source:
+  1. **The deployer never deployed anything** — its shipped default
+     `qits.platform.deployments.git-host-url` still names the pre-split
+     `qits-platform-artifacts:8080/artifacts`, nothing overrode it, and every
+     spec read timed out. The BuildSuccessful was consumed (watermark advanced)
+     and dropped, so no replay came for free; recovered live by adding the
+     property to the deployer's config volume + restart + a manual-door replay
+     (202, machine token via dev-qits-ci client). Durable fix: the CLI's
+     run-args template now carries
+     `qits.platform.deployments.git-host-url=http://<env>-qits-githost:8080`
+     (cli `2d65770`, 226 tests green) — the run-args file IS the deployer's
+     config file, seed and successors both read it at boot.
+  2. **The githost answered 404 for a repository that exists** — phase 51's
+     qits-oci-postgresql cutover severed every pool, and one second later
+     phase 52's push hit `DfsGitRepositoryProvider.open`, which swallowed the
+     JDBCConnectionException at DEBUG and returned null = 404. Fixed both
+     sides: githost `fe26a6c` (a failed catalog read throws → 500, null only
+     for cleanly-absent, 104 tests) and cli `d438ce2` (every githost push
+     retries through Waiter, 5s × 90s, token masked once in `Boot.push`,
+     230 tests).
+  A converging rerun (attempt 9, 15m08s, exit 1) scouted phases 52-67 and
+  flushed the remaining classes, all fixed on local mains:
+  3. **Five repos' pipelines spelled the retired
+     `qits-platform-artifacts:8080` maven build-arg** (workspaces measured:
+     `Name or service not known`; githost/artifacts/ci/mirror identical).
+     Now `--build-arg QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"`
+     in both pipeline files each: workspaces `0400b3c`, githost `e13154d`,
+     artifacts `f1707f2`, ci `6958dc4`, mirror `77cc36a`.
+  4. **qits-projects' image build was never wired for platform-maven deps**
+     (the causation commit added the first ones; pom default localhost:8081
+     is refused inside a docker build). `509e04a`: Dockerfile ARG/ENV +
+     `-Dqits.maven.repository.url`, NEW `.qits-maven-settings.xml` (exact-id
+     mirror — maven's default HTTP blocker exempts only localhost, so the
+     build-arg alone would just move the failure), both pipelines build with
+     `--network qits-net` + derived build-arg.
+  5. **qits-docs' webui gitlink sat before the SPA's own rename** (spa built
+     `dist/qits-platform-spa-docs`, guard wants `dist/qits-spa-docs/browser`).
+     qits-docs `a57b187` advances the gitlink to `ae9f432`; the agent also
+     repaired the submodule plumbing left broken by the repo rename. NOTE:
+     qits-spa-docs local main is 2 ahead of GitHub — fine for the bootstrap
+     (githost gets local mains), watch it if a source clone ever fetches that
+     submodule from GitHub (the qits-spa-artifacts precedent).
+  Proof run 1 (fresh volumes) then proved fixes 1-5 live — phases 50-59 all
+  green including the postgres-cutover window — and flushed three more:
+  6. **buildkit refuses `--network qits-net`** — mirror and githost step on
+     ci-base, whose docker CLI carries buildx, so their builds never ran on
+     the split topology (node-docker-base repos fall back to the legacy
+     builder, which is why the same flag passes there). Both moved to the
+     deployments-doctrine pattern (`--network host` + build-arg derived
+     from $QITS_REGISTRY): mirror `e087f25`, githost `f5ae4bb`.
+  7. **qits-artifacts pushed its image under the pre-split name**
+     (`qits/qits-platform-artifacts:<sha>`) while the deployer resolves
+     `qits/qits-artifacts:<sha>` — every deploy ended IMAGE_MISSING with the
+     bytes sitting in the registry under a name nothing reads. `294fa11`.
+  8. **qits-artifacts' deployments.yml still said
+     `deployment_target: platform`** — the deployer ran the platform plane,
+     whose predecessor search cannot match the tier-named seed
+     (dev-qits-artifacts), so nothing handed over the 8081 publish and the
+     successor died on the port bind. Now `environment` (`e114e9b`); the
+     platform-registered catalog row poisoned that run's platform, cured by
+     the next unwrap.
+  **FINAL PROOF RUN GREEN (2026-08-11 ~11:00): exit 0, 66 phases ok, 1 skip
+  (warm wrapper), ZERO warns, 27m11s, one `./qits-local-up.sh` call on fresh
+  data volumes.** 16 containers, all healthy, all deployed-shaped
+  (`qits-pd-*`) — every seed replaced by its CI-built successor through the
+  bus, edge 200. The byte-plane split topology is PROVEN end to end,
+  including the 16-deployable train and the postgres cutover mid-train.
+  Deferred: qits-deployments' own stale
+  microprofile `git-host-url` default (ride its next release); the release
+  pipelines pushing `:$QITS_CI_SHA` instead of `:$version` despite their
+  headers (platform-wide question, found while fixing qits-projects);
+  converting the remaining `--network qits-net` docker builds (workspaces,
+  projects, artifacts, ci — passing today only via the deprecated
+  legacy-builder fallback, and the swarm migration cannot assume it) to the
+  `--network host` doctrine pattern. qits-docs is DONE (`c971981`,
+  2026-08-11): its flag was needless — the build reaches only Maven Central
+  and nodejs.org, and the `FROM` lines resolve via the host daemon — so it
+  builds on default networking now, proven by a real green buildkit build.
+  Note found on the way: qits-docs has NO ci-event-release.yml (post-receive
+  + deployments.yml only), same asymmetry as qits-deployments.
+
+- **BYTE-PLANE SPLIT CUTOVER EXECUTING (2026-08-10 night).** Full design +
+  sequence: `byte-plane-split-plan.md`; state ledger: the
+  `byte-plane-split-campaign` memory. Everything is merged on local mains
+  (wrapper commit `c240047` renamed 4 submodules + added qits-blobstore,
+  qits-registries, qits-platform-mirror, qits-githost). The platform is
+  UNWRAPPED (`--with-data-volumes`; config volumes kept). Boot attempt 1
+  failed at the gateway seed image (Dockerfiles named `localhost:8081` for
+  third-party bases; hole was latent pre-split — cold boots survived on
+  docker's image cache). Fixed by a 29-repo sweep to `localhost:8082` (the
+  mirror; SeedDockerfile maps 8082-refs to direct upstreams at seed time).
+  Boot attempt 2 got past the fleet-sweep fix (gateway/edge/mirror seed
+  images built) and died on the artifacts seed image: its pom still
+  pinned auth-core 2026.807.165756 — the one train bump the repo missed
+  while the split branch carried it (seed registry only holds what the
+  checkouts build: 2026.810.184518). Bumped (`0be6cc5`), 89 service
+  tests green, whole fleet's pins audited — artifacts was the only
+  outlier. Attempt 3 died one layer deeper (Quinoa: no package.json):
+  the CLI's source clone fetches nested webui submodules from GITHUB,
+  and the artifacts webui gitlink (`a485f88`) named `dce2c5f`, a
+  local-only commit — pushed qits-spa-artifacts main to GitHub
+  (e3f010d..7773b89) and fresh-inited the source clone's module (the
+  `update = merge` convention chokes on shallow histories; module state
+  nuked and re-inited). CLI hardening follow-up: `submodulesShallow`'s
+  result is silently ignored — the empty-webui context should have
+  failed phase 10, not surfaced as a Quinoa error two layers later.
+  Attempt 4 reached 7m55s — ALL seed images built (artifacts 1m50,
+  githost 1m31), postgres+mirror+store serving — and died publishing
+  qits-registries: its pom declared no repository for qits-blobstore
+  (local builds rode ~/.m2; a publish container has no cache), and the
+  publish container's settings carried only the central mirror. Fixed
+  both sides: registries pom names the `qits-maven` repository with
+  snapshots enabled (`5bd24d4`, pushed), the CLI's publish settings gain
+  the exact-id qits-maven mirror (`277048b`, 226 tests green) — which
+  preemptively covers the githost-events publish (eventstream from the
+  same store). Attempt 5 then reached phase 42/69 — the ENTIRE seed
+  stack proven on the split topology (all seed images, 10 DBs,
+  mirror-fronted publishes incl. registries resolving blobstore, step
+  images, ci-daemon, seed stack up with dev-qits-artifacts +
+  dev-qits-githost + qits-platform-mirror serving, 37 repos on the
+  githost, 21 release histories) — and died on the predicted watch
+  item: replaying never-released qits-blobstore. Fix per the phase's
+  own doctrine (a replay restores a pin; nothing pins a lib calver yet
+  — the seed publishes restore the snapshots every consumer names):
+  blobstore/registries left RELEASE_PUBLISHERS until their first real
+  release (`bd9ac0b`, 226 tests green). Attempt 6: the EVENT
+  ARCHITECTURE PROVED ITSELF — the replay's tag push flowed as
+  SCMPublishTag through the bus and CI started the release run — then
+  the step container died on the one artifacts coordinate the rewiring
+  missed: QITS_CI_DAEMON_BINARY_URL_TEMPLATE still defaulted to the
+  retired alias. Set in seed compose + run-args (next commit on cli
+  main), 226 tests green. Attempt 7 running — remaining unproven: the
+  replays' run bodies, environment, 16-deployable train, train push.
+  Earlier fixes, landed: artifacts README
+  cache-section purge + webui gitlink, and the BOOT-BLOCKING path-aware
+  lockfile retargeting —
+  PROVEN and landed EVERYWHERE (720-entry proof; broad-then-narrow sed;
+  @qits → hosted origin via derived path, rest → mirror; committed
+  canonical form 8081-hosted/8082-proxy): 8 SPA repos + 9 service repos'
+  webui builds, 33 files, 75 step scripts bash -n clean. ui-components
+  turned out pnpm (no resolved origins — replay safe). Stale webui
+  checkouts are harmless (service builds use the SERVICE's pipeline
+  scripts). Also flagged: qits-spa-docs has NO CI pipeline yet. Then `./qits-local-up.sh` (NO second unwrap). Standing
+  order: after a clean end-to-end pass — or after giving up — update this
+  file and SHUT DOWN the Windows host. Deferred to next session: calver
+  releases of qits-blobstore/qits-registries (+ githost-events off its
+  1.0.0-SNAPSHOT) and the consumer pom bumps; dockerd `registry-mirrors`
+  host step → `localhost:8082`; user git remotes → `localhost:8083/git/…`;
+  a NEW artifacts migration (V14) deleting V7's three `oci-mirror` rows +
+  `oci_mirror_upstream` rows — the OCI mirror code path in artifacts is
+  still live behind those rows (arc excludes only the profile bean) and
+  the store census counts their bytes nowhere; benign tonight (nothing
+  dials artifacts for third-party), wrong long-term. AGENTS.md's git-host
+  chapters still need their own removal pass. README/AGENTS cache purge
+  landed (`5cc15e9`, net −341 lines) + webui gitlink `a485f88`.
+  **Plan-doc audit (2026-08-11): byte-plane-split-plan.md verified item by
+  item — everything implemented or tracked here EXCEPT two orphans, now
+  recorded:** (1) the mirror's phase-2 admin JSON API + explorer UI — DONE
+  2026-08-11, see the frontends entry at the top of this file; (2) the
+  qits-spa-artifacts package/angular project-key rename (still
+  `qits-platform-spa-artifacts`; the CLI pins the old dist path,
+  PlatformModelTest:167-176 asserts it). The plan doc STAYS until these and
+  the 10 by-name references to it (githost/artifacts/mirror READMEs,
+  AGENTS.md, ArtifactsRepositorySeeder) are cleaned up.
 
 - **Causation rows: RELEASED and wired into qits-ci (2026-08-10 night).**
   Libs released through the real door: qits-eventstream `2026.810.184513`
@@ -61,8 +361,12 @@ handover.md (the userflow plan) is folded in below and deleted.
     ideal state read as a misconfigured rule. Its interim workaround
     (`epics/src/test/resources/archunit.properties`) is removable once a
     release carrying this is pinned.
-  **POST-REBOOTSTRAP TODO, in order:** release qits-integrations-quarkus
-  (the empty-should fix), then workspaces / deployments / projects through
+  **POST-REBOOTSTRAP TODO: DONE (2026-08-11 night, the DB-patience release
+  campaign carried it):** qits-integrations-quarkus released (.152803 +
+  .165001), then workspaces / deployments / projects shipped with their
+  causation commits aboard. Original queue, for the record: release
+  qits-integrations-quarkus (the empty-should fix + qits-db-core), then
+  workspaces / deployments / projects through
   the release door sequentially (each also needs its ArchRulesTest happy —
   projects is, via the workaround); then drop the workaround on projects'
   next touch. The three service repos' working trees also carry the byte-
