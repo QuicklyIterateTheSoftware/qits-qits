@@ -63,10 +63,36 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   doc's stale artifacts row fixed, githost + mirror rows added. UNPROVEN:
   native + image builds for both backends and the CI-recipe webui halves
   (transcribed from artifacts' working pipelines); githost packaged-surface
-  probes (needs the DB env triple — rides the bootstrap); the live nav shows
-  Githost/Mirror only once the new gateway is deployed. Wrapper pushed to the
+  probes (needs the DB env triple — rides the bootstrap). Wrapper pushed to the
   platform githost after this commit (catalog rule) so the reconcile adopts
   both SPA repos by name.
+  **RELEASED AND LIVE the same evening:** qits-githost `2026.811.185221`,
+  qits-platform-mirror `2026.811.185649`, qits-gateway `2026.811.190126` —
+  in that order, with the deployer's gateway run-args edited between mirror
+  and gateway (`PROXY_HOSTS_GIT`→`GITHOST`, new `MIRROR=qits-platform-mirror`;
+  config-volume sed as root + deployer restart, CI idle). Nav carries Githost
+  + Mirror, `/githost/` and `/mirror/` verified in the browser through the
+  edge (screenshots `githost-live.png` / `mirror-live.png`, repo root),
+  `/git` protocol intact, githost packaged-surface probes all green on the
+  DEPLOYED container. The unproven list above is now proven except the two
+  repos' CI webui halves on the RELEASE pipelines (post-receive halves ran
+  green in these releases).
+  **One red run, root-caused:** the gateway's environment/dev build failed at
+  the runtime stage — `Using cache` found intermediate `7aaba39`, seconds
+  later `failed to export image: No such image`. Not any GC of ours (docker
+  events show ZERO image deletions in the window). Mechanism: this host's
+  3-day-old native dockerd runs the **containerd image store**
+  (`io.containerd.snapshotter.v1`), where legacy-builder cache intermediates
+  are content under leases, collected by containerd's own GC (invisible to
+  docker events) once unreferenced — and a release runs TWO concurrent
+  legacy-builder builds of the same Dockerfile (main variant=local +
+  environment/dev variant=oauth) sharing the early cache chain; the main
+  build finishing (its pipeline even ends `docker rmi "$ref"`) released the
+  shared intermediate mid-export. Recovered by the rewind-replay on
+  environment/dev — which in the SCM-events world fires a build for BOTH
+  pushes (the rewind sha built too; harmless, same image). Standing fix:
+  fold qits-gateway into the `--network host` buildkit-doctrine conversion
+  list (buildkit cache does not share this failure mode).
 
 - **CONTAINER ORCHESTRATION CAMPAIGN STARTED (2026-08-11): building
   `services/qits-containers`.** Plan approved and tracked in
