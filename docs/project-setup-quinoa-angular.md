@@ -167,6 +167,96 @@ Today the rules guard causation-traced rows: every `@Entity` either implements `
 `@Uncaused`. The qits-integrations-quarkus README is the reference; new rule sets added there
 arrive here as one more `@ArchTest` line.
 
+### The container image build: an address for the platform Maven repository
+
+A service that depends on any `eu.wohlben.qits:*` jar cannot build its image without being told
+where the platform's own Maven repository is. **The address is always derived from injected env,
+never spelled literally** — the artifacts store is an environment service and its alias carries the
+tier, so a written-down URL is correct in exactly one environment.
+
+Two doctrines exist, and **which one applies is decided by the build's network**:
+
+| Build network | Build-arg value | Why |
+|---|---|---|
+| `--network host` (**the target**) | `--build-arg QITS_MAVEN_REPOSITORY_URL="http://$QITS_REGISTRY/artifacts/maven/maven"` | Buildkit is the builder format the platform targets and it **refuses custom networks** (`network mode "qits-net" not supported by buildkit`). Host networking reaches the registry's host-published address. |
+| `--network qits-net` (**deprecated fallback**) | `--build-arg QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"` | The wire alias, resolvable only on qits-net. It still works on step images whose older docker CLI falls back to the legacy builder — that is the only reason it survives. |
+
+New repositories take the host doctrine. Reference: qits-githost `f5ae4bb`; qits-projects `509e04a`
+is the qits-net form.
+
+**The build-arg alone is not enough, and this is the half that is easy to miss.** Maven blocks
+plain-HTTP repositories and **exempts only localhost**, so a Dockerfile that runs Maven against the
+platform's HTTP registry fails with the blocker rather than with a connection error — the build-arg
+just moves the failure. Every such Dockerfile therefore passes a settings file with an
+**exact-id mirror**, which beats the blocker for that one repository and nothing else:
+
+```xml
+<!-- .qits-maven-settings.xml, repo root. All seven existing copies are identical. -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0" …>
+  <mirrors>
+    <mirror>
+      <id>qits-maven-network</id>
+      <mirrorOf>qits-maven</mirrorOf>
+      <url>${env.QITS_MAVEN_REPOSITORY_URL}</url>
+    </mirror>
+  </mirrors>
+</settings>
+```
+
+`mirrorOf` names the repository **id** the pom declares. A wildcard would permit arbitrary HTTP
+repositories; the exact id permits only the one address the build was handed.
+
+In `docker/Dockerfile`'s builder stage, three lines — `ENV` as well as `ARG`, because the settings
+file reads `${env.…}`:
+
+```dockerfile
+ARG QITS_MAVEN_REPOSITORY_URL=http://localhost:8081/artifacts/maven/maven
+ENV QITS_MAVEN_REPOSITORY_URL=$QITS_MAVEN_REPOSITORY_URL
+…
+RUN ./mvnw -B -ntp -s .qits-maven-settings.xml -pl service -am package -Dnative -DskipTests \
+      -Dqits.maven.repository.url="$QITS_MAVEN_REPOSITORY_URL" \
+      …
+```
+
+The `ARG` default is the developer-host URL so a plain host-side `docker build` still works; the
+blocker exempts localhost, which is why a developer's build needs no settings file at all. The
+Dockerfile is doctrine-agnostic — it takes whatever address the CI recipe hands it, so switching a
+repository from qits-net to host networking touches the recipe only.
+
+### The datasource resilience baseline
+
+**Every postgresql datasource carries exactly these two lines**, substituting the service's own
+datasource name:
+
+```properties
+quarkus.datasource.<name>.jdbc.acquisition-timeout=15S
+quarkus.datasource.<name>.jdbc.validate-on-borrow=true
+```
+
+- **`validate-on-borrow`** (Quarkus default `false`) tests a connection before handing it to a
+  caller and evicts it if it is dead. Without it, a database restart leaves the pool full of dead
+  connections that are handed out until something else notices.
+- **`acquisition-timeout`** (Quarkus default `5S`) bounds how long a request waits on a starved
+  pool. 15S because a real cutover takes longer than five seconds to settle and a caller failing
+  early is a caller that has to be retried anyway.
+
+**What this pair does not do, stated honestly.** `acquisition-timeout` is not "wait for the database
+to come back" — it bounds the wait for a *pooled* connection, and a connection *attempt* that is
+refused still surfaces immediately. Nothing here makes an operation survive a cutover. Operations
+that must survive one wrap in **`DbRetry`** (`eu.wohlben.qits:qits-db-core`), which retries
+connection-class failures only, to a short deadline, and rethrows everything else at once. The two
+halves need each other: without `validate-on-borrow` the retry spends its deadline receiving the
+same dead connection.
+
+Two companion rules, both bought with the 2026-08-11 incident:
+
+- **A failed read is a 5xx, never a "not found".** qits-githost swallowed a `JDBCConnectionException`
+  from a catalog read and answered 404 for a repository that exists, which every caller downstream
+  treated as fact. Fixed in `fe26a6c`. "I could not ask" and "the answer is no" are different
+  answers and must not share a status code.
+- **Cross-service writes during bootstrap keep client-side retry.** The pool settings help a service
+  survive its own datasource; they say nothing about a peer that is still starting.
+
 ### Known wart
 
 Bare `/<segment>` (no trailing slash) is a **404** — Quinoa mounts at `/<segment>/*`, which does not
@@ -221,7 +311,11 @@ lockfile keeps the developer-host origin, which is correct locally.
 6. **Name the binary**, both keys — see below.
 7. Enable the platform arch rules: test-scope `qits-arch-rules` plus the three-line
    `ArchRulesTest` above.
-8. Prove it: package, boot the fast-jar, run the probe list.
+8. Give the image build the Maven repository address: `.qits-maven-settings.xml`, the Dockerfile's
+   `ARG`/`ENV`/`-s` trio, and the CI recipe's `--build-arg` in the doctrine its network requires.
+9. Set the two datasource resilience lines on every postgresql datasource, and reach for `DbRetry`
+   where an operation must survive a cutover.
+10. Prove it: package, boot the fast-jar, run the probe list.
 
 ### Naming the native binary: two keys, not one
 
