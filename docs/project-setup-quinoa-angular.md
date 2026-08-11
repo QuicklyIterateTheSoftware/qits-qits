@@ -274,6 +274,16 @@ retries connection-class failures only, to a short deadline, and rethrows everyt
 Reads a caller is waiting on and bookkeeping that runs after something irreversible are its call
 sites; a bare `insert` is not.
 
+**A write that must survive the same loss goes through `DbRetry.inNewTx` instead.** It owns the
+transaction — every attempt is a fresh `requiringNew` on a fresh connection — so it can tell the
+failures that certainly did not commit from the ones nobody can place, and it retries only the
+first: a lost connection thrown out of the body. Everything the transaction manager reports,
+including a rollback it claims, is rethrown, because Narayana spells "the commit could not be
+delivered" and "the transaction was rolled back" with one exception type. Two call-site rules follow:
+flush inside the body (`Panache.flush()`) so an ORM's write lands in the phase that is
+classifiable, and reach for plain `DbRetry` where the write is idempotent by construction — an
+upsert or a natural key is safe under any retry, and only the call site can know that.
+
 **Enforce it, do not remember it.** With the test-scope `qits-arch-rules` dependency already added
 in step 7:
 
