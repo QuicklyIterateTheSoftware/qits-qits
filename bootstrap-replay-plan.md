@@ -119,12 +119,29 @@ trees as today; what changes is identity and bookkeeping, not bytes or
 duration (the sixteen native builds are irreducible on a cold boot; warm
 boots already pull instead of rebuilding).
 
-**The fork to decide:** the boot-as-dev-loop use (shipping local mains) is
-load-bearing in daily practice but contradicts the design's invariant. Either
-it survives as an explicit mode (default restore, `--ship-mains` opt-in for
-the dev loop), or the dev loop moves fully onto branches + releases and the
-boot becomes a pure restore. This plan does not decide it; it records that
-the current default silently chose the dev loop.
+**The fork — DECIDED 2026-08-12: restore is the default, mains are the
+opt-in.** The boot restores last-released versions by default; shipping local
+mains needs an explicit flag (`--ship-mains`), which is the dev loop's new
+spelling. This also resolves the 2026-08-08 hazard at the root: a local main
+ahead of the last release no longer deploys by accident, because the deploy
+ref stops following it.
+
+Design sketch (the change is ref selection, not new machinery):
+- Local mains are still pushed to the githost (`no-ci`, quiet) — the repos
+  need their history and the catalog needs the shape. Harmless now: main
+  being ahead no longer deploys.
+- Deployable tags are pushed too. Safe: deployables' release recipes stay on
+  `SCMRelease`, so a deployable's tag push selects no pipeline; and
+  qits-projects' backup consumer wants every tag anyway.
+- The deploy ref (`environment/<env>`) points at the commit of the NEWEST
+  versionsort release tag per deployable — not at main's head. The
+  post-receive build and the `BuildSuccessful` → deployer flow are untouched;
+  restore semantics enter through where the ref points.
+- A deployable with no release tag at all falls back to main's head with a
+  printed warning (the honest cold-start answer).
+- `--ship-mains` restores today's behavior: deploy ref = main's head.
+- The seed phase stays on main, per the design (main holds only tested
+  versions; seeds are scaffolding and get replaced either way).
 
 ### WP4 — the leftover heal (one-time, independent)
 
