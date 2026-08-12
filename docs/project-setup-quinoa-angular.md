@@ -317,6 +317,60 @@ Two companion rules, both bought with the 2026-08-11 incident:
 - **Cross-service writes during bootstrap keep client-side retry.** The pool settings help a service
   survive its own datasource; they say nothing about a peer that is still starting.
 
+### The machine-token validation baseline
+
+Every service that validates machine tokens carries **the same five-part `quarkus.oidc` block**,
+substituting nothing but its own issuer address:
+
+```properties
+quarkus.oidc.tenant-enabled=${qits.auth.machine.required:false}
+quarkus.oidc.auth-server-url=http://qits-platform-idp:8080/idp
+quarkus.oidc.application-type=service
+quarkus.oidc.discovery-enabled=false
+quarkus.oidc.jwks-path=jwks
+quarkus.oidc.connection-delay=30S
+quarkus.oidc.token.audience=${qits.auth.machine.audience}
+quarkus.oidc.token.forced-jwk-refresh-interval=PT5S
+```
+
+- **`tenant-enabled`** follows the rollout gate, so the extension is inert wherever
+  `qits.auth.machine.required` is still false — one switch, not two that can disagree.
+  **`application-type=service`** makes it a resource server: a bad bearer is a 401, never a redirect
+  to a login page a machine cannot follow.
+- **`discovery-enabled=false` + `jwks-path`** because the issuer string is a public URL while the
+  fetch happens on the platform's own network — a discovery document would name addresses the
+  process cannot reach. The path is *joined* onto `auth-server-url`, so it is `jwks`, not
+  `/idp/jwks`. The gateway is the exception and keeps discovery on: it reaches the public issuer.
+- **`connection-delay`** retries the boot-time JWKS fetch instead of falling back to lazy. Without
+  it there is one attempt, and the first request carrying a bearer pays for the failure. It does not
+  make idp a hard dependency — when the window expires, startup continues with a WARN.
+- **`token.audience`** spelled from the same key the guards read, so validation and `MachineAuth`
+  cannot drift into accepting a token the guard then refuses.
+- **`token.forced-jwk-refresh-interval`** is how fast a **rotated** idp key is picked up. Rotation is
+  rare: idp persists its signing key in its database, so a redeploy keeps it, and only an operator
+  retiring a key — or an idp landing on an empty database — mints a new one. Until the new key
+  arrives every validator holds the old set; an unknown `kid` buys **one** JWKS refresh, and the
+  Quarkus 3.34.6 default `10M` is the *minimum* before the next. That one attempt landing while idp
+  is down or mid-cutover means ten minutes of 401s for every caller. `PT5S` ends the window seconds
+  after idp answers again, and costs at most one JWKS fetch per five seconds on the platform's own
+  network.
+
+**These keys stay per-service; they do not move into `qits-auth-core`'s shipped defaults.** Measured
+2026-08-12: a `quarkus.oidc.*` key in that jar's `microprofile-config.properties` makes every
+consumer *without* the quarkus-oidc extension log `Unrecognized configuration key "…" was provided;
+it will be ignored` at boot. `qits-platform-mirror` is such a consumer today. The repetition is the
+price of not putting a warning into an unrelated service's every start — so it is a documented
+pattern instead of a shared default.
+
+**The residual, and who absorbs it.** A JWKS refresh that fails because idp is unreachable surfaces
+to the caller as a plain **401**, indistinguishable from a bad token. Nothing in this block changes
+that; it only shortens how long it lasts. A machine caller on a critical seam therefore holds
+through 401s briefly rather than failing its work. The worked example is qits-ci's
+`CiDaemonLauncher`: `qits.ci.containers.launch-patience` (`PT90S`) retries a launch that came back
+401, which is safe because `ensure` is an idempotent PUT keyed on the step's own container name — a
+second attempt adopts what the first may have created rather than duplicating it. Retry on 401 is
+only correct where that property holds; where it does not, the call fails and the caller is told.
+
 ### Known wart
 
 Bare `/<segment>` (no trailing slash) is a **404** — Quinoa mounts at `/<segment>/*`, which does not
