@@ -96,8 +96,16 @@ Every RELEASE_PUBLISHER's release recipe switches `event: SCMRelease` →
 `event: SCMPublishTag`. The versionsort tag dedupe in qits-ci already exists
 for this adoption (one run per newest tag). The CLI deletes the synthetic
 `SCMRelease` fabrication; the replay becomes: push the tag, wait for the
-registry to hold the pin. The publish steps are already probe-and-skip, so
-warm boots no-op.
+registry to hold the pin. The publish steps are probe-and-skip in the four
+package repos, so warm boots no-op there. CORRECTION (found during
+implementation): the three image publishers (`oci-workspace`,
+`workspace-daemon`, `projects-daemon`) build and push unconditionally — a
+warm replay pays the full image build. Not a regression (the fabricated path
+rebuilt them too). Follow-up: give them the publish-if-absent probe; the
+working idiom is in `daemons/qits-workspace-daemon/.config/qits/
+ci-event-upstream-oci-workspace.yml` (origin from `$QITS_MAVEN_REGISTRY_URL`,
+ask `/v2/…/manifests/<version>`; `$QITS_REGISTRY` is not reachable from a
+step).
 
 ### WP2 — `SoftwareRelease` requires a real release
 
