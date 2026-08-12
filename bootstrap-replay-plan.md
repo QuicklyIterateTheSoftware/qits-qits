@@ -221,6 +221,48 @@ Consequences:
    ci last and alone) so "last released" and "known good" coincide again.
    Until then a restore boot is a downgrade mix and likely red.
 
+## Stage C and its lessons (2026-08-12 evening)
+
+The first restore-default boot ran 69 ok + 1 warn. The restore MECHANISM
+proved out: every deployable came back at its release-tag sha, the event log
+carried zero SoftwareRelease/SCMRelease (a pure restore in the platform's
+own vocabulary), all seven publishers tag-triggered green, no bump runs, no
+red tiles. The one warn was a real defect class, plus its salvage:
+
+1. **Migration-delta between main and the last release kills a restore
+   boot.** qits-ci's main carried Flyway V3 (the WP2 join) ahead of its
+   release tag; the main-built SEED applied V1-V3 to the fresh database, the
+   tag-built V2 successor refused it ("applied migration not resolved
+   locally: 3") and crash-looped, starving every later deploy. Salvaged
+   live: seed stopped, V3's empty tables + history row dropped, ci's deploy
+   replayed through the deployer's manual door (machine token, 202) — the
+   durable consumers caught up instantly and the boot completed.
+2. **Durable fix, landed: one identity per boot** — cli-bootstrap `bd4215b`:
+   the `sources` phase decides the boot's identity once; restore mode leaves
+   every checkout detached at its newest release tag (seeds, publishes and
+   deploy refs all read the same tree by construction), `--ship-mains`
+   keeps main. Deep knock-ons handled: main pushes are `main:refs/heads/main`
+   (a detached HEAD push would rewind trunks), "main's head" reads are
+   explicit branch reads, detached checkouts reattach before pulling, the
+   overlay rule is "the tree's own HEAD", and the seed's maven probe now
+   publishes released bytes at released coordinates (resolving the recorded
+   EINTEGRITY hazard).
+3. **Stale `1.0.0-SNAPSHOT` pins are a landmine class the docker cache
+   hides.** qits-ci's pins for the split-off `qits-githost-events` /
+   `qits-containers-client` met a post-salvage registry with no seed
+   snapshots; the first source-change build (the V3 release) burned stamp
+   `2026.812.183516` on an unbuildable-cold main. Fixed by a pin-bump
+   release `2026.812.184140` (resolution proven cold: artifacts purged from
+   ~/.m2, real downloads, step layer NOT cache-served) — V3 applied
+   forward, the join announced its own release. qits-projects carries the
+   same pins (fix in flight). Still open, sharper now: qits-artifacts
+   (blobstore+registries) and qits-githost (blobstore) pin snapshots with
+   NO calver release to bump to — the standing byte-plane deferred item
+   (first releases of blobstore/registries) is what closes them.
+4. **A red release burns its stamp** — tag + main merge exist even when the
+   pipeline fails; the retry needs a fresh branch and a fresh version. Known
+   by design (no re-stamp of an empty merge), now measured.
+
 ## Non-goals
 
 - Shortening the cold boot. The builds are the clock in both phases and the
