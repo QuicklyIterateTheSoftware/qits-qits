@@ -63,11 +63,30 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   GitHub backup sweep must push --tags. IN FLIGHT: the fleet release wave
   (all 17 deployables released off current mains — oci-postgresql alone,
   deployments late, ci LAST AND ALONE — then local tag-sync + main
-  fast-forward), subagent running. THEN the proving rebootstrap: first
-  restore-default boot; expect the seven publishers' replays tag-triggered
-  and announcement-silent, no bump runs, no red tiles. Note: deployed ci is
-  pre-WP2; the join code reaches the platform with ci's next release (the
-  wave) or the boot.
+  fast-forward), subagent running. **STAGE A PROVEN (2026-08-12 ~17:10): the
+  ship-mains rebootstrap on the new code went green** — exit 0, 69 ok + 1
+  skip, 27m35s, 17 healthy, edge 200; all SEVEN publisher replays ran as
+  SCMPublishTag-triggered release runs (SUCCESS); ZERO SoftwareRelease events
+  on the bus (the WP2 join, live in deployed ci c275f43, kept every replay
+  silent); ZERO maintenance bump runs, zero red tiles, zero 401s. The
+  original red-tile class is structurally gone. The wave-blocking discovery
+  stands recorded: qits-workspaces has NO door to release a main with
+  nothing to merge (branch=main → 400 by design, branch-at-tip → 409;
+  WorkspaceService.releaseBranch:1482 / ReleaseIntegrator:411), and the
+  2026-08-11 release lineage is UNRECOVERABLE (stamp commits were never
+  pulled home before the wipes). User-directed staged path: (A) mains boot ✔;
+  (B) release the ten tagless deployables through the normal door, each
+  carrying real recorded debt (docs/deployments get their missing
+  ci-event-release.yml; the other eight get the :$version image-tag wart
+  fix), then sync tags+mains home AND push the 17 to GitHub — in flight;
+  (C) the first restore-default proving boot. Coordination: the
+  swarm-migration session (worktree qits-qits-swarm) holds off the docker
+  daemon until stage C is signalled done; it will pass QITS_SHIP_MAINS=1 for
+  its own proofs; its qits-deployments b1058ae (deploy-lifecycle events,
+  on main) shipped with stage A. Ci-merge note: local qits-ci main is
+  c275f43 (githost release history merged INTO local main, no conflicts,
+  webui gitlink at the released 104d843; all 8 SPA mains ff'd + pushed to
+  GitHub with today's tags — that unblocked the boot's webui fetches).
 
 - **GITHOST + MIRROR GOT FRONTENDS (2026-08-11): both split services serve a
   SPA now — ALL LOCAL; ships with the next rebootstrap (or a coordinated
