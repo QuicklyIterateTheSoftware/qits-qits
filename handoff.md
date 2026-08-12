@@ -36,6 +36,39 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
 
 ## In flight right now
 
+- **BOOTSTRAP REPLAY CAMPAIGN (2026-08-12 afternoon/evening): restore
+  semantics designed, implemented, partially proven.** Design + state ledger:
+  `bootstrap-replay-plan.md` (root). The user's dictated model: a bootstrap
+  RESTORES the last-released state; replays must stop impersonating releases.
+  Landed on local mains (all unpushed): WP1a — seven publisher recipes on
+  `event: SCMPublishTag` (version from `tagName`, `when: repoId`); WP1b —
+  cli-bootstrap `28c4e77` deletes the synthetic SCMRelease (replay = tag push
+  + run wait; up-to-date tag SKIPS); WP2 — qits-ci `f505119` durable
+  (repository, version) join: `SoftwareRelease` fires only when a green
+  publish run AND a real `SCMRelease` both exist (replays silent forever;
+  tag runs read `tagName`); WP3 — cli-bootstrap `669aad2` **RESTORE IS THE
+  BOOT'S DEFAULT NOW** (deploy ref = newest CalVer tag; `--ship-mains` /
+  `QITS_SHIP_MAINS` is the dev loop's new spelling — A PLAIN RERUN
+  DOWNGRADES A DEV-LOOP MACHINE TO ITS LAST RELEASE, say --ship-mains when
+  you mean mains). WP4 — the eight stuck SPA maintenance branches released
+  and every red run healed: 32/32 repos SUCCESS, zero maintenance branches;
+  lesson minted: NEVER rewind-replay a `maintenance/*` ref (parent build
+  races the release step and deletes the branch) — heal bump branches via
+  the release endpoint. Root cause of those red tiles (measured): train bump
+  runs fire off replays while qits-workspaces doesn't exist yet (not a seed
+  service, deployed minutes later); one-shot fetch, nothing replays it.
+  **TAGS ARE LOAD-BEARING STATE NOW** (plan doc section): stamps die with
+  every data-wiped githost; 7 deployables had no local tag, 6 stale
+  (pre-db-patience!). Tag-sync done for today's 2026.812.* releases; the
+  GitHub backup sweep must push --tags. IN FLIGHT: the fleet release wave
+  (all 17 deployables released off current mains — oci-postgresql alone,
+  deployments late, ci LAST AND ALONE — then local tag-sync + main
+  fast-forward), subagent running. THEN the proving rebootstrap: first
+  restore-default boot; expect the seven publishers' replays tag-triggered
+  and announcement-silent, no bump runs, no red tiles. Note: deployed ci is
+  pre-WP2; the join code reaches the platform with ci's next release (the
+  wave) or the boot.
+
 - **GITHOST + MIRROR GOT FRONTENDS (2026-08-11): both split services serve a
   SPA now — ALL LOCAL; ships with the next rebootstrap (or a coordinated
   gateway+cli release).** New repos, both on GitHub main: `qits-spa-githost`
