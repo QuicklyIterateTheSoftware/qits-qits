@@ -215,7 +215,19 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   Now PT5S in all five validators — artifacts `7f0753f`, ci `aa6791d`,
   containers `85d1c9e`, deployments `84c488e`, gateway `c21ca3e` (the
   gateway also gained the `connection-delay=30S` the other four already
-  carried) — local mains, rides the next releases/rebootstrap.
+  carried) — **PROVEN LIVE by a same-day rebootstrap** (unwrap
+  --with-data-volumes + one call: exit 0, 69 ok + 1 skip, 30m25s, 17
+  healthy, edge 200, ZERO 401s anywhere in the run — the idp cutover
+  passed clean). All five deployed images are tagged with exactly these
+  five shas; zero unrecognized-key lines in their boot logs; the ci
+  native binary carries the key and `PT5S` (strings on the deployed
+  binary); and a behavioral probe pinned the runtime value: with idp
+  stopped, two unknown-kid probes 6s apart EACH burned the 10s JWKS
+  connect timeout (a second attempt is impossible under the old 10M
+  default) while a third probe 2s later answered in 3ms (the 5s floor,
+  clocked from the last attempt's end). The fresh boot also re-proved
+  no-rotation: one ACTIVE key row, seed-minted 13:52:07, kept by the
+  deployed idp.
   Deliberately NOT shipped via qits-auth-core: measured, a
   `quarkus.oidc.*` key in the lib's shared fragment is an "Unrecognized
   configuration key" boot WARN in every non-oidc consumer
