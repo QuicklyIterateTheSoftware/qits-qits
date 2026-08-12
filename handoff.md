@@ -202,12 +202,37 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   `build` + /workspace at 1777 + system safe.directory (root lost
   DAC_OVERRIDE too — three lessons, one directory); (8) idp-cutover 401
   window at the orchestrator → launches/reaps hold through auth blips
-  (PT90S; safe because ensure is an idempotent PUT). FOLLOW-UPS: idp
-  signing keys rotate on redeploy (the 401-window's root — persist or
-  pre-publish JWKS, platform-wide question); GitHub backup sweep still owed
-  for most submodule mains; round 2 = workspaces/projects onto the
-  orchestrator + proxy adoption (flag-off skeleton in, per-tunnel-secret
-  contract).
+  (PT90S; safe because ensure is an idempotent PUT). FOLLOW-UPS:
+  **the idp-401 root cause is SETTLED (2026-08-12 afternoon), and the old
+  "keys rotate on redeploy" line was WRONG** — measured live: one ACTIVE
+  row in qits_platform_idp, minted by the SEED idp at 07:01:52, kept
+  byte-identical by the deployed successor (started 07:05:47); the idp
+  has persisted its key since `194832a` (2026-08-01), so an ordinary
+  redeploy rotates nothing. The remaining exposure was a REAL rotation
+  (operator action, or an idp landing on an empty database) overlapping
+  an idp blip: `quarkus.oidc.token.forced-jwk-refresh-interval` defaults
+  to 10M, so one failed refresh costs ten minutes of 401s per validator.
+  Now PT5S in all five validators — artifacts `7f0753f`, ci `aa6791d`,
+  containers `85d1c9e`, deployments `84c488e`, gateway `c21ca3e` (the
+  gateway also gained the `connection-delay=30S` the other four already
+  carried) — local mains, rides the next releases/rebootstrap.
+  Deliberately NOT shipped via qits-auth-core: measured, a
+  `quarkus.oidc.*` key in the lib's shared fragment is an "Unrecognized
+  configuration key" boot WARN in every non-oidc consumer
+  (qits-platform-mirror today); the fragment now says so (`61e7130`) and
+  the pattern lives in docs/project-setup-quinoa-angular.md's new
+  "machine-token validation baseline" section (wrapper `8bf6ee5`).
+  Residual, recorded there too: a JWKS refresh that fails while idp is
+  down still answers a plain 401, indistinguishable from a bad token —
+  critical machine callers hold through it briefly (qits-ci's PT90S is
+  the worked example). Side note: services/qits-deployments has an
+  uncommitted regenerated docs/openapi.yml (version stamp churn from a
+  test run, not part of any change). Still open: GitHub backup sweep for
+  most submodule mains (measured 2026-08-12: 31 submodules, ~213
+  local-only commits; fetch --tags from the platform githost before
+  pushing so release stamps ride along); round 2 = workspaces/projects
+  onto the orchestrator + proxy adoption (flag-off skeleton in,
+  per-tunnel-secret contract).
 
 - **DB PATIENCE: SHIPPED FLEET-WIDE AND LIVE (2026-08-11).** Every postgres
   service runs PatientPgDriver (requests HELD at connection-open through a
