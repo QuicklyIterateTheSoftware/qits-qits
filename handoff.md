@@ -79,7 +79,25 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   carrying real recorded debt (docs/deployments get their missing
   ci-event-release.yml; the other eight get the :$version image-tag wart
   fix), then sync tags+mains home AND push the 17 to GitHub — in flight;
-  (C) the first restore-default proving boot. Coordination: the
+  (C) the first restore-default proving boot. **CAMPAIGN CLOSED
+  (2026-08-12 night): third restore boot ZERO WARNS** — exit 0, 69 ok + 1
+  warm skip, 14m32s, 17/17 healthy, edge 200, pure-restore event log. Three
+  iterations, each fixing one measured class: (C1) migration-delta — ci's
+  main-built seed applied V3, the tag-built V2 successor refused it;
+  salvaged live (DB surgery + deployer manual door), fixed at source by
+  one-identity-per-boot (cli bd4215b) and ci's release 2026.812.184140
+  (V3 + the join + calver pins; earlier stamp .183516 BURNED on stale
+  1.0.0-SNAPSHOT pins the docker cache had masked — projects had the same
+  landmine, defused via .192419; artifacts/githost still pin blobstore/
+  registries snapshots with NO calver to bump to — the standing byte-plane
+  item, sharper now). (C2) qits-oci detached at its stale tag built
+  maven-base without the `build` user — identity-by-tag now scoped to
+  DEPLOYABLES ∪ RELEASE_PUBLISHERS (cli 6103c72, final main). (C3) green.
+  Ledger: bootstrap-replay-plan.md. Memories: restore-default-boot,
+  release-stamps-burn. All touched mains+tags on GitHub. Swarm session got
+  its green ping + shas; daemon handed over 2026-08-12 night. New findings
+  parked: AgentTunnelProxyTest holds an untimed HttpClient.send (can wedge
+  verify forever); qits-events' release yml still carries the rmi wart. Coordination: the
   swarm-migration session (worktree qits-qits-swarm) holds off the docker
   daemon until stage C is signalled done; it will pass QITS_SHIP_MAINS=1 for
   its own proofs; its qits-deployments b1058ae (deploy-lifecycle events,

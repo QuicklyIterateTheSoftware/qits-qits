@@ -262,6 +262,28 @@ red tiles. The one warn was a real defect class, plus its salvage:
 4. **A red release burns its stamp** — tag + main merge exist even when the
    pipeline fails; the retry needs a fresh branch and a fresh version. Known
    by design (no re-stamp of an empty merge), now measured.
+5. **Identity-by-tag is scoped to identity-bearing repos** (`6103c72`). The
+   second restore boot detached images/qits-oci at its stale 08-09 tag and
+   built maven-base without the step-sandbox `build` user — step launches
+   died on "no matching entries in passwd file". The rule now:
+   restore-mode detachment applies to DEPLOYABLES ∪ RELEASE_PUBLISHERS
+   (`PlatformModel.carriesVersionIdentity`); step-image sources, SPA seed
+   sources and qits-ci-daemon stay on main in both modes — their artifacts
+   are consumed by bare local tag or digest and rebuilt every boot.
+
+## CLOSED (2026-08-12 night): the zero-warn restore boot
+
+Third restore-default boot on `6103c72`: **exit 0, 69 ok + 1 warm skip,
+ZERO warns, 14m32s, 17/17 healthy, edge 200.** Every deployable at its
+release sha (ci `f7acda21` with V3+join, containers deployed at its tag with
+the build user working, projects at its pin-bump). Event log: a pure
+restore — zero SoftwareRelease/SCMRelease, seven tag-triggered publisher
+replays, zero bump runs, zero red tiles. Definition of done met: all libs
+released, all services released, the bootstrap restores them. All touched
+mains+tags pushed to GitHub. Open follow-ups recorded above: blobstore/
+registries first releases (unbumpable snapshot pins in artifacts/githost),
+the image publishers' publish-if-absent probes, qits-events' rmi wart, and
+the AgentTunnelProxyTest untimed HttpClient.send.
 
 ## Non-goals
 
