@@ -97,7 +97,15 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   release-stamps-burn. All touched mains+tags on GitHub. Swarm session got
   its green ping + shas; daemon handed over 2026-08-12 night. New findings
   parked: AgentTunnelProxyTest holds an untimed HttpClient.send (can wedge
-  verify forever); qits-events' release yml still carries the rmi wart. Coordination: the
+  verify forever); qits-events' release yml still carries the rmi wart;
+  VOLUMES-KEPT re-bootstraps hit rotated seed-role passwords (the deployer
+  rotates at successor provisioning, .qits-bootstrap.env goes stale,
+  ensureRoleIfMissing never ALTERs — found by the swarm session at its
+  phase 16; my boots dodged it by wiping data volumes). Durable fix: the
+  seed phase should converge role passwords (it holds the superuser
+  credential) or read them from the deployer's registry rows; interim:
+  ALTER the 12 seed roles to env values + clear stale pd_resource rows
+  before a volumes-kept boot. Coordination: the
   swarm-migration session (worktree qits-qits-swarm) holds off the docker
   daemon until stage C is signalled done; it will pass QITS_SHIP_MAINS=1 for
   its own proofs; its qits-deployments b1058ae (deploy-lifecycle events,
