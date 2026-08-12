@@ -176,13 +176,38 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   and --group-add REMOVED**, read-shaped orchestrator warm probe. Wrapper
   `8b308f0` (gitlink + plan doc + handoff) is PUSHED to GitHub — today's
   wrapper commits are backed up now; submodule contents still are not
-  (except qits-containers, fully pushed). NOW RUNNING the user directive:
-  unwrap keeping config volumes + one bootstrap, green start-to-finish with
-  no manual nudges (failures fixed at source, whole re-run); then the live
-  qits-containers restart proof on the fresh platform; then SHUT DOWN the
-  Windows host. The rebootstrap also carries tonight's other-session work
-  (githost+mirror SPAs, gateway/cli rename pair, the nine db-patience
-  releases) — one run proves it all.
+  (except qits-containers, fully pushed).
+  **THE PROVING REBOOTSTRAP IS GREEN AND THE RESTART PROOF IS LIVE
+  (2026-08-12 morning): attempt 11 exit 0, 70/70 (1 warm skip), ZERO warns,
+  ~14m, 17 qits-pd containers, edge 200 — every CI step of the whole train
+  ran through orchestrator-spawned containers, and the live proof followed:
+  a workload created over machine-token REST survived a `docker restart` of
+  the deployed orchestrator byte-identically (Id/StartedAt unchanged), was
+  re-answered RUNNING from the durable registry, served logs, deleted
+  clean.** The run also proved tonight's other-session work (githost+mirror
+  SPAs, gateway/cli rename pair, nine db-patience releases through the
+  postgres-cutover window). Eleven attempts; every failure fixed at source
+  with a regression net: (1) unwrap erases unsynced release stamps →
+  restamp + tags + memory; (2) lib-seed order in BOTH seed lists +
+  last-entry sentinel → dependency-true, test-pinned; (3) native
+  reflection: SpecFingerprint family + Response-entity-only ErrorBody →
+  holders + coverage-walk test; (4) Central throttling from cold caches →
+  persistent qits-maven-cache (cache-class in unwrap, qits group purged per
+  run); (5) main-head release scripts vs old-tag trees → presence guard;
+  (6) qits-spa-artifacts rename half-landed → .gitmodules relative URL +
+  derived pipeline URLs + an upstream trigger that had NEVER fired since
+  the rename; (7) THE STEP-SANDBOX LAW: cap-drop=ALL forbids in-container
+  user switching (no CAP_CHOWN/SETUID even for root) → step decl gains
+  `user:` (refused with docker:true), maven-base ships passwd-backed
+  `build` + /workspace at 1777 + system safe.directory (root lost
+  DAC_OVERRIDE too — three lessons, one directory); (8) idp-cutover 401
+  window at the orchestrator → launches/reaps hold through auth blips
+  (PT90S; safe because ensure is an idempotent PUT). FOLLOW-UPS: idp
+  signing keys rotate on redeploy (the 401-window's root — persist or
+  pre-publish JWKS, platform-wide question); GitHub backup sweep still owed
+  for most submodule mains; round 2 = workspaces/projects onto the
+  orchestrator + proxy adoption (flag-off skeleton in, per-tunnel-secret
+  contract).
 
 - **DB PATIENCE: SHIPPED FLEET-WIDE AND LIVE (2026-08-11).** Every postgres
   service runs PatientPgDriver (requests HELD at connection-open through a
