@@ -173,6 +173,54 @@ That is already the shape of today's green bar (registry probes, 16 healthy
 deployables, edge 200) — the redesign changes what "released" means in it
 (release identity instead of main-head sha), not the bar itself.
 
+## Implementation state (2026-08-12 evening)
+
+All four work packages are implemented, on local mains, unproven by a boot:
+
+- WP1a: seven publisher recipes on `event: SCMPublishTag` (`when: repoId`,
+  version from `tagName`, CalVer guards) — ui-components `080babb`,
+  integrations-angular `1d4c644`, eventstream `57a82ca`,
+  integrations-quarkus `7b8a084`, oci-workspace `a48b2bf`,
+  workspace-daemon `bac0c19`, projects-daemon `c1167d2`.
+- WP1b: cli-bootstrap `28c4e77` — synthetic `SCMRelease` deleted; replay =
+  tag push + run wait; up-to-date tag skips instead of timing out.
+- WP2: qits-ci `f505119` — durable `(repository, version)` join
+  (`ci_release_announcement` + `ci_scm_release`, migration V3);
+  `SoftwareRelease` fires only when a green publish run AND an `SCMRelease`
+  both exist, any arrival order; replays stay silent forever. Tag runs
+  derive the version from `tagName`.
+- WP3: cli-bootstrap `669aad2` — restore is the default (deploy ref = newest
+  CalVer tag reachable from main, forced push when rewinding), `--ship-mains`
+  / `QITS_SHIP_MAINS` restores the dev loop, no-tag deployables fall back to
+  main-head with a warn (which costs exit 1). NOTE the semantics change: a
+  plain boot rerun on a dev-loop machine now redeploys BACKWARD to the last
+  release — reruns that mean "keep my mains" must say `--ship-mains`.
+- WP4: seven of eight SPA maintenance branches released and integrated
+  (2026.812.*); the cascade proved bump→release closes with workspaces up,
+  and re-proved the self-hosting-ci hazard (its redeploy ate three in-flight
+  builds). Finishing pass (last repo + red-run replays) in progress.
+
+## Tags are load-bearing state now (found during WP3)
+
+Restore-by-tag makes release tags operational state, and they are fragile on
+this machine: stamps live on the platform githost, the githost dies with
+every data-wiped boot, and local checkouts only hold what they fetched.
+Measured 2026-08-12: seven deployables had NO local release tag (idp, stt,
+dns, mirror, githost, containers, edge — their 2026-08-11 stamps died with
+the morning wipes) and six more were stale (events/deployments newest local
+tags PRE-DATE db-patience — a restore boot today would deploy services
+without it, into the postgres-cutover window that needs it).
+
+Consequences:
+1. After any release: fetch `--tags` from the githost into the local
+   checkouts (done 2026-08-12 for today's 2026.812.* releases).
+2. The GitHub backup sweep must push `--tags` — GitHub becomes the tag
+   store that survives wipes.
+3. Before the first restore-default boot, the fleet needs a release wave
+   (every deployable released off its current, verified-running main —
+   ci last and alone) so "last released" and "known good" coincide again.
+   Until then a restore boot is a downgrade mix and likely red.
+
 ## Non-goals
 
 - Shortening the cold boot. The builds are the clock in both phases and the
