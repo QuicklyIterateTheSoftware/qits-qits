@@ -108,14 +108,14 @@ branches.
   ComposeTemplateTest:312-313,834,859; also trim the "mounts a blobs
   volume" sentence in mirror's own deployments.yml when the infra WP
   lands.
-- WP-GITHOST in flight (agent, branch `postgres-blobs`) — REQUIRED
-  before the rebootstrap now: a fresh boot seed-publishes the libs from
-  local checkouts, so the old lib calvers githost pins exactly would
-  not exist in the fresh registry. Lib bumps + V2 blob tables on its
-  datasource + BlobStorePackBlobStore onto openChannel/stageScratch
-  (openRead() seals — hash before promote). No pack-blob copy: the
-  bootstrap re-pushes every repository. Its cli-bootstrap volume/env
-  lines need a follow-up on the infra branch once both agents report.
+- WP-GITHOST DONE: branch `postgres-blobs` head d67586b, 112 tests
+  green (GitHostTest's 41 real-git-CLI cases prove chunked packs read
+  back byte-identically), native compile green (no ITs in this repo —
+  the native gate proves compilation, not boot). Volume held only
+  blobs; container honestly stateless; PackBlobStore port and
+  QitsDfsObjDatabase unchanged. The byte plane has ZERO volumes left.
+  Infra follow-up for its ComposeTemplate lines is running on the
+  cli-bootstrap branch.
 - Exclusion note for every sweep: services/qits-artifacts/.claude/
   worktrees/byte-plane-split/ holds stale full copies of all five repos.
 - COMPLETION PATH (user 2026-08-13 evening: "we can just rebootstrap"):
