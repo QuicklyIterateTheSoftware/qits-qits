@@ -1,5 +1,27 @@
 # Swarm migration campaign — handoff
 
+## CAMPAIGN CLOSED 2026-08-13 (~13:30): swarm is the only orchestrator
+
+Boot 6 — full boot on the docker-free mains — 70/70 in 14m16s, edge 200,
+and the deployer SELF-UPDATED cleanly to deployments main (392c8b2, the
+docker-deletion commit) with correct row settling. The docker path is
+deleted (dockerhost/ gone, orchestrator key kept as a boot guard that
+refuses anything but `swarm`; 315 tests). All six repos' mains pushed to
+GitHub: cli-bootstrap 8103c1e, deployments 392c8b2, workspaces cf98b39,
+projects 221a5ae, gateway c3dc174, edge 205ef30. The plan doc
+(docker-swarm-migration-plan.md) is retired with the campaign; this file
+is the record.
+
+Boot 6's two warns were one rerun-semantics hole, now the top backlog
+item: a volumes-KEPT re-bootstrap after unwrap keeps deployment rows
+that claim ACTIVE while the services are gone, so replays of unchanged
+repos' builds get dropped by tip-ordering (correct for its own purpose)
+and an app can stay seed-served (qits-containers did). Salvage: force
+env/dev one commit back with qits.no-ci, then forward — the fresh push
+has a fresh build time and the tip accepts it. Durable fix candidates:
+the sweep/observer marking rows whose service is gone, or the tip
+consulting the daemon, not only rows.
+
 Working tree: `/home/wohlben/code/qits-qits-swarm` (superproject worktree, every
 submodule a linked worktree on branch `swarm-migration`). The live checkout at
 `~/code/qits-qits` stays clean; nothing here ships until a proof bootstrap runs
@@ -67,6 +89,121 @@ Decisions made by the user 2026-08-12:
   them look stale. Rule: NEVER touch pd_resource by hand; d7f908c reads it.
   Post-failure state is consistent (roles rotated + rows recording them) —
   exactly what the fixed CLI consumes. Attempt 6 = plain rerun on d7f908c.
+
+## Flip proof, first run (2026-08-13 early) — 70/70 with 11 warns, exit 1
+
+The whole train RAN under swarm: seed as a stack, 11 pipeline deploys
+converged as bare-alias services, edge 200. The 11 warns had ONE root
+cause class: nothing removed a seed stack service when its successor
+deployed. The twin holds the wire alias (DNS round-robins — a step's
+ci-daemon registered with the CI instance that had not launched it and
+exited 6: both CI FAILED warns) and any host-mode ports (artifacts,
+githost, dns, mirror sat Pending on "port already in use" — the
+no-terminal warns). Fixes landed on mains:
+
+- deployments 13f36b6: SwarmDeploymentDriver reaps qits_<alias> before
+  creating <alias> (after argv build, never for self); ownServiceName
+  replaces isSelf so a deployer still running as the SEED stack service
+  self-updates qits_dev-qits-deployments in place instead of creating a
+  second deployer. 349 green.
+- cli-bootstrap fac61b9: seedPlan recognises swarm-deployed apps by a
+  service under the bare wire alias (swarm tasks are not qits-pd-named
+  containers), and only ever sweeps the qits_ twin — the bare-alias
+  service is the deployer's own. 318 green.
+
+The second flip-proof boot then died at phase 15: postgres PANIC,
+"could not locate a valid checkpoint record" — the first boot's
+un-reaped postgres twin meant seed AND deployed postgres ran as TWO
+WRITERS on qits-oci-postgresql-data, corrupting the WAL. (The very
+hazard phase 15's own comment names.) Rather than trust a resetwal'd
+cluster two servers wrote to, the volume was reset: unwrap
+--with-data-volumes (config volumes kept, all tags mirrored locally +
+GitHub, the boot re-pushes repos and tags). Third flip-proof boot
+running on fresh data volumes. Remaining to verify: zero warns,
+self-update + forced rollback + DNS timing checks, then docker-driver
+deletion.
+
+## Third flip boot — pg-cutover gap fallout + live salvage (2026-08-13 morning)
+
+The deployer's cutover of qits-oci-postgresql itself opens a ~90s DB gap
+that PatientPgDriver's 14s hold cannot bridge. Everything that touched
+postgres in that window broke, three distinct DEFECTS, all real:
+
+1. qits-githost ACKED the idp push while its ref writes AND the
+   SCMPublishCommit outbox write died with the gap (outbox lives in the
+   eventstream datasource — a separate database, so "inside the push's
+   own transaction" does not hold across that boundary). Repo held
+   neither ref afterwards; "[new branch]" on the re-push proved it.
+2. The deployer's resource provisioning generated a fresh password,
+   handed it to the successor service, and THEN lost both the ALTER
+   ROLE and the pd_resource row to the gap — deployed idp crashlooped
+   on a password no role ever had (service env 6863…, role still env
+   b46e…, registry row absent).
+3. With idp down, the machine gate failed platform-wide: every step
+   container start 401'd at qits-containers, so every subsequent CI run
+   died at step 1 (idp + stt phases burned this way).
+
+Salvage, in order: POST /events/api/events replay for idp (CI refused
+"no longer holds commit" — which exposed defect 1), re-push of idp
+main + environment/dev (both "[new branch]"), docker service update of
+qits-platform-idp's QITS_RESOURCE_DB_PASSWORD to the role's real value
+(idp 1/1 + health 200, gate restored), then an events replay for
+qits-stt. Boot continued green from phase 56 on. The twin-reap fix
+itself is PROVEN: postgres cutover 10s, seed twins removed at each
+deploy, no port Pending, no alias duality anywhere this boot.
+
+Backlog candidates (not this campaign): hold provisioning while the
+deployer cuts over the database host itself; make the githost push ack
+wait on the ref+outbox writes; events-door replay is the working
+recipe for a lost announcement (payload shape = copy of a stored
+sibling event).
+
+## Boots 3+4 post-mortem addenda (2026-08-13 mid-morning)
+
+- CLI 8103c1e: platformContainerAtSha (and alreadyLive through it) matched
+  only qits-pd- names and tripped on swarm's @digest image suffix — dns sat
+  deployed-and-healthy for 44 min while the wait stared past it. Boot 3 was
+  killed deliberately once this was fixed (letting it run = 1h burn each on
+  mirror + edge).
+- The seed CI's agroal pool never recovers from a pg-cutover gap (pool
+  starved on "Acquisition timeout" an hour later) — `docker service update
+  --force qits_dev-qits-ci` is the recipe. Backlog: pool self-healing.
+- deployments 77d1cf6: reapSeedTwin now DRAINS the twin's tasks (poll by
+  swarm service label, ≤10s) before the successor is created. service rm
+  returns while the task is stopping; ports self-serialize, VOLUMES do not
+  — postgres met its successor on one data volume for a few seconds and
+  the WAL died again ("could not locate a valid checkpoint record", second
+  time). Data volumes wiped again; boot 5 runs full on the fixed mains.
+- Salvage door inventory grew: POST /events/api/events (no machine gate) to
+  replay a lost SCMPublishCommit; docker service update --env-add to fix an
+  orphaned credential; service update --force to restart a wedged seed task.
+
+## BOOT 5 — THE FLIP PROOF (2026-08-13 ~10:35): 70/70 in 22m13s, ONE warn
+
+All 17 applications deployed as swarm services 1/1 at their main shas,
+edge 200. The deployer SELF-UPDATED through the manager: its stack-named
+service qits_dev-qits-deployments ended on the pipeline image at
+deployments main's exact sha. The single warn was bookkeeping: the
+successor's sweep asked runningImage under the bare alias while the
+deployer lives under the stack name — fixed (deployments cb94bcf,
+runningImage falls back to qits_<name>; 350 green). Sweep corrections
+still announce no events, by design.
+
+Checklist verifications, all done:
+- Forced rollback: docs updated to a bogus image with the driver's own
+  flags → rollback_completed, original image restored, 1/1 — and a
+  0.5s-interval probe through the edge saw 36/36 HTTP 200, zero slow
+  requests. Start-first + manager rollback = literal zero downtime.
+- Deploy events: 17 Queued / 17 Started / 16 Active in qits-events (the
+  17th Active was the mis-settled self-update row, fixed above).
+- CI steps/workspaces/agents on the overlay: every pipeline build of the
+  proof boots ran its step containers through qits-containers on
+  qits-net; workspaces + projects deployed healthy.
+- DNS behavior: no request through the front door hung or slowed during
+  a full failed-update + rollback cycle.
+
+Remaining: docker-path deletion (agent in flight), final boot on the
+cleaned mains, GitHub pushes, wrapper→platform-githost catalog push.
 
 ## Phase-7 flip checklist (collect here)
 
