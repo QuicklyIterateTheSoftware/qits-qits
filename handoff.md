@@ -45,6 +45,36 @@ Actionable leftovers:
 - migration-plan needs a staleness pass on next touch (items 7/8 are
   done but unmarked).
 
+### artifacts→PostgreSQL campaign (started 2026-08-13 evening)
+
+Executing `qits-artifacts-postgresql-plan.md`. User decisions today: go;
+blob bytes into PG as the qits-blobstore lib's ONLY backend — the mirror
+migrates too, no storage SPI. Discovery that reshapes it: qits-githost is
+a THIRD BlobStore consumer (git packs via its PackBlobStore port,
+precious data) — it stays on its exact pre-PG lib pin until its own WP.
+Nothing merges to a releasable main until the cutover set is complete: a
+blobstore release fires the calver train, and a ship-mains boot
+seed-publishes lib mains, so all code WPs live on `postgres-blobs`
+branches.
+
+- C1 DONE on artifacts main (5fc69b3): `resources: postgresql:db` — the
+  next deploy provisions role+database while the H2 image ignores the
+  injected triple. Verify the pd_resource row after that deploy.
+- WP-LIB in flight (agent): libs/qits-blobstore branch `postgres-blobs`,
+  version 1.0.0-pgblobs-SNAPSHOT — chunked-bytea engine (1 MiB chunks,
+  STORAGE EXTERNAL), advisory xact locks, PG staging + P1D TTL sweep,
+  openChannel/ScratchBlob for JGit, BlobDiskIndex one-query, reference
+  DDL for consumers (libs ship no migrations), zonky test infra.
+- Queue after WP-LIB: WP-ARTIFACTS (branch: pom H2→PG, zonky, fresh PG
+  V1 lineage incl. blob tables, serving call-sites/BlobSender, stateless
+  Dockerfile, delete H2 lineage); WP-MIRROR (branch: lib bump, blob
+  tables migration, drop blob dir + volume — cache re-fills, no data
+  copy); WP-TOOL (migration/ module: schema|blobs|rows|verify, disk-walk
+  driven); WP-GITHOST (later: lib bump + lineage + pack-blob copy).
+- Before cutover (runbook §12, operator-gated): C3 backups + restore
+  drill are still missing; freeze window; run-args edit (drop volume +
+  H2 env for artifacts); release order lib → consumers.
+
 ### Lib calver campaign 2026-08-13 (in flight)
 
 blobstore + registries joined the release train today, closing the
