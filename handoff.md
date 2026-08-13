@@ -83,10 +83,15 @@ branches.
   tables kept empty, blob tables verbatim) + delete H2 lineage, zonky
   per module, DocsRoutes/DaemonRoutes → BlobSender, DocsBundle →
   ScratchBlob, stateless Dockerfile, native gate.
-- WP-MIRROR in flight (agent, branch `postgres-blobs`): pins →
-  SNAPSHOT, V2__blob_tables.sql, blobs-datasource=mirror, delete
-  MaterializedClobPostgreSQLDialect, drop blob dir — no data copy,
-  cache re-fills.
+- WP-MIRROR DONE: branch `postgres-blobs` head 025cf74, 52 tests green,
+  native gate green (1m02, no fallback). V2__blob_tables.sql; dialect
+  deleted (lib mapping covers it); stateless Dockerfile/README. Infra
+  residue confirmed: volume qits-platform-mirror-data + env
+  QITS_ARTIFACTS_BLOBS_DIR at SeedPhases:734,761-762,
+  ComposeTemplate:147-148,649,652,1100-1101,
+  ComposeTemplateTest:312-313,834,859; also trim the "mounts a blobs
+  volume" sentence in mirror's own deployments.yml when the infra WP
+  lands.
 - Queue: WP-TOOL (migration/ module: schema|blobs|rows|verify,
   disk-walk driven); WP-GITHOST (later: lib bumps + V2 blob tables on
   datasource `githost` + pack-blob copy; BlobStorePackBlobStore adapts
