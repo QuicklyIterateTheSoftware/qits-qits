@@ -60,17 +60,33 @@ branches.
 - C1 DONE on artifacts main (5fc69b3): `resources: postgresql:db` — the
   next deploy provisions role+database while the H2 image ignores the
   injected triple. Verify the pd_resource row after that deploy.
-- WP-LIB in flight (agent): libs/qits-blobstore branch `postgres-blobs`,
-  version 1.0.0-pgblobs-SNAPSHOT — chunked-bytea engine (1 MiB chunks,
-  STORAGE EXTERNAL), advisory xact locks, PG staging + P1D TTL sweep,
-  openChannel/ScratchBlob for JGit, BlobDiskIndex one-query, reference
-  DDL for consumers (libs ship no migrations), zonky test infra.
-- Queue after WP-LIB: WP-ARTIFACTS (branch: pom H2→PG, zonky, fresh PG
-  V1 lineage incl. blob tables, serving call-sites/BlobSender, stateless
-  Dockerfile, delete H2 lineage); WP-MIRROR (branch: lib bump, blob
-  tables migration, drop blob dir + volume — cache re-fills, no data
-  copy); WP-TOOL (migration/ module: schema|blobs|rows|verify, disk-walk
-  driven); WP-GITHOST (later: lib bump + lineage + pack-blob copy).
+- WP-LIB DONE: blobstore branch `postgres-blobs` head cb2aca4, 60 tests
+  green, 1.0.0-pgblobs-SNAPSHOT in ~/.m2. API deltas consumers adapt to:
+  locate()/newStagingFile() gone, StagedBlob.tempPath→contentId, NEW
+  discard(StagedBlob)/openChannel/stageScratch (openRead() SEALS a
+  scratch — call before promote), BlobDiskIndex.invalidate() gone,
+  blobs-dir key → qits.artifacts.blobs-datasource; reference DDL at
+  src/main/resources/db/blobstore-tables.sql.
+- WP-REGISTRIES in flight (agent) — DISCOVERED consumer: the serving
+  routes live in libs/qits-registries, so it moves before either
+  service. Branch `postgres-blobs`, pins the blobstore SNAPSHOT, adapts
+  7 call sites, adds BlobSender (backpressure after every chunk), fixes
+  the three @Lob String fields to @JdbcTypeCode(LONGVARCHAR) at source
+  (mirror can drop MaterializedClobPostgreSQLDialect at bump; artifacts
+  never needs one), installs its own 1.0.0-pgblobs-SNAPSHOT.
+- Queue: WP-ARTIFACTS + WP-MIRROR in parallel after WP-REGISTRIES
+  (artifacts: pom H2→PG, zonky, fresh PG V1 lineage incl. blob tables,
+  DocsRoutes/DaemonRoutes call sites, stateless Dockerfile, delete H2
+  lineage; mirror: lib bumps, V2__blob_tables.sql, drop blob dir +
+  volume — cache re-fills, no data copy); WP-TOOL (migration/ module:
+  schema|blobs|rows|verify, disk-walk driven); WP-GITHOST (later: lib
+  bumps + V2 blob tables on datasource `githost` + pack-blob copy;
+  BlobStorePackBlobStore adapts openChannel/stageScratch).
+- Bootstrap/infra residue WP: QITS_ARTIFACTS_BLOBS_DIR set for three
+  services in ComposeTemplate/SeedPhases/compose+stack files and their
+  Dockerfiles; three data volumes stop holding blobs.
+- Exclusion note for every sweep: services/qits-artifacts/.claude/
+  worktrees/byte-plane-split/ holds stale full copies of all five repos.
 - Before cutover (runbook §12, operator-gated): C3 backups + restore
   drill are still missing; freeze window; run-args edit (drop volume +
   H2 env for artifacts); release order lib → consumers.
