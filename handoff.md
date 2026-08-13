@@ -90,15 +90,22 @@ branches.
   cutover is an unwrap + rebootstrap; the store's contents are
   reproducible (seed + train). Tool agent stopped, its uncommitted start
   discarded; the artifacts branch stands at 9938e26.
-- WP-INFRA DONE: cli-bootstrap branch `postgres-blobs` head 8833599,
-  324 tests green + rendered stack yq-parsed to the target shape.
-  Artifacts seed: QITS_RESOURCE_DB_* triple on PG_ARTIFACTS_PASSWORD
-  (create-if-missing arm, pd_resource stays the authority), no volume;
-  mirror seed volume-free; deployer extras trimmed; unwrap needed
-  nothing (pattern-based sweeps). Hazards fixed on the way: artifacts
-  seed start moved off unmasked exec onto masked run; new
-  SEED_DATABASES two-way pairing test (13↔13). githost volume/env lines
-  still to do on this branch once WP-GITHOST reports.
+- WP-INFRA DONE: cli-bootstrap branch `postgres-blobs` head 84bc886,
+  324 tests green + rendered stack/extras yq-verified: zero byte-plane
+  volumes, no QITS_ARTIFACTS_BLOBS_DIR anywhere, all three byte
+  services volume-free. Artifacts seed: QITS_RESOURCE_DB_* triple on
+  PG_ARTIFACTS_PASSWORD (create-if-missing arm, pd_resource stays the
+  authority, masked run not exec); mirror + githost seed/extras
+  trimmed; new SEED_DATABASES two-way pairing test (13↔13);
+  projects/workspaces mounts labeled as the surviving counter-example.
+- ALL SIX BRANCHES GREEN — the campaign is staged, awaiting the user's
+  go: blobstore cb2aca4 (60), registries dd68bc9 (212), mirror 025cf74
+  (52 + native), artifacts 9938e26 (225 + native IT on embedded PG),
+  githost d67586b (112 incl. real-git protocol proof + native compile),
+  cli-bootstrap 84bc886 (324). Then: merge `postgres-blobs` → local
+  mains (six repos), pre-unwrap tag sync, wiping unwrap +
+  QITS_SHIP_MAINS=1 boot, post-boot release wave through the regular
+  door (blobstore → pins → registries → mirror/githost/artifacts).
 - WP-MIRROR DONE: branch `postgres-blobs` head 025cf74, 52 tests green,
   native gate green (1m02, no fallback). V2__blob_tables.sql; dialect
   deleted (lib mapping covers it); stateless Dockerfile/README. Infra
