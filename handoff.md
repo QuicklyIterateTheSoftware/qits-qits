@@ -90,13 +90,15 @@ branches.
   cutover is an unwrap + rebootstrap; the store's contents are
   reproducible (seed + train). Tool agent stopped, its uncommitted start
   discarded; the artifacts branch stands at 9938e26.
-- WP-INFRA in flight (agent, cli-bootstrap branch `postgres-blobs`):
-  artifacts+mirror seed blocks lose volumes/blobs-dir/H2 url, artifacts
-  seed gains the QITS_RESOURCE_DB_* triple + CLI-issued
-  PG_ARTIFACTS_PASSWORD (create-if-missing, NEVER ALTER — pd_resource
-  is the authority after the first deployer-run deploy), deployer
-  extras trimmed, unwrap volume lists updated, ComposeTemplateTest
-  repinned. githost volumes untouched (its own WP).
+- WP-INFRA DONE: cli-bootstrap branch `postgres-blobs` head 8833599,
+  324 tests green + rendered stack yq-parsed to the target shape.
+  Artifacts seed: QITS_RESOURCE_DB_* triple on PG_ARTIFACTS_PASSWORD
+  (create-if-missing arm, pd_resource stays the authority), no volume;
+  mirror seed volume-free; deployer extras trimmed; unwrap needed
+  nothing (pattern-based sweeps). Hazards fixed on the way: artifacts
+  seed start moved off unmasked exec onto masked run; new
+  SEED_DATABASES two-way pairing test (13↔13). githost volume/env lines
+  still to do on this branch once WP-GITHOST reports.
 - WP-MIRROR DONE: branch `postgres-blobs` head 025cf74, 52 tests green,
   native gate green (1m02, no fallback). V2__blob_tables.sql; dialect
   deleted (lib mapping covers it); stateless Dockerfile/README. Infra
