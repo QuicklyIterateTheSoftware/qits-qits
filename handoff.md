@@ -1,5 +1,27 @@
 # Handoff
 
+## Plan-doc audit residue 2026-08-13 (what still needs a hand)
+
+Sixteen implemented/superseded plan docs were removed (verdicts in the
+removal commits; the nine kept docs each carry their own open work).
+Actionable leftovers:
+
+- Re-point on next touch of each repo: bootstrap-replay-plan named in
+  qits-ci (AGENTS.md, CiRunService, ReleaseJoinTest) and
+  qits-spa-ui-components README; event-delivery-guarantees-plan in
+  ci/deployments AGENTS.md; artifacts-gc-plan ~6x in artifacts
+  README/AGENTS.md.
+- Defect register carried from the removed provisioning plan — verify
+  each is still real before acting: eventstream subscriber restart
+  fragility (docker-restarted containers never redial the bus),
+  silent no-match in CI event triggers, SoftwareRelease still
+  UUID-only, the SCMRelease-vs-upload pin race, a gitlink-reachability
+  unwrap preflight.
+- gateway-route-events-plan is schedulable now: its stated blocker
+  (bus delivery reliability) shipped.
+- migration-plan needs a staleness pass on next touch (items 7/8 are
+  done but unmarked).
+
 ## Lib calver campaign 2026-08-13 (in flight)
 
 blobstore + registries joined the release train today, closing the
@@ -18,10 +40,25 @@ db-patience wave-2 remnant at the same time:
   DB code, npm skips common). Blobstore pinned to its calver, snapshots
   flag dropped from the qits-maven repo block. Four artifacts verified in
   the registry, tag + stamp synced home (604410f).
-- IN FLIGHT: consumer bumps off 1.0.0-SNAPSHOT in githost / mirror /
-  artifacts (three parallel agents), then a release each (mirror and
-  githost deploy; artifacts is H2 — seams inert there by design).
+- **Consumer bumps RELEASED AND DEPLOYED**: mirror 2026.813.163303,
+  githost 2026.813.164937, artifacts 2026.813.165241 — all three
+  containers verified on their release shas, edge 200, stamps + tags
+  synced to local mains. Not one `-SNAPSHOT` pin remains in a tracked
+  pom anywhere. The db-patience wave-2 remnant (mirror-lib registry
+  reads) is CLOSED — the seams are live in the deployed mirror.
+- **SWARM LANDMINE FOUND AND FIXED: start-first deadlocks host-port
+  services.** Mirror's deploy (the first host-port rolling update since
+  the cutover) sat Pending on "no suitable node" — the old task holds
+  the host port, start-first never stops it. Salvage: `docker service
+  update --update-order stop-first <svc>`. Durable fix: `update_order:
+  stop-first` in deployments.yml (a shipped parser key; the deployer
+  already used it for itself) committed to ALL FIVE host-port repos —
+  mirror/githost/artifacts (released, proven live: both later deploys
+  cut over stop-first with no salvage) and dns/edge (on local mains,
+  rides their next release).
 - Release-endpoint detail learned: `summary` max 100 chars (400 otherwise).
+- Residue: qits-artifacts `docs/openapi.yml` regenerates on verify and
+  carries pre-existing version drift (uncommitted, untouched).
 - Fleet calver audit (42 submodules): everything has a cycle EXCEPT
   qits-spa-docs (no recipes, 0.0.0), qits-repositories (empty stub),
   cli-bootstrap (deliberately off-train), and two wired-but-never-released
