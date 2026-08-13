@@ -172,7 +172,14 @@ branches.
   hand-bumped (ci 3f6513a, projects bdab4ad). BACKLOG: neither repo's
   train bumped githost-events on githost's release — check whether the
   upstream recipe is missing (the projects/eventstream precedent).
-  Fresh unwrap + attempt 4 RUNNING in this session's background. STANDING ORDERS (user): green boot →
+  Attempt 4 failed at the ci seed image on a REAL API drift: the
+  orchestrator's round-2 fixes added Spec's 16th component (init) under
+  an unbumped calver; workspaces/projects were adapted, qits-ci never
+  was, and the registry's old jar under the same version hid it. Fixed:
+  ci 3f5298e passes a trailing null (no tini — unchanged behavior;
+  flipping init on would fix the step-zombie issue and is its own
+  decision), 41 launcher tests green against the 16-arg jar. Fresh
+  unwrap + attempt 5 RUNNING in this session's background. STANDING ORDERS (user): green boot →
   shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
   re-register if Exec format error); ANY error/warn → fix at source,
   then restart from the very beginning (fresh unwrap), never nudge a
