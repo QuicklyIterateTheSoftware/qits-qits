@@ -106,6 +106,31 @@ Everything shells the docker CLI through ProcessBuilder. Five spawners:
 | qits-deployments (`DockerDeploymentDriver`) | long-lived apps — OUT OF SCOPE — plus the socket-privileged handoff referee | `qits.platform.deployments.*` labels are the registry; the adopt-on-boot model |
 | qits-cli-bootstrap | self-containerization + seed helpers | pre-platform; out of scope permanently |
 
+## Round 2 — SHIPPED 2026-08-13
+
+qits-workspaces and qits-projects hold no docker socket: every container and
+volume operation goes through the qits-containers client (workspaces d36a27a,
+EXPLICIT policy, per-workspace volume as a row-claimed mount, start = one
+ensure; projects 4ee38a6, IDLE_STOP, agents restart in place with the same
+docker id, host-side idle sweep kept for its tunnel/registry state). Both
+gained idp machine-token clients (projects' is new); the bootstrap injects the
+orchestrator address and credentials and dropped both socket mounts
+(cli-bootstrap 24eac53). Proof: a fresh-data-volume ship-mains boot went
+70/70 with ZERO warns in 23m41s, both services deployed socket-free, and the
+whole train built through orchestrator-spawned steps (25 ci-step rows).
+
+The migrations doubled as a registry audit and fixed three real defects in
+qits-containers: the Spec could not express --init (d942cc4); ensure of a
+stopped unchanged workload fell through to a refused docker run instead of a
+start (354fd7f — the fakes now refuse taken names so this class cannot hide);
+and container_name uniqueness was table-wide and never freed by soft delete,
+500ing every delete-then-re-ensure for the P7D prune horizon (1d05d2c — V3
+partial index + coded NAME_TAKEN 409). First real workspace/agent creation on
+the live platform is the remaining smoke.
+
+Still open from round 1's decisions: proxy adoption (the two reverse tunnels
+centralizing behind qits.containers.proxy.enabled, per-tunnel secret).
+
 Later rounds (after ci): workspaces and projects migrate onto the same
 contract; the deployer's handoff referee stays self-sufficient (the deployer
 must survive the platform being down) unless the swarm migration retires it
