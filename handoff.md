@@ -179,7 +179,18 @@ branches.
   ci 3f5298e passes a trailing null (no tini — unchanged behavior;
   flipping init on would fix the step-zombie issue and is its own
   decision), 41 launcher tests green against the 16-arg jar. Fresh
-  unwrap + attempt 5 RUNNING in this session's background. STANDING ORDERS (user): green boot →
+  Attempt 5 failed at phase 49, the workspace-daemon tag replay: the
+  daemons' newest tags (2026.810.*) predate the mirror sweep and pull
+  `FROM localhost:8081/quay|redhat/...` — every earlier green boot was
+  silently satisfied by pre-split leftover images in the local store,
+  which tonight's unwraps finally removed. Unblocked by PRIMING the two
+  bases back under their 8081 names (retag from the 8082 copies) — a
+  host-cache restoration, not a run nudge; full unwrap + rerun done
+  around it. DURABLE FIX QUEUED post-boot: release workspace-daemon and
+  projects-daemon through the door (their mains carry 8082 Dockerfiles)
+  so publisher tags build on a clean machine; until then the primed
+  names are load-bearing for replays. Attempt 6 RUNNING in this
+  session's background. STANDING ORDERS (user): green boot →
   shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
   re-register if Exec format error); ANY error/warn → fix at source,
   then restart from the very beginning (fresh unwrap), never nudge a
