@@ -20,6 +20,58 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
+### Unify-ingress prerequisites (2026-08-13 evening — PAUSED, resumes 2026-08-14)
+
+Executing `unify-ingress-plan-prerequisites.md`; results are marked ✅ inline
+there and mirrored in `unify-ingress-plan.md`'s status block. All gates that
+can pass before a release are GREEN; nothing is deployed. Resume at the
+"Open next" bullet below — first step is releasing the qits-deployments
+`unify-ingress` branch through the regular release door, edge only after. DONE and proven live: Gate 0 stand-in (all five criteria, incl. under
+`registry.dev.localhost`), P-name (systemd-resolved synthesizes `*.localhost`,
+proven for getent/dockerd/git — no hosts entries), P-trust
+(`/etc/docker/daemon.json` insecure-registries + restart, platform back 17/17;
+backup `daemon.json.bak-unify-ingress`), P-glass
+(`qits-registry-break-glass.sh` in the wrapper root, proven open→pull→close
+from zero publishes). P-idp-1..3 decided (docker Bearer token endpoint at
+edge, offline JWKS, artifacts audience — no idp change); P-idp-4 open.
+
+- TODO — the campaign workspace lives in TWO worktrees, branch
+  `unify-ingress` in each; all unreleased code is there and nowhere else:
+  - `services/qits-platform-edge/.claude/worktrees/unify-ingress`
+    (13e2bca, bef3c89, 3ad1ae7)
+  - `services/qits-deployments/.claude/worktrees/unify-ingress`
+    (f5194ac, 8d6bc8d)
+  Release from these branches, then `git worktree remove` each (and delete
+  the branch once merged home). Until then: main checkouts and
+  cli-bootstrap (`postgres-blobs`, other session) untouched; exclude the
+  worktrees from sweeps.
+- WP3 DONE (qits-deployments f5194ac+8d6bc8d, 240 green): `publish_mode:
+  host|ingress` spec key. LANDMINES: unknown spec key fails a deployment, so
+  edge's `publish_mode: ingress` must not release before this deployer is
+  live; mode flips need `service rm` + redeploy (update never restates
+  ports).
+- WP1/WP2 DONE (qits-platform-edge branch `unify-ingress`, 13e2bca+bef3c89,
+  86 tests): app-label routing + idp termination + docker Bearer challenge
+  and `/token` broker. WP0 verdict: today auth is a gateway browser-session
+  policy with `/v2` GET PUBLIC and `/git/*` public — edge auth was net new,
+  and the `/v2`-GET-through-the-env-vhost hole needs a later qits-gateway
+  change. Config keys in the agent report; apps map ships empty, dev deploy
+  needs the three QITS_EDGE_APPS_* env vars.
+- **REAL-EDGE GATE 0 GREEN** (true gate): branch edge run live on qits-net
+  at 127.0.0.1:18081; docker did login (idp client `dev-qits-artifacts` —
+  audiences are env-prefixed on this platform!), push, pull-back,
+  logout-deny under `registry.dev.localhost`; mirror/githost vhosts gate;
+  env vhost unchanged. Audience gate is `{env}`-derived now
+  (`qits.edge.auth.audience-pattern`, default `{env}-qits-artifacts`,
+  3ad1ae7, 90 tests) — live-smoked with the shipped default, no override
+  env var needed for dev.
+- Open next: P-idp-4 (deployer registry credential), automate the
+  daemon.json host step, WP3 live rolling-update proof, release order
+  deployer-before-edge (unknown spec key fails deploys), then port drops
+  per the gate order (githost pilot first).
+- Docker facts learned (in the break-glass header): `--publish-rm` matches by
+  target port; two host-mode publishes of one target collapse to one binding.
+
 ### Plan-doc audit residue 2026-08-13 (what still needs a hand)
 
 Sixteen implemented/superseded plan docs were removed (verdicts in the
@@ -98,14 +150,28 @@ branches.
   authority, masked run not exec); mirror + githost seed/extras
   trimmed; new SEED_DATABASES two-way pairing test (13↔13);
   projects/workspaces mounts labeled as the surviving counter-example.
-- ALL SIX BRANCHES GREEN — the campaign is staged, awaiting the user's
-  go: blobstore cb2aca4 (60), registries dd68bc9 (212), mirror 025cf74
-  (52 + native), artifacts 9938e26 (225 + native IT on embedded PG),
-  githost d67586b (112 incl. real-git protocol proof + native compile),
-  cli-bootstrap 84bc886 (324). Then: merge `postgres-blobs` → local
-  mains (six repos), pre-unwrap tag sync, wiping unwrap +
-  QITS_SHIP_MAINS=1 boot, post-boot release wave through the regular
-  door (blobstore → pins → registries → mirror/githost/artifacts).
+- USER GO received; CUTOVER EXECUTING (2026-08-13 night). All six
+  branches fast-forwarded onto local mains (blobstore cb2aca4,
+  registries dd68bc9, mirror 025cf74, artifacts 9938e26, githost
+  d67586b, cli-bootstrap 84bc886). Tag sync done: 42/42 submodules
+  fetched refs/tags from localhost:8083 pre-wipe. Unwrap
+  --with-data-volumes clean (16s, config volumes kept). Ship-mains
+  bootstrap attempt 1 FAILED at 7s — first failure class, fixed at
+  source: SEED_LIBRARIES published blobstore before integrations-quarkus,
+  and blobstore depends on qits-db-core since its DbRetry release (the
+  2026-08-11 eventstream edge bought a second time). cli main 08b04db
+  reorders the list, 324 tests green. Fresh unwrap + attempt 2 RUNNING
+  in this session's background. STANDING ORDERS (user): green boot →
+  shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
+  re-register if Exec format error); ANY error/warn → fix at source,
+  then restart from the very beginning (fresh unwrap), never nudge a
+  run back on track. After a green boot:
+  the release wave through the regular door (blobstore → bump
+  registries' pin to the minted calver → registries →
+  mirror/githost/artifacts, artifacts last of the byte plane) — kills
+  every pgblobs-SNAPSHOT pin; then verify the pd_resource row for
+  qits_artifacts and functional smoke (push/pull, git clone+push, npm
+  install, docs page).
 - WP-MIRROR DONE: branch `postgres-blobs` head 025cf74, 52 tests green,
   native gate green (1m02, no fallback). V2__blob_tables.sql; dialect
   deleted (lib mapping covers it); stateless Dockerfile/README. Infra
