@@ -163,8 +163,16 @@ branches.
   reorders the list, 324 tests green. Attempt 2 failed at 8m39 on the
   SECOND copy of the same edge: BootstrapPlan's real-store publish
   phases also ran blobstore before the integrations — cli main 4e333c0
-  reorders those too (auth-core publish first), tests repinned. Fresh
-  unwrap + attempt 3 RUNNING in this session's background. STANDING ORDERS (user): green boot →
+  reorders those too (auth-core publish first), tests repinned. Attempt
+  3 failed at the ci seed image: qits-ci and qits-projects pinned
+  qits-githost-events 2026.812.172928 while githost main publishes
+  2026.813.164937 — a latent stale pin the docker layer cache had
+  hidden until today's ci Dockerfile cleanup invalidated the layer.
+  Full pin audit run: those two were the ONLY mismatches fleet-wide;
+  hand-bumped (ci 3f6513a, projects bdab4ad). BACKLOG: neither repo's
+  train bumped githost-events on githost's release — check whether the
+  upstream recipe is missing (the projects/eventstream precedent).
+  Fresh unwrap + attempt 4 RUNNING in this session's background. STANDING ORDERS (user): green boot →
   shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
   re-register if Exec format error); ANY error/warn → fix at source,
   then restart from the very beginning (fresh unwrap), never nudge a
