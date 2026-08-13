@@ -86,9 +86,10 @@ branches.
   PackagedProcessIT assertions fixed (native gate had not run since the
   split). artifacts README still narrates sendFile/blob-dir in ~6
   places — trim at cutover.
-- WP-TOOL in flight (agent, same branch): migration/ uber-jar module,
-  phases schema|blobs|rows|verify, disk-walk blobs (mtime→stored_at),
-  FK-ordered rows with the skip rules, round-trip test H2→embedded PG.
+- WP-TOOL CANCELLED (user 2026-08-13 evening): no data migration — the
+  cutover is an unwrap + rebootstrap; the store's contents are
+  reproducible (seed + train). Tool agent stopped, its uncommitted start
+  discarded; the artifacts branch stands at 9938e26.
 - WP-INFRA in flight (agent, cli-bootstrap branch `postgres-blobs`):
   artifacts+mirror seed blocks lose volumes/blobs-dir/H2 url, artifacts
   seed gains the QITS_RESOURCE_DB_* triple + CLI-issued
@@ -105,26 +106,34 @@ branches.
   ComposeTemplateTest:312-313,834,859; also trim the "mounts a blobs
   volume" sentence in mirror's own deployments.yml when the infra WP
   lands.
-- Queue: WP-TOOL (migration/ module: schema|blobs|rows|verify,
-  disk-walk driven); WP-GITHOST (later: lib bumps + V2 blob tables on
-  datasource `githost` + pack-blob copy; BlobStorePackBlobStore adapts
-  openChannel/stageScratch — mind openRead() sealing).
-- Bootstrap/infra residue WP: QITS_ARTIFACTS_BLOBS_DIR set for three
-  services in ComposeTemplate/SeedPhases/compose+stack files and their
-  Dockerfiles; three data volumes stop holding blobs.
+- WP-GITHOST in flight (agent, branch `postgres-blobs`) — REQUIRED
+  before the rebootstrap now: a fresh boot seed-publishes the libs from
+  local checkouts, so the old lib calvers githost pins exactly would
+  not exist in the fresh registry. Lib bumps + V2 blob tables on its
+  datasource + BlobStorePackBlobStore onto openChannel/stageScratch
+  (openRead() seals — hash before promote). No pack-blob copy: the
+  bootstrap re-pushes every repository. Its cli-bootstrap volume/env
+  lines need a follow-up on the infra branch once both agents report.
 - Exclusion note for every sweep: services/qits-artifacts/.claude/
   worktrees/byte-plane-split/ holds stale full copies of all five repos.
-- Before cutover (runbook §12, operator-gated): C3 backups + restore
-  drill are still missing; freeze window; run-args edit (drop volume +
-  H2 env for artifacts).
-- USER DIRECTIVE: completion goes through the REGULAR release loop —
-  release each `postgres-blobs` branch via the workspaces branch-release
-  door in dependency order (blobstore → bump registries' pin to the
-  minted calver → registries → services), never a hand-merge; every
-  pgblobs-SNAPSHOT dies in those bumps. Expect the train's own
-  maintenance bumps to race the branch releases and go briefly red —
-  superseded, self-healing. The artifacts release IS cutover step C and
-  runs inside the freeze with the migration tool around it.
+- COMPLETION PATH (user 2026-08-13 evening: "we can just rebootstrap"):
+  no data migration, no freeze, no backup precondition. Sequence:
+  (1) all six `postgres-blobs` branches green — GATE: the user wants
+  every agent's own verification green and reviewed BEFORE any
+  bootstrap; the bootstrap itself is user-triggered, never autonomous;
+  (2) merge the branches to local mains (the boot ships mains — the
+  byte-plane-split landing pattern); (3) pre-unwrap tag sync (stamps
+  die with the githost — standing rule); (4) unwrap WITH data-volume
+  wipe (that wipe IS the migration) + `QITS_SHIP_MAINS=1` bootstrap;
+  (5) post-boot release wave through the REGULAR door in dependency
+  order (blobstore → bump registries' pin to the minted calver →
+  registries → mirror/githost/artifacts) — every pgblobs-SNAPSHOT dies
+  in those bumps; the door mints every version, nothing ships as a
+  release without it.
+- qits-artifacts-postgresql-plan.md sections §10 (migration tool) and
+  §12 (freeze runbook) are superseded by the rebootstrap decision; the
+  rest of the plan is implemented on the branches — remove the doc when
+  the campaign closes.
 
 ### Lib calver campaign 2026-08-13 (in flight)
 
