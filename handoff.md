@@ -1,5 +1,17 @@
 # Handoff
 
+## Full rebootstrap green 2026-08-13 (~17:30)
+
+`unwrap --with-data-volumes` + `QITS_SHIP_MAINS=1` boot: exit 0, 69 ok + 1 skip
+in 19m51s, 17/17 services healthy, edge 200, zero fails/warns, every deployed
+sha = local main, all 24 CI repos green. Pre-wipe sync rescued two things that
+lived only on the platform githost: qits-spa-deployments main (fast-forwarded
+home — the "three outcomes" commit) and the wrapper branch
+`refining/give-the-platform-a-status-page` (fetched into the local checkout).
+The githost held zero tags; 16 repos' mains are ahead of their newest release
+tag (deployments by 15 — the swarm migration), so a restore boot stays wrong
+until a release wave runs through the fresh platform.
+
 Updated 2026-08-11 evening. Everything shipped-and-verified has been removed;
 history is in git. What remains is open, pending, or standing. This is the ONE
 handoff document — handover.md (the userflow plan) is folded in below and deleted.
@@ -328,6 +340,24 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   pushing so release stamps ride along); round 2 = workspaces/projects
   onto the orchestrator + proxy adoption (flag-off skeleton in,
   per-tunnel-secret contract).
+  **CAMPAIGN CLOSED — MIGRATION VERIFIED AND RESIDUE SWEPT (2026-08-13).**
+  A repo-wide audit confirmed production code fully migrated: only
+  qits-containers and qits-deployments touch docker (both hold the socket by
+  design, deployments swarm-only behind its boot guard); workspaces, projects
+  and ci compose no docker argv and spawn no docker process. The audit found
+  only doc/image residue, cleaned in four commits on local mains (unpushed,
+  ride the next releases): workspaces `a603532` (docker-ce-cli out of the
+  image, DockerExecutor prose rewritten — qits-containers pulls the pin via
+  the ensure spec now, bound `qits.containers.client.ensure-timeout`; process
+  segment `docker-run` renamed `container`, 31 affected tests green); projects
+  `644c47f` (docker-ce-cli out, DockerAgentRuntime/socket prose replaced);
+  ci `d28bc29` (docker CLI install removed entirely — ci spawns nothing);
+  cli-bootstrap `81ff9ef` (contradicting socket paragraph in the projects
+  extras deleted, socket-group javadoc names deployer+orchestrator only,
+  ComposeTemplateTest 31 green). `container-orchestration-plan.md` REMOVED at
+  user direction (this wrapper commit); the two still-open items — proxy
+  adoption and the first real workspace/agent smoke — stay tracked in the
+  campaign memory, not in a doc.
 
 - **DB PATIENCE: SHIPPED FLEET-WIDE AND LIVE (2026-08-11).** Every postgres
   service runs PatientPgDriver (requests HELD at connection-open through a
@@ -341,13 +371,16 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   2026.811.155429. The causation-sweep commits (workspaces/deployments/
   projects, V2 migrations applied at boot) and the SCM tag versionsort
   dedupe shipped WITH these releases — the old post-rebootstrap release
-  queue is DONE. Doctrine + measurements: db-patience-plan.md and the guide
-  step 9; per-repo rules in each AGENTS.md. Merge note: workspaces/ci pom
+  queue is DONE. Doctrine + measurements: the guide's datasource resilience
+  baseline (docs/project-setup-quinoa-angular.md) and the lib README;
+  per-repo rules in each AGENTS.md. Plan doc REMOVED 2026-08-13 after a
+  four-subagent code verification confirmed every work package (lib core,
+  fleet config, read seams, inNewTx ledger) against the trees. Merge note: workspaces/ci pom
   conflicts against platform train bumps were resolved by merging platform
   main into local main before re-releasing (deployments merged clean).
   Open:
-  - Live cutover chaos proof rides the next rebootstrap (phases 50-59):
-    pushes surviving on held requests without the CLI Waiter saving them.
+  - Live cutover chaos proof: DONE 2026-08-12 — green rebootstrap through
+    the postgres window (see the replay-campaign entry).
   - qits-events' RELEASE-recipe run for 171736 is red (its release docker
     build lacked the host-network maven doctrine; fixed at source `7b23dba`,
     rides its next release — the deploy itself was green). dns got the full
@@ -359,8 +392,14 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
     RollbackException is ambiguous — measured, in the lib README).
   - Lib README still carries the stale PatientPgDriver native watch item
     (native is PROVEN live); drop on next touch.
-  - db-patience-plan.md STAYS for now: 14 by-name references across five
-    submodules plus the open items above.
+  - db-patience-plan.md removed 2026-08-13 (implementation fully verified).
+    11 comment references across githost/ci/workspaces/projects/
+    integrations-quarkus still name it — re-point them to the guide on the
+    next touch of each repo, like the lib README's stale native watch item.
+  - The five-repo eventstream-block restatement residue is GONE: all five
+    dropped it in "Take the eventstream release" commits (workspaces
+    524cc50, projects 0a6f80d, deployments cb5bbba, ci 1645475, githost
+    b6c5eb3). Zero eventstream datasource lines outside the lib.
   - Step containers run as ROOT and zonky initdb refuses root: eventstream's
     CI verify su's to a build user (`7b50cad`); the lib's wire tests
     @EnabledIf-skip as root (classifier units still run).
