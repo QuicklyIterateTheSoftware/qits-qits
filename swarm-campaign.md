@@ -205,6 +205,24 @@ Checklist verifications, all done:
 Remaining: docker-path deletion (agent in flight), final boot on the
 cleaned mains, GitHub pushes, wrapper→platform-githost catalog push.
 
+## Status vocabulary refinement (2026-08-13 afternoon)
+
+Deployment STATUS tells the truth now: ROLLED_BACK (manager restored the
+predecessor, service kept serving), SUPERSEDED (interrupted row overtaken),
+GONE (observer-confirmed absence, recoverable), FAILED narrowed to "nothing
+is known to serve". CLI learned the words first (424d62f), deployer writes
+them (ea9a18f), SPA renders human labels (spa 5485d6c/39c678a, bump 49b27ce).
+The verification flushed two more driver defects, both fixed and shipped:
+observe() was blind to the stack-named service (64341b2 — a healthy
+self-updated deployer got observation-FAILED), and awaitConverged trusted
+the FIRST UpdateStatus poll, reading the PREVIOUS update's terminal state
+or the predecessor's Running task as instant convergence (ecdaa86 — now
+matches UpdateStatus.StartedAt against the issue instant, 5s skew; NB
+docker --format prints Go time, not RFC3339). Live proof: a broken-gate
+docs deploy recorded ROLLED_BACK with swarm's wording while 237/237 edge
+probes answered 200; the revert went ACTIVE in 37s; the badge renders
+amber in the SPA.
+
 ## Phase-7 flip checklist (collect here)
 
 - Merge swarm-stack into swarm-migration after the overlay proof.
