@@ -1,5 +1,33 @@
 # Handoff
 
+## Lib calver campaign 2026-08-13 (in flight)
+
+blobstore + registries joined the release train today, closing the
+db-patience wave-2 remnant at the same time:
+
+- **qits-blobstore 2026.813.161828 RELEASED** (first calver). Carries
+  DbRetry on `ArtifactRepositoryService`: `require` via DbRetry.call,
+  `ensure` converted @Transactional → DbRetry.inNewTx (body flushes).
+  Recipes + `.qits-maven-settings.xml` modeled on eventstream; H2-only
+  suite, so no `user: build` stanza. Both CI runs green, pom in the
+  registry, tag + stamp synced to local main (08185aa).
+- **qits-registries 2026.813.162639 RELEASED** (first calver). All five
+  require*/resolve* seams on DbRetry.call (all pure reads; resolveForPull
+  and resolveManifest wrapped whole across their two-row reads).
+  qits-db-core declared per format module (npm/maven/oci — common has no
+  DB code, npm skips common). Blobstore pinned to its calver, snapshots
+  flag dropped from the qits-maven repo block. Four artifacts verified in
+  the registry, tag + stamp synced home (604410f).
+- IN FLIGHT: consumer bumps off 1.0.0-SNAPSHOT in githost / mirror /
+  artifacts (three parallel agents), then a release each (mirror and
+  githost deploy; artifacts is H2 — seams inert there by design).
+- Release-endpoint detail learned: `summary` max 100 chars (400 otherwise).
+- Fleet calver audit (42 submodules): everything has a cycle EXCEPT
+  qits-spa-docs (no recipes, 0.0.0), qits-repositories (empty stub),
+  cli-bootstrap (deliberately off-train), and two wired-but-never-released
+  SPAs (spa-githost, platform-spa-mirror). qits-ci-daemon has a cycle but
+  its 2026.803.184200 tag was never synced home.
+
 ## Full rebootstrap green 2026-08-13 (~17:30)
 
 `unwrap --with-data-volumes` + `QITS_SHIP_MAINS=1` boot: exit 0, 69 ok + 1 skip
@@ -110,8 +138,9 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   its green ping + shas; daemon handed over 2026-08-12 night. New findings
   parked: AgentTunnelProxyTest holds an untimed HttpClient.send (can wedge
   verify forever); qits-events' release yml still carries the rmi wart;
-  VOLUMES-KEPT re-bootstrap landmines, both owned by the swarm campaign's
-  record (swarm-campaign.md in the swarm worktree): (a) rotated seed-role
+  VOLUMES-KEPT re-bootstrap landmines, both owned by the swarm campaign
+  (its record file was removed 2026-08-13 as redundant — the lessons live
+  in the swarm-migration memory, the history in git): (a) rotated seed-role
   passwords — FIXED durably (the CLI's postgres phase seeds from
   pd_resource rows once the server answers); NEVER hand-edit pd_resource
   (a manual edit armed a rotation storm — post-mortem in the campaign
