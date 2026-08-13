@@ -77,12 +77,25 @@ branches.
   @Lob→@JdbcTypeCode landed at source. Named trade-off: blob routes are
   blockingHandlers holding a worker for the whole transfer now — one
   connection's pipelined/multiplexed requests serialize.
-- WP-ARTIFACTS in flight (agent, branch `postgres-blobs`): pins →
-  SNAPSHOT, db-kind flip + resource-contract urls + db-patience triple,
-  fresh PG V1 lineage (H2 end-state minus git orphan tables, cache
-  tables kept empty, blob tables verbatim) + delete H2 lineage, zonky
-  per module, DocsRoutes/DaemonRoutes → BlobSender, DocsBundle →
-  ScratchBlob, stateless Dockerfile, native gate.
+- WP-ARTIFACTS DONE: branch `postgres-blobs` head 9938e26, JVM 225
+  green + NATIVE gate green (135 MB binary, PackagedProcessIT 14/14 on
+  embedded PG). Decision to know: the fresh V1's type check-constraint
+  enumerates the SEVEN registered types (mirror V1 precedent) — the
+  tool must skip cache-type rows; their blobs ride the disk walk and
+  stay row-less in PG forever (accepted, logged). Two stale
+  PackagedProcessIT assertions fixed (native gate had not run since the
+  split). artifacts README still narrates sendFile/blob-dir in ~6
+  places — trim at cutover.
+- WP-TOOL in flight (agent, same branch): migration/ uber-jar module,
+  phases schema|blobs|rows|verify, disk-walk blobs (mtime→stored_at),
+  FK-ordered rows with the skip rules, round-trip test H2→embedded PG.
+- WP-INFRA in flight (agent, cli-bootstrap branch `postgres-blobs`):
+  artifacts+mirror seed blocks lose volumes/blobs-dir/H2 url, artifacts
+  seed gains the QITS_RESOURCE_DB_* triple + CLI-issued
+  PG_ARTIFACTS_PASSWORD (create-if-missing, NEVER ALTER — pd_resource
+  is the authority after the first deployer-run deploy), deployer
+  extras trimmed, unwrap volume lists updated, ComposeTemplateTest
+  repinned. githost volumes untouched (its own WP).
 - WP-MIRROR DONE: branch `postgres-blobs` head 025cf74, 52 tests green,
   native gate green (1m02, no fallback). V2__blob_tables.sql; dialect
   deleted (lib mapping covers it); stateless Dockerfile/README. Infra
