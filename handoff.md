@@ -89,7 +89,15 @@ branches.
   worktrees/byte-plane-split/ holds stale full copies of all five repos.
 - Before cutover (runbook §12, operator-gated): C3 backups + restore
   drill are still missing; freeze window; run-args edit (drop volume +
-  H2 env for artifacts); release order lib → consumers.
+  H2 env for artifacts).
+- USER DIRECTIVE: completion goes through the REGULAR release loop —
+  release each `postgres-blobs` branch via the workspaces branch-release
+  door in dependency order (blobstore → bump registries' pin to the
+  minted calver → registries → services), never a hand-merge; every
+  pgblobs-SNAPSHOT dies in those bumps. Expect the train's own
+  maintenance bumps to race the branch releases and go briefly red —
+  superseded, self-healing. The artifacts release IS cutover step C and
+  runs inside the freeze with the migration tool around it.
 
 ### Lib calver campaign 2026-08-13 (in flight)
 
