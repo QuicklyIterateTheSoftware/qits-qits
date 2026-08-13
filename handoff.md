@@ -98,14 +98,19 @@ handoff document — handover.md (the userflow plan) is folded in below and dele
   its green ping + shas; daemon handed over 2026-08-12 night. New findings
   parked: AgentTunnelProxyTest holds an untimed HttpClient.send (can wedge
   verify forever); qits-events' release yml still carries the rmi wart;
-  VOLUMES-KEPT re-bootstraps hit rotated seed-role passwords (the deployer
-  rotates at successor provisioning, .qits-bootstrap.env goes stale,
-  ensureRoleIfMissing never ALTERs — found by the swarm session at its
-  phase 16; my boots dodged it by wiping data volumes). Durable fix: the
-  seed phase should converge role passwords (it holds the superuser
-  credential) or read them from the deployer's registry rows; interim:
-  ALTER the 12 seed roles to env values + clear stale pd_resource rows
-  before a volumes-kept boot. Coordination: the
+  VOLUMES-KEPT re-bootstrap landmines, both owned by the swarm campaign's
+  record (swarm-campaign.md in the swarm worktree): (a) rotated seed-role
+  passwords — FIXED durably (the CLI's postgres phase seeds from
+  pd_resource rows once the server answers); NEVER hand-edit pd_resource
+  (a manual edit armed a rotation storm — post-mortem in the campaign
+  file; the earlier "ALTER roles + clear rows" interim recipe is
+  WITHDRAWN). (b) the row hole: kept ACTIVE deployment rows + unwrapped
+  services + unchanged mains → tip-ordering drops the replays and an app
+  can stay seed-served; salvage = forced env/dev back-one-with-no-ci then
+  forward push (fresh build time beats the tip). Top backlog item.
+  PLATFORM IS SWARM-ONLY since 2026-08-13: docker driver deleted
+  (deployments 392c8b2, orchestrator key = boot guard), final boot 70/70
+  in 14m16s, forced-rollback proof 36/36 edge probes at 200. Coordination: the
   swarm-migration session (worktree qits-qits-swarm) holds off the docker
   daemon until stage C is signalled done; it will pass QITS_SHIP_MAINS=1 for
   its own proofs; its qits-deployments b1058ae (deploy-lifecycle events,
