@@ -67,21 +67,30 @@ branches.
   scratch — call before promote), BlobDiskIndex.invalidate() gone,
   blobs-dir key → qits.artifacts.blobs-datasource; reference DDL at
   src/main/resources/db/blobstore-tables.sql.
-- WP-REGISTRIES in flight (agent) — DISCOVERED consumer: the serving
-  routes live in libs/qits-registries, so it moves before either
-  service. Branch `postgres-blobs`, pins the blobstore SNAPSHOT, adapts
-  7 call sites, adds BlobSender (backpressure after every chunk), fixes
-  the three @Lob String fields to @JdbcTypeCode(LONGVARCHAR) at source
-  (mirror can drop MaterializedClobPostgreSQLDialect at bump; artifacts
-  never needs one), installs its own 1.0.0-pgblobs-SNAPSHOT.
-- Queue: WP-ARTIFACTS + WP-MIRROR in parallel after WP-REGISTRIES
-  (artifacts: pom H2→PG, zonky, fresh PG V1 lineage incl. blob tables,
-  DocsRoutes/DaemonRoutes call sites, stateless Dockerfile, delete H2
-  lineage; mirror: lib bumps, V2__blob_tables.sql, drop blob dir +
-  volume — cache re-fills, no data copy); WP-TOOL (migration/ module:
-  schema|blobs|rows|verify, disk-walk driven); WP-GITHOST (later: lib
-  bumps + V2 blob tables on datasource `githost` + pack-blob copy;
-  BlobStorePackBlobStore adapts openChannel/stageScratch).
+- WP-REGISTRIES DONE: branch `postgres-blobs` head dd68bc9, green
+  (common 4 / npm 68 / maven 42 / oci 98; blob suites on embedded PG),
+  own 1.0.0-pgblobs-SNAPSHOT in ~/.m2. BlobSender lives in
+  registries-common, package eu.wohlben.qits.registry:
+  `send(HttpServerResponse, String blobId, String what)` — caller sets
+  headers from size() and ends HEADs; NotFoundException before first
+  byte; drain bounded by qits.artifacts.blob-send-drain-timeout (PT1M).
+  @Lob→@JdbcTypeCode landed at source. Named trade-off: blob routes are
+  blockingHandlers holding a worker for the whole transfer now — one
+  connection's pipelined/multiplexed requests serialize.
+- WP-ARTIFACTS in flight (agent, branch `postgres-blobs`): pins →
+  SNAPSHOT, db-kind flip + resource-contract urls + db-patience triple,
+  fresh PG V1 lineage (H2 end-state minus git orphan tables, cache
+  tables kept empty, blob tables verbatim) + delete H2 lineage, zonky
+  per module, DocsRoutes/DaemonRoutes → BlobSender, DocsBundle →
+  ScratchBlob, stateless Dockerfile, native gate.
+- WP-MIRROR in flight (agent, branch `postgres-blobs`): pins →
+  SNAPSHOT, V2__blob_tables.sql, blobs-datasource=mirror, delete
+  MaterializedClobPostgreSQLDialect, drop blob dir — no data copy,
+  cache re-fills.
+- Queue: WP-TOOL (migration/ module: schema|blobs|rows|verify,
+  disk-walk driven); WP-GITHOST (later: lib bumps + V2 blob tables on
+  datasource `githost` + pack-blob copy; BlobStorePackBlobStore adapts
+  openChannel/stageScratch — mind openRead() sealing).
 - Bootstrap/infra residue WP: QITS_ARTIFACTS_BLOBS_DIR set for three
   services in ComposeTemplate/SeedPhases/compose+stack files and their
   Dockerfiles; three data volumes stop holding blobs.
