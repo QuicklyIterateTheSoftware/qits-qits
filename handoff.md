@@ -29,9 +29,11 @@ Actionable leftovers:
 - Re-point on next touch of each repo: bootstrap-replay-plan named in
   qits-ci (AGENTS.md, CiRunService, ReleaseJoinTest) and
   qits-spa-ui-components README; event-delivery-guarantees-plan in
-  ci/deployments AGENTS.md; artifacts-gc-plan ~6x in artifacts
-  README/AGENTS.md; byte-plane-split-plan ~10x (githost/artifacts/mirror
-  READMEs, AGENTS.md, ArtifactsRepositorySeeder).
+  ci/deployments AGENTS.md; artifacts-gc-plan ~8x left in artifacts Java
+  javadoc + gc properties (README/AGENTS done 2026-08-13; V11's mention
+  stays — applied migration, Flyway checksums comments);
+  byte-plane-split-plan in githost/mirror READMEs (artifacts done);
+  db-patience-plan ~11x (see Docs and prose).
 - Defect register carried from the removed provisioning plan — verify
   each is still real before acting: eventstream subscriber restart
   fragility (docker-restarted containers never redial the bus),
@@ -110,12 +112,8 @@ db-patience wave-2 remnant at the same time:
 
 ### Repos, pipelines, host steps
 
-- **qits-spa-artifacts package/angular project-key rename** — still
-  `qits-platform-spa-artifacts`; the CLI pins the old dist path
-  (PlatformModelTest:167-176 asserts it).
-- **Host steps, byte-plane split:** dockerd `registry-mirrors` →
-  `localhost:8082`; user git remotes → `localhost:8083/git/…`.
-- **qits-artifacts AGENTS.md git-host chapters** need their own removal pass.
+- **Host step, byte-plane split:** dockerd `registry-mirrors` →
+  `localhost:8082` (awaiting user decision).
 - **qits-projects has no `ci-event-upstream-eventstream.yml`** (verified still
   missing) — the train never bumps its eventstream pin, so it is bumped by
   hand. Add the recipe.
@@ -135,10 +133,6 @@ db-patience wave-2 remnant at the same time:
 
 ### Service and code defects
 
-- **A new artifacts migration (V14)** deleting V7's three `oci-mirror` rows and
-  their `oci_mirror_upstream` rows. The OCI mirror code path in artifacts is
-  still live behind those rows and the store census counts their bytes nowhere.
-  Benign today (nothing dials artifacts for third-party), wrong long-term.
 - **Seed CI's agroal pool never self-heals after a postgres gap** — the seed
   keeps a dead pool where the deployed services now hold through the outage.
 - **AgentTunnelProxyTest holds an untimed `HttpClient.send`** — can wedge
