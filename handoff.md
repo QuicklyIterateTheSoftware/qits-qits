@@ -160,8 +160,11 @@ branches.
   source: SEED_LIBRARIES published blobstore before integrations-quarkus,
   and blobstore depends on qits-db-core since its DbRetry release (the
   2026-08-11 eventstream edge bought a second time). cli main 08b04db
-  reorders the list, 324 tests green. Fresh unwrap + attempt 2 RUNNING
-  in this session's background. STANDING ORDERS (user): green boot →
+  reorders the list, 324 tests green. Attempt 2 failed at 8m39 on the
+  SECOND copy of the same edge: BootstrapPlan's real-store publish
+  phases also ran blobstore before the integrations — cli main 4e333c0
+  reorders those too (auth-core publish first), tests repinned. Fresh
+  unwrap + attempt 3 RUNNING in this session's background. STANDING ORDERS (user): green boot →
   shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
   re-register if Exec format error); ANY error/warn → fix at source,
   then restart from the very beginning (fresh unwrap), never nudge a
