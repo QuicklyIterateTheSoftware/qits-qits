@@ -48,8 +48,12 @@ Measured against the code, not assumed (explorations 2026-08-14):
 - **Passwordless by default.** Registration runs the WebAuthn ceremony
   (`quarkus-security-webauthn`, in the 3.34.6 BOM, webauthn4j-based) so a
   Bitwarden-style authenticator can hold the key. A user may additionally set
-  a password. The only password rule is non-empty — no length or complexity
-  limits, deliberately.
+  a password — the fallback for automated tests and for the one browsing
+  route without a secure context (see the warts). The only password rule is
+  non-empty — no length or complexity limits, deliberately.
+- **Users are per-deployment.** Accounts are never shared or migrated across
+  deployments; a re-bootstrap or a domain move starts from the register
+  token again. This is what makes the passkey's rp-id binding a non-issue.
 - **Passwords hash with bcrypt**, stored `bcrypt:`-prefixed beside the
   existing `sha-256:` scheme. The SHA-256 argument ("guessing a generated
   256-bit secret is hopeless either way") does not cover a human-chosen
@@ -244,16 +248,19 @@ flipping the edge first is safe because `local` ignores the new headers.
 
 ## Warts and constraints, named now
 
-- **WebAuthn requires a secure context.** `navigator.credentials` does not
-  exist on plain `http://<wsl-ip>:8080` — today's Windows-browser route.
-  Only `localhost` origins (or TLS via the `QITS_DOMAIN` path) can register
-  passkeys. Until then the password fallback is load-bearing on this host,
-  which is part of why it exists. The SPA says this on the page instead of
-  letting the ceremony fail cryptically.
-- **The RP id pins the host.** A passkey registered under rp id `localhost`
-  does not assert under a real domain later. Moving to `QITS_DOMAIN` means
-  registering new credentials; passwords survive. Acceptable now, worth one
-  sentence in the register UI later.
+- **WebAuthn needs a secure context, and localhost IS one.** `localhost`,
+  `*.localhost`, and loopback addresses count as secure contexts over plain
+  http, so passkeys work on `http://localhost:8080` with no TLS. The one
+  route without a secure context is a raw IP — `http://<wsl-ip>:8080`,
+  today's Windows-browser path to this platform — where
+  `navigator.credentials` does not exist and only the password fallback
+  logs in. The SPA says this on the page (`window.isSecureContext`)
+  instead of letting the ceremony fail cryptically. TLS via `QITS_DOMAIN`,
+  or Windows reaching localhost again, dissolves it.
+- **The RP id pins the host, which costs nothing here.** A passkey
+  registered under rp id `localhost` does not assert under a real domain —
+  but users are per-deployment by decision, so a domain move re-registers
+  from the register token anyway.
 - **qits-net remains the trusted plane.** A process on qits-net can dial a
   service directly and write `X-Qits-User` itself; the header is trustworthy
   only because the network is. That is today's stance for every service
