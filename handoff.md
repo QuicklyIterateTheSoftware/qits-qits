@@ -433,6 +433,12 @@ db-patience wave-2 remnant at the same time:
 
 - **Host step, byte-plane split:** dockerd `registry-mirrors` →
   `localhost:8082` (awaiting user decision).
+- **Record correction — ci-base steps have ALWAYS run BuildKit.** Measured:
+  qits-githost f5ae4bb hit a buildkit error on 2026-08-11, before the gateway
+  conversion. So the 2026-08-11 note saying "buildkit was never involved in CI"
+  is itself wrong; treat every ci-base step as a BuildKit build. Only
+  `node-docker-base` steps still take the legacy builder, until that image
+  ships buildx.
 - **qits-projects has no `ci-event-upstream-eventstream.yml`** (verified still
   missing) — the train never bumps its eventstream pin, so it is bumped by
   hand. Add the recipe.
