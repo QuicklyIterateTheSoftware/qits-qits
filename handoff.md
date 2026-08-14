@@ -206,19 +206,26 @@ branches.
   (covers an observed 2m+ githost redeploy) before the discard
   decision; qits-ci main cbfd7f7, ci module 221 tests green (CDI note:
   the schedule is set via a method, a field write lands on the client
-  proxy). Attempt 7 launched 2026-08-14 morning after a fresh unwrap
-  (leftover maven container held qits-maven-seed — removed by hand) and
-  re-priming the two 8081 base names. STANDING ORDERS (user): green boot →
-  shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
-  re-register if Exec format error); ANY error/warn → fix at source,
-  then restart from the very beginning (fresh unwrap), never nudge a
-  run back on track. After a green boot:
-  the release wave through the regular door (blobstore → bump
-  registries' pin to the minted calver → registries →
+  proxy). Attempt 7 GREEN 2026-08-14 ~08:07: 69 ok + 1 expected skip,
+  21m49s, zero warnings, after a fresh unwrap (leftover maven container
+  held qits-maven-seed — removed by hand) and re-priming the two 8081
+  base names. Verified: 17/17 healthy, edge 200, dev-qits-containers
+  deployed at 1d05d2c (the very commit class 6 lost), pd_resource row
+  qits-artifacts/dev/db → qits_artifacts, PG blob store live (241
+  blobs / 2067 chunks), git clone from :8083 OK, docs page 200, maven
+  metadata 200, npm metadata 200. THE CUTOVER IS DONE. Windows host
+  shut down on the user's standing order right after — so the next
+  session starts against a booted-but-off machine (docker + swarm
+  state persist; just start WSL and the stack comes back).
+- NEXT SESSION, FIRST: the release wave through the regular door
+  (blobstore → bump registries' pin to the minted calver → registries →
   mirror/githost/artifacts, artifacts last of the byte plane) — kills
-  every pgblobs-SNAPSHOT pin; then verify the pd_resource row for
-  qits_artifacts and functional smoke (push/pull, git clone+push, npm
-  install, docs page).
+  every pgblobs-SNAPSHOT pin. Then release qits-workspace-daemon and
+  qits-projects-daemon (mains carry 8082 Dockerfiles) so replay tags
+  stop depending on the primed 8081 image names. Then release
+  qits-containers (round-2 fixes incl. Spec init sit under an unbumped
+  calver) and qits-ci (cbfd7f7, the class-6 patience fix — only local
+  main ships it so far).
 - WP-MIRROR DONE: branch `postgres-blobs` head 025cf74, 52 tests green,
   native gate green (1m02, no fallback). V2__blob_tables.sql; dialect
   deleted (lib mapping covers it); stateless Dockerfile/README. Infra
