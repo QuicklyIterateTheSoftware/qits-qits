@@ -1,144 +1,141 @@
-# Authenticated reads: close the anonymous-read exemption at edge
+# Authenticated reads via commissioned credentials
 
-Status: PLANNED, opened 2026-08-14. Successor to the unify-ingress campaign,
-which shipped method-scoped auth (writes gated, reads anonymous on the
-registry and mirror vhosts) and left this flag as the escape hatch:
-`qits.edge.auth.anonymous-read-apps=registry,mirror`.
+Status: PLANNED, opened 2026-08-14; REVISED the same day after the user
+corrected the credential model — the first draft distributed one durable
+client secret into every pull point, and that is exactly what this platform
+must not do. Successor to the unify-ingress campaign, which shipped
+method-scoped auth (writes gated, reads anonymous) and left the escape
+hatch: `qits.edge.auth.anonymous-read-apps=registry,mirror`.
 
-**Goal: that list becomes empty.** Every request through edge authenticates —
-docker pulls, `FROM` pulls inside builds, maven and npm resolution, mirror
-cache reads. No port changes; this is credential plumbing only.
+**Goal: that list becomes empty** — every read through edge authenticates
+(docker pulls, `FROM` pulls inside builds, maven/npm resolution, mirror
+reads) — **and the credentials doing it are commissioned per dynamic
+context, not stored anywhere durable.**
 
-## Why reads stayed anonymous (what this plan must solve)
+## The credential model (the heart of this plan)
 
-The unify-ingress investigation found five pull points, none with a safe
-credential home:
+A service that provisions a dynamic context commissions a credential FOR
+THAT CONTEXT from qits-idp, and decommissions it when the context ends.
+The credential's lifetime IS the context's lifetime — no TTL, no refresh,
+no stored secret outliving the thing it authenticates:
 
-1. **Maven inside `docker build`.** ~19 release recipes run
-   `docker build --network host --build-arg QITS_MAVEN_REPOSITORY_URL=…` and
-   Maven resolves qits jars from that URL inside the build. A credential via
-   `--build-arg` is recorded verbatim in layer metadata by the legacy
-   builder, and the built images are pushed to the registry — publishing the
-   secret through the very door it protects. The clean channel is BuildKit's
-   `RUN --mount=type=secret`, which persists nothing; the platform still
-   builds partly on the legacy builder.
-2. **`FROM mirror.dev.localhost:8080/…` base pulls** in every CI build — the
-   docker client sends its own stored auth for base images, so this follows
-   the step's `DOCKER_CONFIG` (which pushes already use).
-3. **The deployer's pulls.** `SwarmDeploymentDriver` runs `docker pull` as
-   uid 1001 with no `HOME` and no `DOCKER_CONFIG`, and never passes
-   `--with-registry-auth`, so swarm task pulls carry no credential either.
-   Bonus defect: a `pull access denied` is classified `IMAGE_MISSING`
-   ("nothing published this build"), which would misreport every auth
-   failure.
-4. **qits-containers' pulls** (workspace and agent images):
-   `DockerArgv.java:298` — plain `docker pull` argv, same missing config
-   home as the deployer.
-5. **The host dev loop**: `docker pull`, `mvn`, `npm` on the workstation.
-   No `~/.m2/settings.xml` or `~/.npmrc` exists; every registry address is
-   committed per repo, and credentials must never be.
+| Owner | Context | Commissioned at | Decommissioned at |
+|---|---|---|---|
+| qits-ci | one build run | run accepted / step launch | run finished — any outcome, boot-sweep-settled included |
+| qits-workspaces | one workspace | container ensure | workspace removed / integrated / released / discarded |
+| qits-projects | one agent container | container ensure | container removal |
+| the operator | one workstation | by hand (a printed one-liner) | by hand, when the machine is retired |
 
-One protocol gap sits above all of them: **edge accepts only
-`Authorization: Bearer <jwt>`** on protected paths. Docker does the
-token-endpoint dance itself; maven, npm, git and curl do not, and idp's
-300-second no-refresh tokens cannot be stored as a static password.
+Mechanically a commissioned credential is a **dynamic idp client** (id +
+secret row in idp's store): docker's existing Bearer dance through edge's
+`/token` works with it unchanged, decommission is deleting the row, and
+edge's offline JWT validation stays intact — a deleted client simply can
+mint no further tokens. Accepted consequence: an already-minted token
+outlives decommission by at most its ~300s TTL.
 
-## Design
+**Full access now, scoping later.** A commissioned client gets the same
+audiences a service client gets today. Per-context permissions (ci may
+publish, a refinement container may not) are a declared follow-up on the
+same rows — out of scope here, but the commission API should carry an
+owner + context-kind + context-id triple from day one so scoping has
+something to attach to.
 
-- **D1 — edge accepts Basic on protected requests.** A request carrying
-  `Authorization: Basic <client-id:secret>` is validated by brokering
-  client_credentials to idp (the `/token` machinery edge already has),
-  with a small positive-decision cache (TTL ≤ the idp token TTL) so idp
-  stays off the per-request path. Bearer keeps working unchanged; docker
-  keeps its dance. This one change makes maven (`<server>` credentials
-  answer the 401), npm (`//host/:_auth` sends Basic), git (credential
-  helper instead of the extraHeader dance) and humans-with-curl all work
-  with ONE durable credential shape: an idp client id + secret.
-  Ride-along: fix the anonymous-`docker push` hang (the /token 401 arm).
-- **D2 — finish the BuildKit exit first.** Secret mounts require BuildKit;
-  the legacy-builder exit is already doctrine ([[containerd-store memory]])
-  and becomes a hard precondition here. No secret work lands on a
-  legacy-builder path.
-- **D3 — secrets enter builds as BuildKit secret mounts, exposed as env.**
-  Dockerfile: `RUN --mount=type=secret,id=qits-maven,env=QITS_MAVEN_AUTH …`
-  on the maven lines; `.qits-maven-settings.xml` gains a `<server>` for the
-  `qits-maven-network` mirror id reading `${env.QITS_MAVEN_AUTH_*}`. The ci
-  launcher materializes the secret file next to the DOCKER_CONFIG it
-  already writes, and the recipes pass `--secret id=qits-maven,src=…`.
-  Nothing lands in a layer, nothing in the build cache key.
-- **D4 — pull credentials are docker client config, in three homes.**
-  Step containers: already have `DOCKER_CONFIG` (covers FROM pulls).
-  Deployer: `DOCKER_CONFIG=/work/config` (the config volume, self-update
-  inherited), a `config.json` written by the bootstrap's pd-extras phase,
-  plus `--with-registry-auth` on service create AND update so task pulls
-  get the credential. qits-containers: same pattern on its own config
-  volume. Fix the deployer's `pull access denied` → its own outcome, not
-  `IMAGE_MISSING`.
-- **D5 — host credentials are per-user files, never committed.**
-  `docker login registry.dev.localhost:8080` + `mirror…`, a `~/.m2/
-  settings.xml` server block, and `~/.npmrc` `_auth` lines. The committed
-  per-repo files stay credential-free (an env-expansion line in a
-  committed `.npmrc` breaks CI when the variable is unset — do not do it).
-  The bootstrap summary prints the three snippets.
-- **D6 — which client.** Reads authenticate as `dev-qits-artifacts` like
-  everything else for now; per-audience read clients are a later idp-plan
-  concern, not this campaign's.
+**Static identities stay only where the identity is genuinely static**: the
+platform services themselves. The deployer and qits-containers pull as
+THEMSELVES (each gets an ordinary service client — the deployer has none
+today), not via commissioned contexts: their pulls are steady-state
+operation, and a `--with-registry-auth` credential embedded in a swarm
+service spec must not be one a finished build already revoked.
+
+**Migration note:** today's shipped static step credential
+(`qits.ci.registry-auth.client-id/secret` = the dev-qits-artifacts secret,
+added 2026-08-14 for pushes) is an interim exactly of the kind
+[[no-speculative-security-schemes]] warns about. This plan RETIRES it: the
+commissioned per-run pair replaces it for pushes first, then carries the
+read flip.
+
+## What the model does not change (still needed from the first draft)
+
+- **Edge accepts Basic on protected requests** by brokering
+  client_credentials to idp with a short positive cache. Maven, npm, git
+  and curl cannot do docker's token dance; with this adapter they present
+  the commissioned id+secret directly. Broker gets retry patience (the
+  idp-redeploy race burned a run on 2026-08-14) and the anonymous-push
+  hang fix rides along.
+- **BuildKit secret mounts.** The commissioned secret still must enter
+  `docker build` without touching a layer:
+  `RUN --mount=type=secret,id=qits-maven,env=…` + `<server>` entries in
+  `.qits-maven-settings.xml` reading `${env.…}`; recipes pass `--secret`.
+  Build args remain forbidden for secrets — the legacy builder records
+  them in image history and the images are pullable. So the
+  legacy-builder exit is a hard precondition.
+- **Committed files stay credential-free.** Per-user host files
+  (`~/.docker/config.json`, `~/.m2/settings.xml`, `~/.npmrc`) hold the
+  workstation's commissioned pair; never a project `.npmrc` env-expansion
+  line (breaks CI when unset).
 
 ## Work packages
 
-- **WP0 — verify.** Which repos/steps still build via the legacy builder
-  (build images, `DOCKER_BUILDKIT`, node-docker-base state); that maven
-  answers edge's 401 with configured Basic credentials (resolver
-  transport); npm `_auth` against a path-prefixed registry; qits-containers'
-  container filesystem/volume for a config home; whether `--with-registry-auth`
-  is accepted with `--no-resolve-image`.
-- **WP1 — edge: Basic acceptance + broker cache** (+ the push-hang fix).
-  Tests: Basic read 200, wrong secret 401, cache expiry, Bearer unchanged,
-  env vhost untouched.
-- **WP2 — BuildKit everywhere.** Finish the legacy-builder exit for every
-  repo still on it; prove the containerd-store race class stays closed.
-- **WP3 — fleet build-secret sweep** (~19 repos, one commit each):
-  Dockerfile secret mounts, settings `<server>`, recipe `--secret` flags.
-  Buildable BEFORE the flip (secret present but registry still anonymous —
-  the mount is inert), so this lands incrementally through normal releases.
-- **WP4 — ci launcher: materialize the maven secret** beside the existing
-  DOCKER_CONFIG; same all-or-nothing config keys, same masking.
-- **WP5 — deployer + qits-containers credentials** (D4), released in
-  order: deployer first (its `--with-registry-auth` is inert against an
-  anonymous registry, so it can ship early).
-- **WP6 — bootstrap.** ComposeTemplate: emit the new env/keys, write the
-  two `config.json`s, print the D5 host snippets; seed phases are
-  UNAFFECTED (loopback ports, pre-edge). Flip
-  `QITS_EDGE_AUTH_ANONYMOUS_READ_APPS` to empty in the template LAST,
-  in the same commit as the boot-order proof.
-- **WP7 — the flip, gated like a port drop.** On the live platform: set
-  the edge env empty, redeploy edge, then prove in order — anonymous pull
-  DENIED, credentialed pull, full release train, a deploy, a workspace
-  launch, host `mvn -U` + `npm ci` with per-user credentials. Only then
-  rebootstrap to prove from-zero. Rollback is the config flag back to
-  `registry,mirror` — one env change, no code.
+- **WP0 — verify.** Legacy-builder remnants per repo (build images,
+  node-docker-base state); maven answering edge's 401 with Basic; npm
+  `_auth` against a path-prefixed registry; `--with-registry-auth`
+  beside `--no-resolve-image`; where each owner service already has the
+  lifecycle hook pairs (ci run settle paths incl. the boot sweep;
+  workspaces resolution verbs; projects container removal).
+- **WP-IDP — the commission API.** `POST /idp/clients/dynamic` (returns
+  id+secret, records owner/context-kind/context-id) and its DELETE,
+  gated by the existing machine-token machinery (a new idp audience for
+  callers). List-by-owner for reconciliation. Rows in idp's PG store.
+- **WP-EDGE — Basic acceptance + broker cache + patience** (see above).
+- **WP-BUILDKIT — finish the legacy-builder exit** fleet-wide.
+- **WP-CI — commission per run.** Launcher commissions at docker-step
+  launch, materializes DOCKER_CONFIG + the maven build secret from the
+  commissioned pair, decommissions on every settle path — and a boot/
+  periodic reconcile decommissions orphans (list-by-owner vs live runs;
+  crashes must not leak clients). Retire the static registry-auth keys
+  (code, extras, ComposeTemplate) in the same arc.
+- **WP-WS / WP-PROJECTS — lifecycle hooks.** Commission at ensure,
+  inject into the container (the daemons' own pulls/pushes), decommission
+  on the resolution verbs / removal; reconcile against active rows.
+- **WP-SVC — service identities for the pullers.** New idp clients for
+  qits-deployments and qits-containers; DOCKER_CONFIG homes on their
+  config volumes; deployer adds `--with-registry-auth` and stops
+  classifying `pull access denied` as IMAGE_MISSING.
+- **WP-BOOTSTRAP.** ComposeTemplate emits the new clients and drops the
+  static ci pair; seed phases unaffected (loopback, pre-edge); summary
+  prints the operator's commission one-liner; the anonymous-read flip in
+  the template lands LAST with the boot-order proof.
+- **WP-FLIP — gated like a port drop.** Live: empty the env, redeploy
+  edge, prove in order — anonymous pull DENIED, a commissioned build
+  (push + in-build maven read), a deploy, a workspace launch + its
+  decommission observed in idp, host dev loop with a workstation pair.
+  Then a from-zero rebootstrap. Rollback is the flag back to
+  `registry,mirror` — one env value.
 
 ## What blocks what
 
-    WP0 ─ WP1 (edge Basic) ────────────┐
-    WP2 (BuildKit exit) ─ WP3/WP4 ─────┤
-    WP5 (deployer/containers creds) ───┤
-    WP6 (bootstrap wiring) ────────────┤
-                                       ▼
-    WP7 flip (live, gated) ─ rebootstrap proof
+    WP0 ─ WP-IDP ─┬─ WP-CI ──────────────┐
+                  ├─ WP-WS / WP-PROJECTS ┤
+    WP-EDGE ──────┤                      │
+    WP-BUILDKIT ──┴─ (secret mounts) ────┤
+    WP-SVC ──────────────────────────────┤
+    WP-BOOTSTRAP ────────────────────────┤
+                                         ▼
+                    WP-FLIP (live, gated) ─ rebootstrap proof
+
+Most of it ships inert before the flip (commissioning can replace the
+static push credential while reads are still anonymous), so the campaign
+lands incrementally through normal releases.
 
 ## Risks and accepted costs
 
-- idp joins the read path at cache granularity; its outage window narrows
-  to the cache TTL. The db-patience work covers idp's own store; edge must
-  fail CLOSED but with the broker-patience lesson from 2026-08-14 (a
-  deploy-fanout racing an idp redeploy) answered — retry inside the broker
-  before denying.
-- Secret rotation: the idp client secrets live on config volumes and
-  survive unwraps; a rotation means re-login in three config homes + the
-  per-user host files. Document it in WP6's summary text; no automation in
-  this campaign.
-- The break-glass is unaffected: its port bypasses edge entirely and stays
-  the anonymous recovery path while open.
-- The env vhost (browser traffic via gateway) is out of scope — that is
-  the qits-idp-plan phase 2/3 user-auth track.
+- **Leaked clients on crashes** — answered structurally by the per-owner
+  reconcile, not by TTLs; idp's list-by-owner makes orphans visible.
+- **Decommission lag ≤ token TTL** (~300s) — a revoked context's last
+  token dies on its own clock.
+- idp joins the read path at broker-cache granularity; patience + cache
+  bound the coupling. The break-glass port bypasses edge and stays the
+  anonymous recovery.
+- The env vhost (browser traffic) remains the qits-idp-plan phase 2/3
+  track; per-context permission scoping is the declared follow-up on the
+  dynamic-client rows.
