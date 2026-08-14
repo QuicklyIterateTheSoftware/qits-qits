@@ -251,6 +251,29 @@ Quarkus' own text/html not-found page (fine — no base href), and an
 ignore entry protects a SEGMENT, so /idp/jwks-nope is the SPA by
 design; a new machine route needs a segment of its own.
 
+User-authentication implementation ALL LANDED on local mains and GitHub
+(2026-08-14 evening, plan `user-authentication-plan.md`), every suite
+green, everything dark:
+- idp 9d419b7 (V3 five-table schema, passkeys + bcrypt, qits-session,
+  eight routes; 49 unit + 11 packaged IT) + 490f510 (webui gitlink →
+  the real pages, gate re-run green)
+- SPA 2d14940 (real passkey/password pages, 63 tests; insecure-context
+  fallback for the raw-IP route)
+- edge be06a44 (five-step session gate behind
+  qits.edge.sessions.enabled=false, introspection cache + stale grace,
+  X-Qits strip/inject both transports; 155 tests)
+- gateway c190154+c12d2c1 (`edge` build variant trusts X-Qits headers,
+  roles into SecurityIdentity; pipelines still local; 158+6 tests)
+- cli-bootstrap 45031d8 ({env}-qits-edge client seeded both ways,
+  register token minted once per install → closing report, WebAuthn RP
+  env, flip pinned OFF; 351 tests)
+Wire contracts: introspect body {"token": ...} answering
+{userId, username, roles, expiresAt}; mint answer field `token`;
+QITS_EDGE_SESSIONS_CLIENT_ID/SECRET/ENABLED; QITS_IDP_WEBAUTHN_RP_ID/
+ORIGINS. NEXT (user-triggered): releases + the plan's three-step
+rollout order — idp+SPA first, then edge flag on, then gateway
+pipelines to QITS_VARIANT=edge; order is load-bearing.
+
 - STILL OPEN before this ships: wrapper push to the platform githost
   (catalog adoption — new repos 404 at the release endpoint until
   then); then the idp + SPA releases ride the login/register backend
