@@ -297,6 +297,20 @@ RELEASED AND DEPLOYED 2026-08-14 evening (all green, 17/17):
   flip order: edge sessions on, then gateway pipelines to
   QITS_VARIANT=edge; order is load-bearing.
 
+BARE-SERVER READINESS (2026-08-14 late evening): the GitHub backup
+sweep is DONE — every initialized submodule main + all release tags
+pushed (31 repos were behind, up to 19 commits). Found and integrated
+on the way: qits-spa-projects' refinement-detail UI (released
+2026.809.185750, survived ONLY on GitHub through the wipes) — merged
+into main (dependency union: marked, @xterm/*; 795 tests green),
+qits-projects gitlink bumped and RELEASED 2026.814.194433, deployed
+87c1bea, /projects/ 200. The bare-server door is the cold path:
+`curl -fsSL .../qits-qits/main/qits-local-up.sh | QITS_SHIP_MAINS=1 sh`
+(docker installed is the only prerequisite; bootstrap swarm-inits
+itself; env name defaults to prod; QITS_DOMAIN path exists but is
+untested). qits-oci-workspace submodule is uninitialized here and was
+not swept.
+
 - STILL OPEN before this ships: wrapper push to the platform githost
   (catalog adoption — new repos 404 at the release endpoint until
   then); then the idp + SPA releases ride the login/register backend
