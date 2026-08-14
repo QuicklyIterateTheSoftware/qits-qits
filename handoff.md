@@ -214,11 +214,13 @@ deltas" — read both). ALL CODE LANDED on local mains, suites green:
   - Releases must come from branches AHEAD of the githost main —
     pushing mains first makes the door 409; recovery is a sanctioned
     force-rewind to the environment/dev sha (proven).
-- Standing state: workstation credential commissioned
-  (dyn-workstation-desktop-3630iei-…, secret in
-  ~/.qits-workstation-secret, docker login done, ~/.m2/settings.xml
-  carries the blocker-bypass mirror — ADD its <server> entry with the
-  workstation pair for authed host maven; ~/.npmrc _auth still to do).
+- Standing state: workstation credential RE-commissioned 2026-08-14
+  evening (the 14:52 row did not survive; idp refused it — mint via the
+  bootstrap one-liner against dev-qits-artifacts). Fresh pair in
+  ~/.qits-workstation-client/-secret; wired everywhere: ~/.npmrc
+  per-registry _auth lines (both npm vhosts, verified), ~/.m2
+  settings.xml <server> for qits-maven-host, docker login on both
+  vhosts. After any re-bootstrap: re-commission and rewrite all three.
   The puller secrets are IDP_SECRET_DEV_QITS_{DEPLOYMENTS,CONTAINERS}
   in .qits-bootstrap.env.
 - Open follow-ups: per-context permission SCOPING (the declared next
@@ -228,6 +230,25 @@ deltas" — read both). ALL CODE LANDED on local mains, suites green:
   smoke remains the standing backlog item; GitHub backup sweep still
   overdue (all of today's ~25 release stamps are local-only).
   THE AUTHENTICATED-READS CAMPAIGN IS COMPLETE.
+
+### idp SPA (2026-08-14 evening session)
+
+qits-platform-spa-idp scaffolded and pushed (a925230): Angular 21.2,
+baseHref /idp/, four lazy loadComponent routes — /idp/login and
+/idp/register chromeless placeholders (flows land with the backend work
+in the parallel session), /idp/clients and /idp/users inside
+QitsMainLayout. Superproject submodule added at
+frontends/qits-platform-spa-idp (standard entry config).
+
+- IN FLIGHT: Quinoa wiring in qits-platform-idp (webui submodule,
+  quinoa 2.8.2, ignored-path-prefixes=/api,/q,/.well-known,/token,/jwks
+  — the REST path IS the segment here, so the three protocol literals
+  join the list; Dockerfile prebuilt-bundle pattern, CI half-one,
+  PackagedSurfaceIT SPA probes).
+- THEN: push idp + wrapper to GitHub; wrapper push to the platform
+  githost (catalog adoption — new repos 404 at the release endpoint
+  until then); the idp release itself rides the login/register backend
+  wave.
 
 ### Unify-ingress prerequisites (2026-08-13 evening — historical detail)
 

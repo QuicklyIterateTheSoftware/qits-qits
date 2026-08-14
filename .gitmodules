@@ -250,3 +250,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-platform-spa-idp"]
+	path = frontends/qits-platform-spa-idp
+	url = ../qits-platform-spa-idp.git
+	ignore = all
+	update = merge
+	branch = main
