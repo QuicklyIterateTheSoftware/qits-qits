@@ -541,6 +541,11 @@ db-patience wave-2 remnant at the same time:
 
 ### Deferred designs (each has its doc in the repo root)
 
+- `authenticated-reads-plan.md` — close edge's anonymous-read exemption
+  (user go 2026-08-14): Basic acceptance at edge, BuildKit secret mounts
+  for in-build maven, docker-config homes for deployer/containers/steps,
+  per-user host credentials. Gated flip, rollback is one env value. Start
+  at WP0; WP2 (the BuildKit exit) is the long pole.
 - `qits-artifacts-postgresql-plan.md` — artifacts off H2 onto PostgreSQL.
   Unstarted; start at its work-package table.
 - `qits-idp-plan.md` — phases 2/3, the user-auth track (gateway pointing at idp
