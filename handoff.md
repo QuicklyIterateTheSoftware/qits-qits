@@ -240,15 +240,21 @@ in the parallel session), /idp/clients and /idp/users inside
 QitsMainLayout. Superproject submodule added at
 frontends/qits-platform-spa-idp (standard entry config).
 
-- IN FLIGHT: Quinoa wiring in qits-platform-idp (webui submodule,
-  quinoa 2.8.2, ignored-path-prefixes=/api,/q,/.well-known,/token,/jwks
-  — the REST path IS the segment here, so the three protocol literals
-  join the list; Dockerfile prebuilt-bundle pattern, CI half-one,
-  PackagedSurfaceIT SPA probes).
-- THEN: push idp + wrapper to GitHub; wrapper push to the platform
-  githost (catalog adoption — new repos 404 at the release endpoint
-  until then); the idp release itself rides the login/register backend
-  wave.
+Quinoa wiring in qits-platform-idp DONE (aa86e2a, pushed to GitHub):
+webui submodule, quinoa 2.8.2,
+ignored-path-prefixes=/api,/q,/.well-known,/token,/jwks — the REST
+path IS the segment here, so the three protocol literals join the
+list; Dockerfile prebuilt-bundle pattern, CI recipe on
+node-docker-base with the npm half, PackagedSurfaceIT SPA probes
+(verify green, 34 unit + 10 IT). Measured: an ignored prefix 404s via
+Quarkus' own text/html not-found page (fine — no base href), and an
+ignore entry protects a SEGMENT, so /idp/jwks-nope is the SPA by
+design; a new machine route needs a segment of its own.
+
+- STILL OPEN before this ships: wrapper push to the platform githost
+  (catalog adoption — new repos 404 at the release endpoint until
+  then); then the idp + SPA releases ride the login/register backend
+  wave (parallel session).
 
 ### Unify-ingress prerequisites (2026-08-13 evening — historical detail)
 
