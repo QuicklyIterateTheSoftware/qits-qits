@@ -1,6 +1,9 @@
 # Unify-ingress prerequisites: gates before dropping any port
 
-Status 2026-08-14: P-edge PROVEN LIVE — deployer 2026.814.64650 and edge
+Status: **COMPLETE 2026-08-14** — every gate passed, every port dropped,
+rebootstrap green. Campaign record; remove with the plan doc.
+
+Status 2026-08-14 (mid-campaign): P-edge PROVEN LIVE — deployer 2026.814.64650 and edge
 2026.814.65508 released; edge runs in ingress mode (service rm + recreate)
 with app vhosts + method-scoped auth; WP3 rolling update proven lossless
 (120 probes, zero failures). Docker pull (anonymous) and login/push/pull

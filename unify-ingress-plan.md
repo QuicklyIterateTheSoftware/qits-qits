@@ -1,7 +1,9 @@
 # Unify ingress: one authenticated door instead of four open ports
 
-Status: EXECUTING, opened 2026-08-13. Living document — add findings as we
-identify them. Progress and proofs live in
+Status: **COMPLETE 2026-08-14** — proven by a green from-zero rebootstrap
+(70/70) on the two-port topology. This document is the campaign record;
+remove it at the next plan-doc audit. Standing facts live in the
+unify-ingress memory and handoff.md. Progress and proofs live in
 `unify-ingress-plan-prerequisites.md` (inline ✅): Gate 0 is GREEN including
 the real-edge run — docker did the full idp Bearer flow (login, push, pull,
 logout-deny) under `registry.dev.localhost` through the WP1/WP2 edge branch

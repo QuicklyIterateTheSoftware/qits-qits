@@ -74,11 +74,51 @@ Progress this session:
   erroring (security holds; suspect the /token 401 arm — investigate in
   edge); edge extras backup at
   qits-deployments-config/application.properties.bak-unify-ingress.
-- NEXT: release wave (blobstore→registries→mirror/githost/artifacts pin
-  bumps; daemons; containers; gateway 8bf793a; qits-ci LAST alone), then
-  flip QITS_REGISTRY in ci+deployer extras + wire ci registry-auth env +
-  drop 8081/8082 via break-glass close, prove a train through edge, tag
-  sync, full rebootstrap.
+- Release wave DONE (all 10 green, pgblobs pins dead fleet-wide; daemon
+  pin trains fired on their own and redeployed workspaces+projects with
+  vhost-hosted pins). REGISTRY 8081 + MIRROR 8082 DROPPED — only edge
+  (8080 ingress) and dns (5353) publish. Post-drop proofs: full CI train
+  green (FROM through mirror vhost, docker push via step credential
+  through edge), deployer pull argv through the registry vhost, 17/17
+  healthy. Wrapper banked at a42b7af; tags synced 42/42; unify-ingress
+  worktrees removed, branches deleted.
+- **REBOOTSTRAP GREEN 2026-08-14 ~10:43** (attempt 3, 70/70 in 44m08s,
+  `unwrap --with-data-volumes` + `QITS_SHIP_MAINS=1`): the first
+  from-zero boot on the two-port topology. Post-boot verified: 17/17
+  services 1/1, edge ingress on 8080, full vhost matrix (registry GET
+  200 / POST 401, gateway env-vhost /v2 write 403, mirror+maven reads
+  200, githost 401 anon), docs 200, deployed shas = local mains (edge
+  runs the post-release sweep commit 873a586). Boot failure classes
+  fixed at source on the way:
+  - Attempt 1: seed builds rode the Dockerfiles'
+    `ARG QITS_MAVEN_REPOSITORY_URL` default, which the sweep moved to
+    the vhost (dead during seed phases). cli-bootstrap 51cb97d passes
+    the build-arg on every bootstrap-run host build (Docker facade).
+  - Attempt 2: the attempt-3-class stale pins again — the wave's
+    releases moved githost/containers and NO upstream recipe bumps
+    consumers. Hand-bumped: qits-ci 58a5078, qits-projects 3abb156,
+    qits-workspaces 90d2d17 (githost-events 2026.814.72533,
+    containers-client 2026.814.73521). CONFIRMED consumer lists for
+    the missing-recipe backlog: qits-githost-events ← ci, projects;
+    qits-containers-client ← ci, projects, workspaces.
+  - Attempt 3's one warning: qits-stt's deploy push landed in idp's
+    own redeploy window — edge's /token answered "identity provider
+    could not be reached", the run burned (5s, image fully cached).
+    Salvaged with the rewind-replay through the vhost; stt green and
+    1/1. New transient class: a deploy-fanout push racing the idp
+    redeploy dies at the token broker.
+  - The kept config volumes reuse the idp client secrets — the
+    dev-qits-artifacts secret survived the wipe unchanged, and
+    `.qits-bootstrap.env` spells it `IDP_SECRET_DEV_QITS_ARTIFACTS`.
+  - The fresh githost again holds ZERO release tags (synced home
+    pre-wipe, 42/42): a plain restore-default boot is stale until a
+    release wave; boot with QITS_SHIP_MAINS=1. GitHub backup sweep is
+    now overdue — today's ~14 release stamps exist only locally.
+  THE UNIFY-INGRESS CAMPAIGN IS COMPLETE. Follow-ups live in the
+  backlog: the two missing upstream recipes, the anonymous-docker-push
+  hang at edge, /git/* gateway retirement (clone-URL product decision),
+  TLS-port publish modes (domain path), token-broker patience for the
+  idp redeploy window.
 
 ### Unify-ingress prerequisites (2026-08-13 evening — historical detail)
 
@@ -396,6 +436,21 @@ db-patience wave-2 remnant at the same time:
 - **qits-projects has no `ci-event-upstream-eventstream.yml`** (verified still
   missing) — the train never bumps its eventstream pin, so it is bumped by
   hand. Add the recipe.
+- **Missing upstream recipes for the shared service jars** (cost boot attempts
+  on 2026-08-13 AND 2026-08-14; consumers confirmed by fleet audit):
+  `qits-githost-events` needs bump recipes in qits-ci + qits-projects;
+  `qits-containers-client` in qits-ci + qits-projects + qits-workspaces.
+  Until they exist, every githost/containers release strands consumer pins.
+- **Anonymous `docker push` through edge HANGS** instead of failing fast —
+  suspect edge's /token 401 arm under docker's retry loop. Security holds
+  (nothing lands); fix the UX in qits-platform-edge.
+- **Edge token broker dies during an idp redeploy** ("identity provider could
+  not be reached") — a deploy-fanout push in that window burns its run
+  (consumed event, no retry). Consider broker patience at edge or push retry
+  in the publish steps.
+- **qits-gateway `/git/*` public entry** — retirement needs the clone-URL
+  product decision (projects SPA renders `<origin>/git/...`); anonymous push
+  via the env vhost stays ref-gated only by the push-option token until then.
 - **qits-spa-docs has no CI recipes** (version 0.0.0, off every train).
 - **qits-repositories** is an empty stub — remove it.
 - **Drop projects' archunit workaround** (`epics/src/test/resources/
