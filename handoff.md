@@ -120,6 +120,46 @@ Progress this session:
   TLS-port publish modes (domain path), token-broker patience for the
   idp redeploy window.
 
+### Authenticated-reads campaign EXECUTING (2026-08-14 afternoon)
+
+Plan: `authenticated-reads-plan.md` (credential model + "Implementation
+deltas" — read both). ALL CODE LANDED on local mains, suites green:
+- qits-platform-idp: commission API (`POST/GET /idp/api/clients`,
+  `DELETE /idp/api/clients/{id}`, Basic-guarded by the caller's own
+  client; dynamic clients cannot commission), V2 migration, TTL 3600s.
+  Native gate caught two real defects (SecureRandom in image heap;
+  RestResponse entity registration).
+- qits-platform-edge: Basic acceptance on gated requests (brokered,
+  cached by credential hash), ALL idp dials bounded + retried (the hang
+  class), malformed Basic refused locally. cddbfcf, 117 tests.
+- qits-deployments: `qits.platform.deployments.registry-auth` flag
+  (both argvs), AUTH_REFUSED pull outcome ordered before IMAGE_MISSING.
+- qits-ci: commissions per run (kind ci-run), decommissions in
+  runClosed + reconcile at boot/hourly; static registry-auth keys
+  RETIRED; DOCKER_BUILDKIT=1 enforced per docker step; docker config
+  covers `qits.ci.docker-auth-hosts` (default registry host; deployment
+  widens with the mirror vhost).
+- qits-workspaces / qits-projects: commission per container, secret
+  persisted ON THE ROW (forced by the orchestrator's env-covering spec
+  hash — see the plan's deltas), decommission at every teardown seam +
+  reconcile; V3 migrations.
+- BuildKit exit DONE: qits-oci 2026.814.110556 released (multi-tag
+  recipe fixed first), step images retagged, 21 stray docker-rmi lines
+  gone, proof build showed BuildKit markers; ci-base was ALWAYS BuildKit
+  (the 2026-08-11 record was wrong — see backlog note).
+- Fleet secret-mount sweep: every maven-in-docker repo carries
+  `--mount=type=secret` + settings `<servers>` + recipe `--secret`
+  flags (inert until the flip; buildx ignores missing env sources —
+  measured). Gateway's buildx prelude retired.
+- cli-bootstrap b83ee9b: static ci pair retired, new idp clients
+  {env}-qits-deployments/{env}-qits-containers, docker-config homes for
+  both pullers, flip values pinned OFF, workstation-commission summary.
+- Host: `~/.m2/settings.xml` created (exact-id mirror past maven's http
+  blocker — plain builds resolve the vhost again).
+- IN FLIGHT: the release wave (idp → edge → deployments → workspaces →
+  projects → ci last) + commissioning proof. THEN the flip (live env
+  changes + proof chain) and a final rebootstrap.
+
 ### Unify-ingress prerequisites (2026-08-13 evening — historical detail)
 
 Executing `unify-ingress-plan-prerequisites.md`; results are marked ✅ inline

@@ -142,6 +142,32 @@ Most of it ships inert before the flip (commissioning can replace the
 static push credential while reads are still anonymous), so the campaign
 lands incrementally through normal releases.
 
+## Implementation deltas (2026-08-14, recorded as built)
+
+- **Consumer rows hold the commissioned SECRET, not only the clientId** —
+  in qits-workspaces (columns on the workspace row) and qits-projects (an
+  `agent_credential` table). Forced, not chosen: the orchestrator's spec
+  hash covers env, so every start/restart must re-present the pair byte
+  for byte or the container is replaced (writable layer lost). idp stores
+  only a hash; the consumer row is where the plaintext lives. A named
+  trade — revisit if the orchestrator ever grows a start verb that skips
+  the spec compare.
+- The CI step docker config covers a LIST of hosts
+  (`qits.ci.docker-auth-hosts`, default = the registry host): post-flip,
+  `FROM` pulls through the mirror vhost need the credential too.
+- buildx treats a `--secret` with a missing env source as a silent no-op
+  (measured) — every recipe flag is unconditional, no guards.
+- Maven's default `external:http:*` blocker refuses the vhost on plain
+  host builds; `~/.m2/settings.xml` carries an exact-id mirror
+  (`qits-maven-host` → the vhost) — the same file the workstation
+  credential lands in at the flip.
+- idp ships the TTL at 3600s (`qits.idp.token-ttl-seconds`); the
+  commission API is Basic-guarded with the caller's own client, dynamic
+  clients cannot commission, and V2 reshapes the (empty) `idp_client`
+  table.
+- Edge's hang class was unbounded idp dials (no timeouts anywhere) — all
+  dials are bounded + retried now; malformed Basic is refused locally.
+
 ## Risks and accepted costs
 
 - **Leaked clients on crashes** — answered structurally by the per-owner
