@@ -189,8 +189,22 @@ branches.
   around it. DURABLE FIX QUEUED post-boot: release workspace-daemon and
   projects-daemon through the door (their mains carry 8082 Dockerfiles)
   so publisher tags build on a clean machine; until then the primed
-  names are load-bearing for replays. Attempt 6 RUNNING in this
-  session's background. STANDING ORDERS (user): green boot →
+  names are load-bearing for replays. Attempt 6 ran 70/70 but WARNED at
+  phase 65 — failure class 6, a REAL qits-ci defect: phase 64 redeploys
+  the githost (stop-first, new VIP), qits-containers' push lands 15s
+  later, ci's pooled connection is dead, the config read answers
+  UNREACHABLE once and executeQueued DISCARDS the run row — while the
+  SCMPublishCommit event was consumed at accept, so nothing ever
+  retries and the deploy is lost (containers service stayed on the seed
+  image `qits/containers:latest`). Proven from the DB: both events
+  consumed 20:46:30Z, zero ci_run rows for qits-containers; both reads
+  answer 200 today, so the byte plane is innocent. Secondary: the
+  Windows host SLEPT mid-wait overnight (poll lines stop at 4m51s,
+  phases 66-70 completed on wake at ~07:00), which is what turned the
+  loss into a visible timeout. FIX at source in qits-ci:
+  readConfigPatiently retries UNREACHABLE through a ~5min backoff
+  (covers an observed 2m+ githost redeploy) before the discard
+  decision; tests added. STANDING ORDERS (user): green boot →
   shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
   re-register if Exec format error); ANY error/warn → fix at source,
   then restart from the very beginning (fresh unwrap), never nudge a
