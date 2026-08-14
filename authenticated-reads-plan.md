@@ -1,6 +1,11 @@
 # Authenticated reads via commissioned credentials
 
-Status: PLANNED, opened 2026-08-14; REVISED the same day after the user
+Status: **COMPLETE 2026-08-14** — the flip is live and proven by a clean
+from-zero rebootstrap (69 phases, zero warnings) with zero credential
+rows leaked. This document is the campaign record; the standing model
+lives in the memories and handoff. Remove at the next plan-doc audit.
+
+Status history: PLANNED, opened 2026-08-14; REVISED the same day after the user
 corrected the credential model — the first draft distributed one durable
 client secret into every pull point, and that is exactly what this platform
 must not do. Successor to the unify-ingress campaign, which shipped

@@ -156,9 +156,51 @@ deltas" — read both). ALL CODE LANDED on local mains, suites green:
   both pullers, flip values pinned OFF, workstation-commission summary.
 - Host: `~/.m2/settings.xml` created (exact-id mirror past maven's http
   blocker — plain builds resolve the vhost again).
-- IN FLIGHT: the release wave (idp → edge → deployments → workspaces →
-  projects → ci last) + commissioning proof. THEN the flip (live env
-  changes + proof chain) and a final rebootstrap.
+- Release wave DONE (idp 2026.814.122135, edge .122429 then .132633,
+  deployments .122649 then .130328, workspaces .123007, projects
+  .123357 then .130338, ci .123830, dns proof releases). Commissioning
+  proven live: the dyn-ci-run row appeared during a run, the push used
+  it, the row died with the run.
+- **THE FLIP IS LIVE AND PROVEN**, including a clean from-zero
+  rebootstrap (69 phases, 1 skip, 50m15s, ZERO warnings, 17/17): anon
+  reads 401 with a DUAL challenge (Bearer first, then Basic), Basic
+  reads 200, both pullers pull with their own idp identities, an
+  UNCACHED in-build maven resolve succeeded through the gated edge via
+  the secret mounts, and idp_client held ZERO rows after ~24 boot
+  builds — no credential leaked through a whole genesis.
+- Live lessons burned in on the way (memories updated):
+  - Maven ignores a Bearer-only 401 → edge sends Bearer+Basic (edge
+    .132633). Caught only by an UNCACHED build — and BuildKit strips
+    Dockerfile comments from cache keys, so comment "cache-busters"
+    prove nothing; bust via a copied file (pom). `-ntp` also hides
+    Downloaded lines — count cache misses, not transfer logs.
+  - Docker's embedded DNS can't synthesize *.localhost and BuildKit
+    fetches registry tokens CLIENT-side → the three vhosts are network
+    ALIASES of edge on qits-net (deployer extras `aliases[N]`,
+    2026.814.130328; probe with getent/wget — curl lies, RFC 6761).
+  - **Deployer extras env RIDES UPDATES from its boot-time snapshot**:
+    a hand env-rm is silently reverted by the service's next deploy if
+    the deployer wasn't force-reloaded after the config edit. This
+    un-flipped the read gate for ~20 minutes; three releases burned
+    their builds on the stale window and were salvaged by
+    rewind-replays after the edge fix.
+  - Releases must come from branches AHEAD of the githost main —
+    pushing mains first makes the door 409; recovery is a sanctioned
+    force-rewind to the environment/dev sha (proven).
+- Standing state: workstation credential commissioned
+  (dyn-workstation-desktop-3630iei-…, secret in
+  ~/.qits-workstation-secret, docker login done, ~/.m2/settings.xml
+  carries the blocker-bypass mirror — ADD its <server> entry with the
+  workstation pair for authed host maven; ~/.npmrc _auth still to do).
+  The puller secrets are IDP_SECRET_DEV_QITS_{DEPLOYMENTS,CONTAINERS}
+  in .qits-bootstrap.env.
+- Open follow-ups: per-context permission SCOPING (the declared next
+  step on the dynamic-client rows); TTL back down when refresh gets
+  designed; qits-projects still has no agent-container removal verb
+  (decommission is reconcile-only there); the live workspace-launch
+  smoke remains the standing backlog item; GitHub backup sweep still
+  overdue (all of today's ~25 release stamps are local-only).
+  THE AUTHENTICATED-READS CAMPAIGN IS COMPLETE.
 
 ### Unify-ingress prerequisites (2026-08-13 evening — historical detail)
 
