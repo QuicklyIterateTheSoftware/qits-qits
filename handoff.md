@@ -307,9 +307,26 @@ qits-projects gitlink bumped and RELEASED 2026.814.194433, deployed
 87c1bea, /projects/ 200. The bare-server door is the cold path:
 `curl -fsSL .../qits-qits/main/qits-local-up.sh | QITS_SHIP_MAINS=1 sh`
 (docker installed is the only prerequisite; bootstrap swarm-inits
-itself; env name defaults to prod; QITS_DOMAIN path exists but is
-untested). qits-oci-workspace submodule is uninitialized here and was
-not swept.
+itself; env name defaults to prod). qits-oci-workspace submodule is
+uninitialized here and was not swept.
+
+DOMAIN MODE IS AUTOMATIC NOW (cli-bootstrap 7f7a954, 381 tests, on
+GitHub + githost): QITS_PUBLIC_IP is MANDATORY with QITS_DOMAIN
+(refused host-side otherwise), the dns-zone phase writes four A
+records (`@`, `ns1`, `*`, `*.*` — wildcards per depth match the edge's
+two-label reads, so new envs/apps need no dns step), and a new
+edge-acme phase issues the cert via a transient certbot container on
+qits-net (QITS_ACME_MODE staging|production|off, default staging;
+QITS_ACME_EMAIL defaults hostmaster@<domain>; warns-never-fails; never
+replaces production with staging). Registrar prerequisite: NS
+<domain> -> ns1.<domain> WITH GLUE to the same IP, BEFORE the boot.
+KNOWN LIMITS: cert covers the APEX ONLY (one-slot challenge endpoint;
+wildcard needs DNS-01 = a TXT record type qits-platform-dns lacks —
+backlog); the certbot phase has never run against a real registrar
+(whole domain path still unproven live); renewal is a manual
+renew-certificate, unscheduled. Bare-server line:
+  curl -fsSL .../qits-qits/main/qits-local-up.sh | \
+    QITS_SHIP_MAINS=1 QITS_DOMAIN=<domain> QITS_PUBLIC_IP=<ip> sh
 
 - STILL OPEN before this ships: wrapper push to the platform githost
   (catalog adoption — new repos 404 at the release endpoint until
