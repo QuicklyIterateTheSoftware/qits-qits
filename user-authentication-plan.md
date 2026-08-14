@@ -46,8 +46,12 @@ Measured against the code, not assumed (explorations 2026-08-14):
   display name — and no role column. **Roles are a separate assignment
   table** from day one (`idp_user_role`), because admins and plain users
   will be told apart later and a set does not belong in a column.
-  Registration through the bootstrap register token seeds the one `admin`
-  row; what a role *permits* is a later plan — nothing enforces roles yet.
+- **Role strings are namespaced**: the shape is `$app:$resource:$role`, and
+  the middle segment is simply omitted until something needs it. The
+  bootstrap register token grants the initial account two rows:
+  `qits-platform:admin` and `qits:admin`. What a role *permits* is a later
+  plan — nothing enforces roles yet, and the idp stores the strings without
+  interpreting them.
 - **Passwordless by default.** Registration runs the WebAuthn ceremony
   (`quarkus-security-webauthn`, in the 3.34.6 BOM, webauthn4j-based) so a
   Bitwarden-style authenticator can hold the key. A user may additionally set
@@ -152,9 +156,10 @@ cross-site form cannot send.
                         user_id fk not null, created_at, expires_at not null,
                         revoked_at null
 
-`idp_user_role` holds plain strings (`admin` is the only value anything
-writes today — the register-token user gets it). No role catalog table
-until a role carries data of its own.
+`idp_user_role` holds plain namespaced strings (`$app:$resource:$role`,
+resource omitted while unused). The register-token registration writes two
+rows — `qits-platform:admin` and `qits:admin` — and nothing else writes the
+table today. No role catalog table until a role carries data of its own.
 
 All four are `CausedRow`/`@Uncaused` per the arch rules, like V1/V2's tables.
 Exact WebAuthn columns are fixed by the extension's record type — read the
