@@ -20,7 +20,67 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
-### Unify-ingress prerequisites (2026-08-13 evening — PAUSED, resumes 2026-08-14)
+### Unify-ingress EXECUTING (2026-08-14 session)
+
+The final execution plan is in `unify-ingress-plan.md` ("Final decisions" +
+"Execution plan", 2026-08-14) — read it first; it supersedes the older
+bullets below. Key decisions: method-scoped auth at edge (writes need a
+Bearer on registry/mirror vhosts, reads anonymous; githost vhost fully
+gated), NO bootstrapping edge (seed phases keep their loopback `docker run
+-p` ports; platform services just never publish 8081/8082/8083), P-idp-4
+collapsed to a CI-step push credential (idp client `dev-qits-artifacts`;
+secret on the deployer config volume line 302).
+
+Progress this session:
+- qits-deployments RELEASED 2026.814.64650 (0e3d349, publish_mode) — live.
+- qits-platform-edge RELEASED 2026.814.65508 (bdaf947) — LIVE IN INGRESS
+  MODE (service rm + recreate; update never restates ports). All proofs
+  green: vhost policy matrix (registry GET 200 / POST 401+Bearer
+  challenge; githost 401/200 with token; unknown app 404), anonymous
+  docker pull through edge, docker login + push + pull-back, git
+  push/delete via githost vhost with `http.extraHeader` Bearer, WP3
+  rolling update 120 probes ZERO failures.
+- **HOST FACT — v6 ingress blackhole**: the swarm mesh is IPv4-only but
+  `*.localhost` resolves `::1` first and the ingress listener accepts v6
+  it never serves → clients HANG. Standing host rule (does not survive
+  reboot): `ip6tables -I INPUT -i lo -p tcp --dport 8080 -j REJECT
+  --reject-with tcp-reset`. Bootstrap warns about it (81bcd26).
+- gateway RELEASED 2026.814.65001 (4210c04, /v2 public-entry retired).
+  LIVE FINDING: dev deploys the NO-AUTH gateway variant, so PublicPaths
+  is inert here — anonymous /v2 write via env vhost answered 202. Fix
+  committed (gateway 8bf793a: refuse mutating /v2 in BOTH variants,
+  403) — releases in the wave.
+- **GITHOST PORT 8083 DROPPED** (publish-rm mode=host,published=8083,
+  target=8080; extras line removed; deployer force-updated). Note
+  `--publish-rm <target>` alone is a silent no-op — use the full spec.
+  Deployer config-volume reload: `docker service update --force`, NEVER
+  `docker restart` (leaves an orphan twin consuming events — happened,
+  removed by hand).
+- Fleet literal sweep COMMITTED on local mains (unpushed): all 8082
+  FROMs → mirror.dev.localhost:8080, ARG maven defaults + pom
+  qits.maven.repository.url → registry vhost, workspace/agent image pins
+  → registry vhost (host-preserving seds verified), all .npmrc +
+  lockfile resolved hosts + recipe seds (npmjs→mirror vhost,
+  @qits→registry vhost, guard regex updated). qits-ci also carries the
+  step DOCKER_CONFIG credential (8c10365; keys
+  qits.ci.registry-auth.client-id/secret, file at
+  /tmp/qits-ci-registry-auth via BOOTSTRAP, docker-enabled steps only).
+- cli-bootstrap 81bcd26: two-port topology (no byte-plane publishes,
+  edge ingress + apps env in seed stack, registry-host → vhost,
+  MIRROR_HOST literal mirror.dev.localhost:8080, unwrap sweeps vhost
+  refs, preflight warns on missing insecure-registries + v6 rule). 328
+  tests green.
+- Residues: anonymous `docker push` through edge HANGS instead of
+  erroring (security holds; suspect the /token 401 arm — investigate in
+  edge); edge extras backup at
+  qits-deployments-config/application.properties.bak-unify-ingress.
+- NEXT: release wave (blobstore→registries→mirror/githost/artifacts pin
+  bumps; daemons; containers; gateway 8bf793a; qits-ci LAST alone), then
+  flip QITS_REGISTRY in ci+deployer extras + wire ci registry-auth env +
+  drop 8081/8082 via break-glass close, prove a train through edge, tag
+  sync, full rebootstrap.
+
+### Unify-ingress prerequisites (2026-08-13 evening — historical detail)
 
 Executing `unify-ingress-plan-prerequisites.md`; results are marked ✅ inline
 there and mirrored in `unify-ingress-plan.md`'s status block. All gates that
