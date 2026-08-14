@@ -30,8 +30,21 @@ Mechanically a commissioned credential is a **dynamic idp client** (id +
 secret row in idp's store): docker's existing Bearer dance through edge's
 `/token` works with it unchanged, decommission is deleting the row, and
 edge's offline JWT validation stays intact — a deleted client simply can
-mint no further tokens. Accepted consequence: an already-minted token
-outlives decommission by at most its ~300s TTL.
+mint no further tokens.
+
+**The pair is what lives long, tokens stay disposable.** A workspace that
+runs for days holds the id+secret, and tokens are re-minted underneath it
+transparently (docker per operation, edge's Basic acceptance per request)
+— so context lifetime never depends on token lifetime, and no
+recommissioning is needed. The token TTL surfaces in exactly two places:
+the post-decommission grace (a token minted just before revocation lives
+out its clock), and any consumer wired with a bare minted token instead
+of the pair. Decision (user, 2026-08-14): **raise idp's token TTL to ~1
+hour for now** so the bare-token class is out of scope, and defer
+recommissioning/refresh thinking to its own day. Named trade, accepted:
+the raise widens the post-decommission grace to that same hour — a
+revoked context's last token keeps working until it expires. Revisit the
+TTL together with permission scoping.
 
 **Full access now, scoping later.** A commissioned client gets the same
 audiences a service client gets today. Per-context permissions (ci may
@@ -86,6 +99,8 @@ read flip.
   id+secret, records owner/context-kind/context-id) and its DELETE,
   gated by the existing machine-token machinery (a new idp audience for
   callers). List-by-owner for reconciliation. Rows in idp's PG store.
+  Also the TTL raise: token lifetime → ~1h (see the credential model),
+  as a config knob so it can shrink again later.
 - **WP-EDGE — Basic acceptance + broker cache + patience** (see above).
 - **WP-BUILDKIT — finish the legacy-builder exit** fleet-wide.
 - **WP-CI — commission per run.** Launcher commissions at docker-step
@@ -131,8 +146,9 @@ lands incrementally through normal releases.
 
 - **Leaked clients on crashes** — answered structurally by the per-owner
   reconcile, not by TTLs; idp's list-by-owner makes orphans visible.
-- **Decommission lag ≤ token TTL** (~300s) — a revoked context's last
-  token dies on its own clock.
+- **Decommission lag ≤ token TTL** (~1h after the TTL raise) — a revoked
+  context's last token dies on its own clock. Shrink the TTL back when
+  refresh/recommissioning gets designed.
 - idp joins the read path at broker-cache granularity; patience + cache
   bound the coupling. The break-glass port bypasses edge and stays the
   anonymous recovery.
