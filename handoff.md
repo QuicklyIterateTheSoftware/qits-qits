@@ -6,12 +6,17 @@ lessons are in the memory files
 
 ## Platform state
 
-**WSL MIRRORED NETWORKING enabled 2026-08-14 evening** (`C:\Users\ms\
-.wslconfig`, networkingMode=mirrored; user runs `wsl --shutdown` to apply).
-Reason: NAT-mode's localhost relay never mirrors the swarm ingress mesh's
-IPv6-only wildcard socket, so Windows browsers could not reach edge on
-localhost:8080 (auth was innocent; diagnosis proven with the dns-5353
-control). First-boot checklist after the switch:
+**Windows-browser access to edge, settled 2026-08-14 evening.** Under
+NAT-mode WSL, `localhost:8080` from Windows is UNFIXABLE from inside WSL:
+netstat on Windows shows the relay mirrors the ingress mesh's socket as
+`[::1]:8080` ONLY (same-family, v6→v6), and the mesh serves only v4 — an
+established-then-dead connection browsers do not fall back from. Auth was
+innocent. **The working Windows URL is `http://<wsl-eth0-ip>:8080/`**
+(192.168.152.4 today; drifts on Windows reboot). The user considered and
+DECLINED mirrored networking (`.wslconfig` written then removed — recipe
+below stays for reference; WSL days are numbered anyway). If ever wanted:
+`[wsl2]` + `networkingMode=mirrored` in `C:\Users\ms\.wslconfig`, then
+`wsl --shutdown`; checklist for that first boot:
 - Stack returns on its own. Verify edge from BOTH sides: WSL
   `curl 127.0.0.1:8080` and a Windows browser on localhost:8080.
 - The ip6tables lo:8080 RST rule died with the VM (reboot-volatile). Under
