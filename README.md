@@ -14,6 +14,30 @@ becomes its authoritative nameserver and the edge gets HTTPS with a Let's
 Encrypt certificate slot. See the qits-cli-bootstrap README for the knobs
 and the issuance step.
 
+## Credentials on a development host
+
+Every request through the edge — maven, npm, docker, git, plain curl —
+authenticates, reads included. Your personal credential is a client the
+idp commissions for this machine: run the one-liner the bootstrap report
+prints (a `POST /idp/api/clients` from a container on qits-net,
+authorized by the `dev-qits-artifacts` client whose secret is in
+`.qits-bootstrap.env`). The answer's `clientId` and `secret` are the
+pair; keep them in `~/.qits-workstation-client` and
+`~/.qits-workstation-secret`.
+
+The pair is wired in three places, and all three must carry the same
+one: `~/.npmrc` with a per-registry `_auth` line (base64 of
+`client:secret`) for each of the two npm vhosts, `~/.m2/settings.xml`
+with a `<server>` entry whose id matches the `qits-maven-host` mirror,
+and `docker login` against the registry and mirror vhosts. Project
+`.npmrc` files and poms only pick addresses; the answer to their 401s
+always comes from these host-level files.
+
+The rows do not survive a re-bootstrap. When every registry suddenly
+answers 401, nothing is broken: commission a fresh client and rewrite
+the three consumers. Hand the credential back when the machine is
+retired: `DELETE /idp/api/clients/<clientId>`.
+
 ## Branching model
 
 Deploy branches come in two archetypes:
