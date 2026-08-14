@@ -204,7 +204,11 @@ branches.
   loss into a visible timeout. FIX at source in qits-ci:
   readConfigPatiently retries UNREACHABLE through a ~5min backoff
   (covers an observed 2m+ githost redeploy) before the discard
-  decision; tests added. STANDING ORDERS (user): green boot →
+  decision; qits-ci main cbfd7f7, ci module 221 tests green (CDI note:
+  the schedule is set via a method, a field write lands on the client
+  proxy). Attempt 7 launched 2026-08-14 morning after a fresh unwrap
+  (leftover maven container held qits-maven-seed — removed by hand) and
+  re-priming the two 8081 base names. STANDING ORDERS (user): green boot →
   shut down the WINDOWS host (shutdown.exe /s /t 30 from WSL; binfmt
   re-register if Exec format error); ANY error/warn → fix at source,
   then restart from the very beginning (fresh unwrap), never nudge a
