@@ -51,9 +51,12 @@ Measured against the code, not assumed (explorations 2026-08-14):
   a password — the fallback for automated tests and for the one browsing
   route without a secure context (see the warts). The only password rule is
   non-empty — no length or complexity limits, deliberately.
-- **Users are per-deployment.** Accounts are never shared or migrated across
-  deployments; a re-bootstrap or a domain move starts from the register
-  token again. This is what makes the passkey's rp-id binding a non-issue.
+- **Users are per-installation.** Accounts live in the idp's store and
+  survive service deploys and restarts like every other idp row — but they
+  are never shared or migrated between installations of the platform: the
+  localhost one now and a domain-hosted one later each start from their own
+  register token. This is what makes the passkey's rp-id binding a
+  non-issue.
 - **Passwords hash with bcrypt**, stored `bcrypt:`-prefixed beside the
   existing `sha-256:` scheme. The SHA-256 argument ("guessing a generated
   256-bit secret is hopeless either way") does not cover a human-chosen
@@ -259,8 +262,8 @@ flipping the edge first is safe because `local` ignores the new headers.
   or Windows reaching localhost again, dissolves it.
 - **The RP id pins the host, which costs nothing here.** A passkey
   registered under rp id `localhost` does not assert under a real domain —
-  but users are per-deployment by decision, so a domain move re-registers
-  from the register token anyway.
+  but users are per-installation by decision, so a domain-hosted platform
+  registers its own from its own token anyway.
 - **qits-net remains the trusted plane.** A process on qits-net can dial a
   service directly and write `X-Qits-User` itself; the header is trustworthy
   only because the network is. That is today's stance for every service
