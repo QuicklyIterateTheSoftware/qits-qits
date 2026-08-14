@@ -270,9 +270,32 @@ green, everything dark:
 Wire contracts: introspect body {"token": ...} answering
 {userId, username, roles, expiresAt}; mint answer field `token`;
 QITS_EDGE_SESSIONS_CLIENT_ID/SECRET/ENABLED; QITS_IDP_WEBAUTHN_RP_ID/
-ORIGINS. NEXT (user-triggered): releases + the plan's three-step
-rollout order — idp+SPA first, then edge flag on, then gateway
-pipelines to QITS_VARIANT=edge; order is load-bearing.
+ORIGINS.
+
+RELEASED AND DEPLOYED 2026-08-14 evening (all green, 17/17):
+- gateway 2026.814.184501 (edge variant, dark) then .193005 (IDP enum
+  entry) — the /idp segment was falling through to spa-home; routed
+  now, deployed e5a6b30. Bootstrap bc34b60 carries
+  QITS_GATEWAY_PROXY_HOSTS_IDP=qits-platform-idp (compose + deployer
+  extras) and the live deployer config volume was patched + reloaded.
+- edge 2026.814.184856 (session gate, flag off), deployed efe4147.
+- idp 2026.814.191019 burned its release-pipeline run (old ci-base
+  recipe, no bundle) — .191625 fixed it; its two runs then burned on
+  the idp's OWN redeploy window (maven 401 mid-cutover); salvaged by
+  SCMRelease replay with a FRESH eventId (consumed ids dedupe) + the
+  env/dev rewind-replay. Deployed 0951092, version image exists.
+- spa-idp: adopted into the catalog (wrapper push to githost + projects
+  self-seed via service update --force; seed clones content from
+  GitHub), platform CI green (63 tests). No calver stamp: its githost
+  main equals the built sha, the door answers ALREADY_INTEGRATED, and
+  the bundle ships inside the idp image (the platform-spa-mirror
+  precedent).
+- idp + edge recipes grew the sibling self-release step (gateway's
+  block verbatim; edge's copy rides its next release).
+- Stamps + tags synced home, all repos pushed to GitHub. Register/login
+  smoke vs the DEPLOYED idp still pending (browser or curl), then the
+  flip order: edge sessions on, then gateway pipelines to
+  QITS_VARIANT=edge; order is load-bearing.
 
 - STILL OPEN before this ships: wrapper push to the platform githost
   (catalog adoption — new repos 404 at the release endpoint until
