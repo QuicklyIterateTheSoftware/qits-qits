@@ -167,6 +167,17 @@ lands incrementally through normal releases.
   table.
 - Edge's hang class was unbounded idp dials (no timeouts anywhere) — all
   dials are bounded + retried now; malformed Basic is refused locally.
+- **Maven does not answer a Bearer-only 401** — the resolver retries only
+  against a challenge scheme it knows, so edge's 401 carries TWO
+  `WWW-Authenticate` headers (Bearer first for docker/containerd, Basic
+  for maven/git/curl). Caught live by the flip's uncached-build proof —
+  the earlier "cached" green run had proven nothing about this leg.
+- **Docker's embedded DNS cannot synthesize `*.localhost`**, and BuildKit
+  fetches registry OAuth tokens CLIENT-side (inside the step container on
+  qits-net) — so the three vhosts are network ALIASES of edge on qits-net
+  (deployer extras `aliases[N]`, create-time long-form `--network`).
+  Probe with getent/wget, never curl: curl hardcodes `*.localhost` to
+  loopback (RFC 6761) and lies about resolution.
 
 ## Risks and accepted costs
 
