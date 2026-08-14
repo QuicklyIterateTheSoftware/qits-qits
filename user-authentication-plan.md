@@ -5,7 +5,8 @@ one-time token minted at bootstrap, logs in with a passkey (WebAuthn) or an
 optional password, and from then on **every request that is not `/idp/login`,
 `/idp/register` or their machinery is refused at the edge unless it carries a
 valid credential**. The edge turns a valid browser session into the
-`X-Qits-User` / `X-Qits-User-Id` headers the services already trust.
+`X-Qits-User` / `X-Qits-User-Id` headers the services already trust, plus
+`X-Qits-Roles` — the role set joins the forward-auth contract in this plan.
 
 Status 2026-08-14: PLANNED. Nothing below is implemented.
 
@@ -19,7 +20,8 @@ Measured against the code, not assumed (explorations 2026-08-14):
   (`qits-gateway/.../security/`, `EdgeHeaders.java`). Five services carry a
   `ForwardAuthMechanism` that reads them (events, observability, projects,
   stt, workspaces; artifacts and deployments reference the key in config).
-  Nothing about the downstream half changes.
+  The downstream readers keep working untouched; the contract grows one
+  header (`X-Qits-Roles`), which nothing is obliged to read yet.
 - **The gateway's session is quarkus-oidc `hybrid`** (`q_session` cookie,
   code flow) pointed at an auth server that was never deployed; the dev
   pipelines therefore build the `local` NO-AUTH variant
@@ -123,7 +125,8 @@ cookie. The edge cache TTL bounds how long a revoked session lingers.
 2. A Bearer/Basic machine credential → today's `EdgeAuth` path, proxied
    (no identity headers; machine identity stays in the token).
 3. A `qits-session` cookie → introspect (cached by fingerprint), inject
-   `X-Qits-User` + `X-Qits-User-Id`, proxy.
+   `X-Qits-User`, `X-Qits-User-Id`, and `X-Qits-Roles` (the role strings,
+   comma-separated — safe because a role never contains a comma), proxy.
 4. Path starts with `/idp/` → proxy anonymously (headers already stripped).
 5. Otherwise: a navigation (`Sec-Fetch-Mode: navigate`, or GET accepting
    `text/html`) → 302 to `/idp/login?redirect=<path>`; anything else → 401.
@@ -197,7 +200,8 @@ rollout flag), `cookie-name` (`qits-session`), `login-path` (`/idp/login`),
 (`{env}-qits-edge`, new) using the existing bounded-dial shape
 (`idpCallTimeoutMs` / retry window / connection-classed retries —
 `IdpGrants` is the model). The cache is `EdgeAuth`'s bounded access-ordered
-LRU keyed by cookie fingerprint, value `(userId, username, expiresAtMillis)`;
+LRU keyed by cookie fingerprint, value
+`(userId, username, roles, expiresAtMillis)`;
 refusals are not cached; within `stale-grace-ms` a cached entry outlives an
 unreachable idp (the token-broker-dies-during-idp-redeploy lesson — a
 browser session must not 401 because idp is mid-cutover).
@@ -230,8 +234,10 @@ Every WP lands dark behind the flag; suites green before anything flips.
   holds, header-spoof refusal).
 - **WP-GATEWAY** (`services/qits-gateway`): a third build variant `edge`
   beside `oauth`/`local` (enforcer regex updated): trust the *inbound*
-  `X-Qits-User(-Id)` as the identity source — record `AssertedIdentity` from
-  the headers, keep the strip-then-reinject exactly where it is, keep
+  `X-Qits-User(-Id)` and `X-Qits-Roles` as the identity source — record
+  `AssertedIdentity` from the headers, carry the roles into the
+  `SecurityIdentity` so `qits.auth.required-role` keeps meaning something,
+  keep the strip-then-reinject exactly where it is, keep
   `AuthMeRoute` answering from the same source so spa-home's header still
   works, and permit-all in `QitsAuthPolicy` (the edge already refused
   anonymous traffic). The oauth variant and its quarkus-oidc block retire in
@@ -292,11 +298,11 @@ flipping the edge first is safe because `local` ignores the new headers.
 ## Open questions (not blockers)
 
 - Sliding session renewal vs. the fixed `PT12H`; "remember me".
-- Roles / authorization: the table exists and introspection reports the set,
-  but nothing enforces one yet — which routes demand `admin`, whether an
-  `X-Qits-Roles` header joins the forward-auth contract, and the gateway's
-  `qits.auth.required-role` are a later plan, together with per-context
-  permission scoping on dynamic clients.
+- Roles / authorization: the table exists, introspection reports the set,
+  and `X-Qits-Roles` delivers it to every service — but nothing *enforces*
+  one yet. Which routes demand which role (and the downstream
+  `ForwardAuthMechanism` copies growing a roles reader) is a later plan,
+  together with per-context permission scoping on dynamic clients.
 - Invite tokens for user #2 (the same table minted by a session-authenticated
   user — API exists in shape, UX undecided) and an account page (list/remove
   authenticators, sessions).
