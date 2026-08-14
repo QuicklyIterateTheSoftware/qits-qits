@@ -43,8 +43,11 @@ Measured against the code, not assumed (explorations 2026-08-14):
 ## Settled decisions
 
 - **The user row is minimal**: `id` (uuid), `username` (unique). No email, no
-  display name, no roles. The first user is "the admin" only in the sense
-  that there is exactly one user; an authorization model is a later plan.
+  display name — and no role column. **Roles are a separate assignment
+  table** from day one (`idp_user_role`), because admins and plain users
+  will be told apart later and a set does not belong in a column.
+  Registration through the bootstrap register token seeds the one `admin`
+  row; what a role *permits* is a later plan — nothing enforces roles yet.
 - **Passwordless by default.** Registration runs the WebAuthn ceremony
   (`quarkus-security-webauthn`, in the 3.34.6 BOM, webauthn4j-based) so a
   Bitwarden-style authenticator can hold the key. A user may additionally set
@@ -143,9 +146,15 @@ cross-site form cannot send.
                         user_id fk not null, public_key + counter + the
                         fields quarkus-security-webauthn's
                         WebAuthnCredentialRecord needs, created_at
+    idp_user_role       user_id fk not null, role varchar not null,
+                        created_at, pk (user_id, role)
     idp_session         id uuid pk, token_hash varchar unique not null,
                         user_id fk not null, created_at, expires_at not null,
                         revoked_at null
+
+`idp_user_role` holds plain strings (`admin` is the only value anything
+writes today — the register-token user gets it). No role catalog table
+until a role carries data of its own.
 
 All four are `CausedRow`/`@Uncaused` per the arch rules, like V1/V2's tables.
 Exact WebAuthn columns are fixed by the extension's record type — read the
@@ -161,7 +170,7 @@ extension source at implementation time, do not improvise them.
 | `POST /idp/api/auth/login` | anonymous | assertion or password → session |
 | `POST /idp/api/auth/logout` | session | revoke + clear |
 | `POST /idp/api/auth/password` | session | set/replace the password |
-| `POST /idp/api/sessions/introspect` | Basic, static client | `{userId, username, expiresAt}` or 404-shaped refusal |
+| `POST /idp/api/sessions/introspect` | Basic, static client | `{userId, username, roles, expiresAt}` or 404-shaped refusal |
 | `POST /idp/api/register-tokens` | Basic, static client | mint; refused for dynamic clients |
 
 `/api/auth` and `/api/sessions` sit under the existing `/api` prefix, so the
@@ -278,8 +287,10 @@ flipping the edge first is safe because `local` ignores the new headers.
 ## Open questions (not blockers)
 
 - Sliding session renewal vs. the fixed `PT12H`; "remember me".
-- Roles / authorization: `qits.auth.required-role` exists at the gateway but
-  the user row carries no roles — a later plan, together with per-context
+- Roles / authorization: the table exists and introspection reports the set,
+  but nothing enforces one yet — which routes demand `admin`, whether an
+  `X-Qits-Roles` header joins the forward-auth contract, and the gateway's
+  `qits.auth.required-role` are a later plan, together with per-context
   permission scoping on dynamic clients.
 - Invite tokens for user #2 (the same table minted by a session-authenticated
   user — API exists in shape, UX undecided) and an account page (list/remove
