@@ -6,6 +6,28 @@ lessons are in the memory files
 
 ## Platform state
 
+**WSL MIRRORED NETWORKING enabled 2026-08-14 evening** (`C:\Users\ms\
+.wslconfig`, networkingMode=mirrored; user runs `wsl --shutdown` to apply).
+Reason: NAT-mode's localhost relay never mirrors the swarm ingress mesh's
+IPv6-only wildcard socket, so Windows browsers could not reach edge on
+localhost:8080 (auth was innocent; diagnosis proven with the dns-5353
+control). First-boot checklist after the switch:
+- Stack returns on its own. Verify edge from BOTH sides: WSL
+  `curl 127.0.0.1:8080` and a Windows browser on localhost:8080.
+- The ip6tables lo:8080 RST rule died with the VM (reboot-volatile). Under
+  mirrored it may be unnecessary — probe a vhost from WSL (`getent`/`wget`,
+  never curl); if v6 hangs again, re-add
+  `ip6tables -I INPUT -i lo -p tcp --dport 8080 -j REJECT --reject-with tcp-reset`.
+- **Likely casualty: qits-platform-dns on 5353** — Windows mDNS holds UDP
+  5353 on the now-shared stack. If the service sits 0/1 with a bind error,
+  set QITS_DNS_PORT to a free port (e.g. 5354) in the wrapper `.env` and
+  redeploy dns.
+- If the mesh itself misbehaves under mirrored, revert: delete the
+  `.wslconfig` section, `wsl --shutdown` again. Interim browser access:
+  http://<wsl-eth0-ip>:8080 (NAT mode only).
+This is expected to be one of the last WSL days — on a real Linux host the
+whole relay/mirrored question disappears.
+
 Full rebootstrap green 2026-08-13 ~17:30 (`unwrap --with-data-volumes` +
 `QITS_SHIP_MAINS=1`): exit 0, 69 ok + 1 skip in 19m51s, 17/17 services healthy,
 edge 200, every deployed sha = local main, all 24 CI repos green.
