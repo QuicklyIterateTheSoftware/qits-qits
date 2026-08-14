@@ -694,8 +694,10 @@ db-patience wave-2 remnant at the same time:
   is the long pole.
 - `qits-artifacts-postgresql-plan.md` — artifacts off H2 onto PostgreSQL.
   Unstarted; start at its work-package table.
-- `qits-idp-plan.md` — phases 2/3, the user-auth track (gateway pointing at idp
-  for humans). Machine auth is live platform-wide.
+- `user-authentication-plan.md` — register token, WebAuthn/password login,
+  idp sessions, edge forward-auth with X-Qits-User headers (2026-08-14;
+  supersedes qits-idp-plan.md phase 3 — that file dies when this lands).
+  Start at WP-IDP; the rollout order section is load-bearing.
 - `eventstream-causation-split-plan.md` — split qits-causation out of the
   eventstream jar so entity modules stop inheriting an HTTP server, a
   persistence unit and darkness keys. Carries the per-repo removal inventory.

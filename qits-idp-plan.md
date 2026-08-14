@@ -1,5 +1,10 @@
 # qits-idp implementation plan
 
+> Phases 1 and 2 are delivered. Phase 3 (users) is SUPERSEDED by
+> `user-authentication-plan.md` (2026-08-14): sessions terminate at the
+> edge, not the gateway, and login is idp-native WebAuthn/password, not
+> authorization-code. Remove this file when that plan lands.
+
 Self-built identity provider. No Keycloak — an external user store would force
 linked realms or duplicate accounts once we use the users for anything.
 
