@@ -23,10 +23,9 @@ below stays for reference; WSL days are numbered anyway). If ever wanted:
   mirrored it may be unnecessary — probe a vhost from WSL (`getent`/`wget`,
   never curl); if v6 hangs again, re-add
   `ip6tables -I INPUT -i lo -p tcp --dport 8080 -j REJECT --reject-with tcp-reset`.
-- **Likely casualty: qits-platform-dns on 5353** — Windows mDNS holds UDP
-  5353 on the now-shared stack. If the service sits 0/1 with a bind error,
-  set QITS_DNS_PORT to a free port (e.g. 5354) in the wrapper `.env` and
-  redeploy dns.
+- ~~Likely casualty: qits-platform-dns on 5353~~ — moot: dns is
+  decommissioned (2026-08-15 section below); nothing publishes 5353 once
+  the live service is removed.
 - If the mesh itself misbehaves under mirrored, revert: delete the
   `.wslconfig` section, `wsl --shutdown` again. Interim browser access:
   http://<wsl-eth0-ip>:8080 (NAT mode only).
@@ -46,6 +45,25 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
+
+### qits-platform-dns decommission (2026-08-15 session)
+
+The platform stops serving DNS; records are configured by hand at the
+external provider (Hetzner — note its legacy DNS API died May 2026, the
+Cloud API at api.hetzner.cloud is the one that exists). Design to revive
+platform-managed DNS later: `hetzner-dns-plan.md` (status: deferred).
+Done locally: submodule removed from the wrapper, `QITS_DNS_PORT` dropped
+from the wrapper `.env`, qits-cli-bootstrap no longer seeds/deploys dns,
+qits-projects' `DnsDomainRegistrar` deleted (the `ProjectDomainRegistrar`
+port stays as the commented hook). Still open:
+- Push wrapper + both repos to the platform githost (catalog = wrapper
+  `.gitmodules`); decide whether to DELETE the qits-platform-dns repo row
+  or leave it orphaned.
+- Live host: the deployed dns service still runs — remove the swarm
+  service (it publishes 5353, `stop-first`), or let the next rebootstrap
+  drop it.
+- Release qits-projects and qits-cli-bootstrap through the release
+  endpoint when ready.
 
 ### Unify-ingress EXECUTING (2026-08-14 session)
 
@@ -310,21 +328,20 @@ qits-projects gitlink bumped and RELEASED 2026.814.194433, deployed
 itself; env name defaults to prod). qits-oci-workspace submodule is
 uninitialized here and was not swept.
 
-DOMAIN MODE IS AUTOMATIC NOW (cli-bootstrap 7f7a954, 381 tests, on
-GitHub + githost): QITS_PUBLIC_IP is MANDATORY with QITS_DOMAIN
-(refused host-side otherwise), the dns-zone phase writes four A
-records (`@`, `ns1`, `*`, `*.*` — wildcards per depth match the edge's
-two-label reads, so new envs/apps need no dns step), and a new
-edge-acme phase issues the cert via a transient certbot container on
-qits-net (QITS_ACME_MODE staging|production|off, default staging;
-QITS_ACME_EMAIL defaults hostmaster@<domain>; warns-never-fails; never
-replaces production with staging). Registrar prerequisite: NS
-<domain> -> ns1.<domain> WITH GLUE to the same IP, BEFORE the boot.
+DOMAIN MODE (cli-bootstrap 7f7a954, since revised by the 2026-08-15
+dns decommission): QITS_PUBLIC_IP is MANDATORY with QITS_DOMAIN
+(refused host-side otherwise). The dns-zone phase is GONE — DNS records
+(`@` and `*` A records at QITS_PUBLIC_IP) are configured by hand at the
+external DNS provider BEFORE the boot; no NS delegation to the platform,
+no glue. The edge-acme phase stays: cert via a transient certbot
+container on qits-net (QITS_ACME_MODE staging|production|off, default
+staging; QITS_ACME_EMAIL defaults hostmaster@<domain>;
+warns-never-fails; never replaces production with staging).
 KNOWN LIMITS: cert covers the APEX ONLY (one-slot challenge endpoint;
-wildcard needs DNS-01 = a TXT record type qits-platform-dns lacks —
-backlog); the certbot phase has never run against a real registrar
-(whole domain path still unproven live); renewal is a manual
-renew-certificate, unscheduled. Bare-server line:
+wildcard needs DNS-01 against the external provider's API — backlog,
+see hetzner-dns-plan.md); the certbot phase has never run against a
+real domain (whole domain path still unproven live); renewal is a
+manual renew-certificate, unscheduled. Bare-server line:
   curl -fsSL .../qits-qits/main/qits-local-up.sh | \
     QITS_SHIP_MAINS=1 QITS_DOMAIN=<domain> QITS_PUBLIC_IP=<ip> sh
 

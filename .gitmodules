@@ -88,12 +88,6 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-dns"]
-	path = services/qits-platform-dns
-	url = ../qits-platform-dns.git
-	ignore = all
-	update = merge
-	branch = main
 [submodule "qits-spa-workspaces"]
 	path = frontends/qits-spa-workspaces
 	url = ../qits-spa-workspaces.git
