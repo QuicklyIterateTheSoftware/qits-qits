@@ -73,10 +73,11 @@ the wohlben-eu-server memory.
   unrecorded live keys into the store. `demotion-rollout.md` in
   cli-bootstrap documents the hand steps that were executed.
 - WP-UI: qits-spa-configuration (wrapper submodule at frontends/, GitHub
-  twin) — applications/entries/history pages in QitsMainLayout, 62 tests,
-  browser-verified; Quinoa wiring in qits-configuration (3eebeec),
-  `routes: /configuration` + `navigation: Configuration:11`; deploy to
-  wohlben.eu in flight at handoff time.
+  twin) — applications/entries/history pages in QitsMainLayout,
+  browser-verified; Quinoa wiring in qits-configuration,
+  `routes: /configuration` + `navigation: Configuration:11`. READ-ONLY by
+  user decision (d4f59c1, 43 tests): entries are system state written by
+  platform processes through the API — the UI browses and audits only.
 - Open tail: release all three through the release door; secrets class /
   change events / export endpoint later.
 - Escalations found on the way (both from the auth-core 2026.815 wave):
