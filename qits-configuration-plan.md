@@ -137,3 +137,10 @@ platform githost.
   through the release door (main-deploys carry stale version identity);
   keep file and store in sync until the file is demoted (a later decision);
   secrets class + change events + UI per "Later".
+- DEFECT FOUND AT THE PROOF (pre-existing, now visible): a service UPDATE
+  only `--env-add`s, so an entry DELETED from the extras never leaves a
+  live service until `service rm` + redeploy (measured: revision 196
+  served 2 properties, the deploy succeeded, the stale env stayed; removed
+  by hand env-rm). Fix in qits-deployments: the update argv should env-rm
+  keys the predecessor deployment stamped that the source no longer
+  states.
