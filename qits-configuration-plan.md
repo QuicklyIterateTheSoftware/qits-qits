@@ -91,9 +91,40 @@ list + seed compose + idp client. Wrapper: submodule at
 `services/qits-configuration`, catalog adoption via wrapper push to the
 platform githost.
 
+### WP-UI — the SPA (user go 2026-08-17; twin repo exists)
+
+`qits-spa-configuration` (GitHub twin created by the user), the
+qits-platform-spa-idp scaffold pattern: Angular 21, baseHref
+`/configuration/`, `@qits/ui-components`, QitsMainLayout. Pages:
+applications list → entries (edit + delete) → history. Calls relative
+`/configuration/api` (edge session forward-auth). Quinoa wiring in
+qits-configuration per the idp precedent (webui submodule, quinoa 2.8.2,
+relative ignored-path-prefixes, prebuilt-bundle Dockerfile, node-docker-base
+CI recipe, SPA probes in the packaged IT). `routes: /configuration` +
+`navigation:` join deployments.yml. Wrapper gains
+`frontends/qits-spa-configuration`.
+
+### WP-DEMOTE — the file becomes bootstrap-only (user go 2026-08-17)
+
+Two defects drive it: deletions resurface (file layered under the service
+re-serves deleted keys), and hand env-adds outlive their welcome.
+- qits-deployments: with `extras-url` SET the file contributes NOTHING —
+  the served map is the sole extras source (authoritative means sole).
+  And the update argv learns removals: env vars stamped on the service's
+  current spec that the new extras no longer state are `--env-rm`'d
+  (never the deployer's own identity/OTel set — that family stays).
+- cli-bootstrap: the deployer's OWN `qits.platform.deployments.*` keys
+  move from file lines to seed-stack env (the dotted-only rule guards the
+  extras family alone). The file shrinks to the extras that cold boot
+  needs before the flip; post-flip it is unread. The volume itself stays
+  (DOCKER_CONFIG config.json lives there).
+- Rollback story post-demotion: unset `extras-url` returns to the file,
+  which may be stale — re-render/export before relying on it.
+
 ### Later (explicitly out of v1)
 - Secret entries (qits-secrets broker fold-in; see that plan's flows).
-- Change events / deployer subscription; UI (SPA) for browsing and editing.
+- Change events / deployer subscription.
+- Export endpoint (store → properties file) for the rollback story.
 - Other consumers (qits-ci step env, workspace knobs) reading entries.
 
 ## Status log
@@ -133,10 +164,20 @@ platform githost.
   deleted and the clean state redeployed. Rollback if ever needed: env-rm
   `QITS_PLATFORM_DEPLOYMENTS_EXTRAS_URL` (file stays current — every store
   write so far is mirrored there).
+- WP-DEMOTE DONE AND LIVE (2026-08-17 evening): qits-deployments db0acda
+  (extras-url set → file not consulted; updates env-rm what the source no
+  longer states, three protected families) + cli-bootstrap 7fd6db5 (file
+  is extras-only; git-host-url moved to env in both spellings) — both
+  suites green (379 / 415), independently verified. Live rollout followed
+  demotion-rollout.md: the pre-flight audit found NINE unrecorded live env
+  keys (projects OIDC gate, edge ACME set, idp edge-roles) — preserved in
+  store+file; the workspaces image override was left to die (code default
+  identical, train owns the pin). Proofs: docs redeploy removed NOTHING;
+  workspaces redeploy removed EXACTLY QITS_WORKSPACE_IMAGE; daemon
+  reconnected. The live file now carries zero non-extras config lines.
 - Open tail: release qits-configuration + qits-deployments + cli-bootstrap
   through the release door (main-deploys carry stale version identity);
-  keep file and store in sync until the file is demoted (a later decision);
-  secrets class + change events + UI per "Later".
+  secrets class + change events per "Later"; WP-UI in flight.
 - DEFECT FOUND AT THE PROOF (pre-existing, now visible): a service UPDATE
   only `--env-add`s, so an entry DELETED from the extras never leaves a
   live service until `service rm` + redeploy (measured: revision 196

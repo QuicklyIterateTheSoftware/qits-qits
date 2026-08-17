@@ -63,12 +63,22 @@ on unreachable, rollback = env-rm the url). The service (new submodule
 versioned; cli-bootstrap b353de4 boots it, imports and flips on fresh
 platforms (72 phases). Proofs and ops recipes in the plan's status log and
 the wohlben-eu-server memory.
-- Suites: deployments 374 green (e367035 also re-established the
+- Suites: deployments 379 green (e367035 also re-established the
   machine-guard contract — roles ride the idp `groups` claim; doctrine table
-  updated in that repo's AGENTS.md), configuration 41+6 green + native gate,
-  cli-bootstrap 413 green.
-- Open tail: release all three through the release door; keep file+store in
-  sync until the file is demoted; secrets class / change events / UI later.
+  updated in that repo's AGENTS.md), configuration 41+10 green + native
+  gate, cli-bootstrap 415 green.
+- WP-DEMOTE LIVE (evening): the file is bootstrap-only (zero non-extras
+  lines on the live volume), deploys env-rm what the store no longer
+  states (three protected families), the pre-flight audit preserved nine
+  unrecorded live keys into the store. `demotion-rollout.md` in
+  cli-bootstrap documents the hand steps that were executed.
+- WP-UI: qits-spa-configuration (wrapper submodule at frontends/, GitHub
+  twin) — applications/entries/history pages in QitsMainLayout, 62 tests,
+  browser-verified; Quinoa wiring in qits-configuration (3eebeec),
+  `routes: /configuration` + `navigation: Configuration:11`; deploy to
+  wohlben.eu in flight at handoff time.
+- Open tail: release all three through the release door; secrets class /
+  change events / export endpoint later.
 - Escalations found on the way (both from the auth-core 2026.815 wave):
   qits-artifacts `CdHttpDeploymentPins` sends NO credential and fails the GC
   sweep closed once the deployer's machine gate flips on; qits-artifacts
