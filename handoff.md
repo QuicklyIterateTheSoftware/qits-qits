@@ -52,6 +52,94 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
+### environments v4 campaign STARTED (2026-08-17)
+
+Plan: `priority-feature.md` (rewritten; v2/v3 history at `0295806`). Phase 1
+re-planes qits-deployments AND qits-events to platform services (identity
+sweep, one bus, one pin union); phase 2 is first-class environments with
+project memberships (`unique (project, environment)`) replacing the
+slug-name join, plus the environments UI; phase 3 GitHub renames to
+`qits-platform-*`; phase 4 wohlben.eu. Work happens in the
+`/home/wohlben/code/qits-qits-environments` worktree (branch
+`environments-replatform`), integrates to local mains per phase, and smoke
+tests each phase by a worktree bootstrap on localhost:8080 before anything
+is pushed.
+- **THE LOCAL PLATFORM IS DOWN (2026-08-17 evening)**: unwrapped with
+  volumes for the phase-1 smoke bootstrap (doctrine tag sync ran first).
+  The cold boot from the worktree is blocked on today's
+  qits-integrations-quarkus releases (2026.817.*) — consumer lib pins
+  (qits-blobstore's qits-db-core, possibly siblings) are behind them, and
+  the qits-configuration session is doing one comprehensive sync home
+  after its release wave settles. Re-run the bootstrap after
+  fast-forwarding the worktree's lib mains, single pass.
+
+### 2026-08-17 late evening addenda — DONE
+
+- **Per-project ad-hoc workspace creator LIVE** (user ask): the /workspaces/
+  overview admits every project's WRAPPER (identified by
+  `wrapper.repositoryId`, hardcode gone; `?repository=` preselects), and
+  each project page carries an "Ad-hoc workspace" pill. Released
+  workspaces 2026.817.202945 (8068398) + projects .202948 (e9d1a02); the
+  first builds died on SPAs-not-on-githost (the banked lesson, violated
+  once more — SPA pushes go to BOTH remotes) and were stamp-replayed.
+  Browser smoke of the pill still pending (needs a session).
+- **The user's schema-support line is ON the platform**: deployments union
+  release 2026.817.202756 (33527a3f — GitHub line merged with the stamp,
+  re-pinned to THIS platform's libs). Two burned stamps on the way
+  (.200107 deployments, .202328 eventstream) — the user's pins named
+  WORKSTATION-platform releases (.171725/.173153) that exist nowhere
+  anymore; eventstream re-pinned + released .202549 here. LESSON: pins
+  minted on one platform don't travel; releases must come from the
+  platform that will serve them.
+- **ALL 45 GitHub backups GREEN** — and the platform's backup is now the
+  standing GitHub mirror (branches + tags), so hand GitHub pushes of
+  catalog repos are largely obsolete.
+- **Build-queue policy** (user): quiet release-branch and redundant train
+  builds get CANCELLED via POST /ci/api/runs/{id}/cancel; backlog items:
+  don't build quiet release branches at all, and merge the per-stamp
+  POST_RECEIVE/EVENT run pair into one run pushing BOTH image tags.
+- Stranded by cancellations/OOM: workspaces' eventstream pin-bump train
+  (twice). Pins remain functional; re-fires on the next eventstream
+  release.
+
+### 2026-08-17 evening: releases, ad-hoc workspaces, backups — DONE
+
+- **Release doctrine restored on wohlben.eu.** Every service released through
+  the door with real CalVer identity: containers .174616, docs .175356 (+ a
+  burned .175329 twin), stt .175956, configuration .185530, workspace-daemon
+  .185934, deployments .190408, workspaces .193638, projects .194248.
+  Direct deploy-ref pushes are RETIRED per user ruling: branch → door only.
+  All stamps synced to local mains + GitHub (deployments' sync waits on the
+  environments session's rebase — its phase-1 sits on GitHub main 847ba7f,
+  diverged from the stamp; the LAST failing GitHub backup heals with that
+  rebase; the other 44 back up green after eventstream/spa-projects/edge
+  githost mains were synced forward).
+- **Ad-hoc workspaces LIVE and smoked** (integrator.md fully executed):
+  aggregate create branches wrapper + all registered submodules, WORKSPACE.md
+  committed, daemon follows the branch per submodule (nested webui included),
+  in-container submodule push proven. Review fixes on the way: rollback of
+  half-created trees, daemon no longer force-resets branches (unpushed work
+  survives), transport failures warn instead of masquerading as
+  branch-absent, projects' closure read allows qits:system (release
+  .194248). Open finding: the daemon INFERS aggregate-ness from branch
+  existence — a `main` workspace follows every submodule's main; an explicit
+  branchTree env flag is the fix.
+- **qits-containers pipeline modelled correctly all along** — it was red, not
+  unmodelled; green since 15503e8 (+ a real containers-client throw
+  regression reverted), seed service replaced by the pipeline deploy.
+- **CI policy**: QITS_CI_CONCURRENT_BUILDS=1, QITS_CI_CPUS=6 (user order,
+  after an OOM storm killed dev-qits-ci mid-wave) — in store + live.
+- **New defects banked**: release pipelines push the VERSION image tag only
+  (sha tag rides the sibling post-receive run — one crash decouples them,
+  measured); a replayed older BuildSuccessful can roll the DEPLOYER back
+  (its self rows never sit ACTIVE so the tip floor is blind); blobstore has
+  no integrations upstream recipe (train bump never fired — its pins need a
+  hand bump); the stranded e41f3707 workspaces pin-bump (daemon release
+  image) died in the OOM window and nothing retries it.
+- **qits-integrations-quarkus released twice today** (.171725/.175344 — the
+  user's 08-15 roles commit going out; releases attributed to platform
+  release machinery; exact POSTing actor unidentified — check with the user).
+
 ### qits-configuration campaign DONE AND LIVE (2026-08-17)
 
 Plan + full status log: `qits-configuration-plan.md`. The deployer-extras
