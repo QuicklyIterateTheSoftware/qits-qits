@@ -73,6 +73,35 @@ is pushed.
   after its release wave settles. Re-run the bootstrap after
   fast-forwarding the worktree's lib mains, single pass.
 
+### 2026-08-17 late evening addenda — DONE
+
+- **Per-project ad-hoc workspace creator LIVE** (user ask): the /workspaces/
+  overview admits every project's WRAPPER (identified by
+  `wrapper.repositoryId`, hardcode gone; `?repository=` preselects), and
+  each project page carries an "Ad-hoc workspace" pill. Released
+  workspaces 2026.817.202945 (8068398) + projects .202948 (e9d1a02); the
+  first builds died on SPAs-not-on-githost (the banked lesson, violated
+  once more — SPA pushes go to BOTH remotes) and were stamp-replayed.
+  Browser smoke of the pill still pending (needs a session).
+- **The user's schema-support line is ON the platform**: deployments union
+  release 2026.817.202756 (33527a3f — GitHub line merged with the stamp,
+  re-pinned to THIS platform's libs). Two burned stamps on the way
+  (.200107 deployments, .202328 eventstream) — the user's pins named
+  WORKSTATION-platform releases (.171725/.173153) that exist nowhere
+  anymore; eventstream re-pinned + released .202549 here. LESSON: pins
+  minted on one platform don't travel; releases must come from the
+  platform that will serve them.
+- **ALL 45 GitHub backups GREEN** — and the platform's backup is now the
+  standing GitHub mirror (branches + tags), so hand GitHub pushes of
+  catalog repos are largely obsolete.
+- **Build-queue policy** (user): quiet release-branch and redundant train
+  builds get CANCELLED via POST /ci/api/runs/{id}/cancel; backlog items:
+  don't build quiet release branches at all, and merge the per-stamp
+  POST_RECEIVE/EVENT run pair into one run pushing BOTH image tags.
+- Stranded by cancellations/OOM: workspaces' eventstream pin-bump train
+  (twice). Pins remain functional; re-fires on the next eventstream
+  release.
+
 ### 2026-08-17 evening: releases, ad-hoc workspaces, backups — DONE
 
 - **Release doctrine restored on wohlben.eu.** Every service released through
