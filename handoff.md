@@ -6,6 +6,12 @@ lessons are in the memory files
 
 ## Platform state
 
+**TWO PLATFORMS since 2026-08-15.** The public dev environment lives at
+https://wohlben.eu (Hetzner, `ssh root@46.224.171.33`) — authenticated,
+production TLS, external DNS; see "wohlben.eu bare-server platform LIVE"
+below. The WSL platform below is the workstation's own and is expected to
+wind down ("last WSL days"); everything in this block is about WSL only.
+
 **Windows-browser access to edge, settled 2026-08-14 evening.** Under
 NAT-mode WSL, `localhost:8080` from Windows is UNFIXABLE from inside WSL:
 netstat on Windows shows the relay mirrors the ingress mesh's socket as
@@ -45,6 +51,117 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
+
+### qits-configuration campaign DONE AND LIVE (2026-08-17)
+
+Plan + full status log: `qits-configuration-plan.md`. The deployer-extras
+snapshot class is dead on wohlben.eu: qits-deployments reads the extras file
+per deployment (WP0, 56eb588) and is FLIPPED to pull from the new
+dev-qits-configuration service per deploy (WP2 cdff321 + live flip; refuse
+on unreachable, rollback = env-rm the url). The service (new submodule
+`services/qits-configuration`, GitHub twin exists) holds every extras entry
+versioned; cli-bootstrap b353de4 boots it, imports and flips on fresh
+platforms (72 phases). Proofs and ops recipes in the plan's status log and
+the wohlben-eu-server memory.
+- Suites: deployments 374 green (e367035 also re-established the
+  machine-guard contract — roles ride the idp `groups` claim; doctrine table
+  updated in that repo's AGENTS.md), configuration 41+6 green + native gate,
+  cli-bootstrap 413 green.
+- Open tail: release all three through the release door; keep file+store in
+  sync until the file is demoted; secrets class / change events / UI later.
+- Escalations found on the way (both from the auth-core 2026.815 wave):
+  qits-artifacts `CdHttpDeploymentPins` sends NO credential and fails the GC
+  sweep closed once the deployer's machine gate flips on; qits-artifacts
+  `AdminWriteGuardTest` + qits-ci `MachineGuardTest` likely red for the same
+  no-`groups` fixture reason the deployer suite was.
+
+### wohlben.eu refinement-clone regression RESOLVED (2026-08-17)
+
+The "refinement workspace clone fails" recurrence was NOT stale code — every
+deployed image was its repo's main HEAD. It was the deployer-extras snapshot
+landmine, again: the extras fix `QITS_WORKSPACE_GIT_HOST=dev-qits-workspaces`
+landed on the config volume 2026-08-16 12:43, but the deployer (started 11:54)
+was never force-reloaded, so every later deploy re-stamped the stale
+`dev-qits-githost` — the daemon dial-home (`/workspaces/daemon/<id>`) then
+pointed at the githost and provisioning died with "no workspace-daemon dialed
+home within 30000ms". Note the knob's two halves since f01f260/2091ba3:
+`qits.workspace.git-host` = control-socket/dial-home host (historical name!),
+`qits.workspace.container-git-url` = clone base (githost.dev.internal:8080).
+Fixed 2026-08-17: deployer force-updated (snapshot now matches the file),
+`QITS_WORKSPACE_GIT_HOST=dev-qits-workspaces` stamped on the live service,
+workspace 101 re-ensured via `POST /workspaces/api/workspaces/101/ensure-container`
+(forward-auth headers work in-network: `X-Qits-User` + `X-Qits-Roles:
+qits:admin`) — daemon HELLO'd, row RUNNING, checkout intact.
+
+Deploy-parity sweep the same morning (deployed image sha vs local main):
+- 12/15 services matched; qits-docs + qits-stt were one commit behind because
+  only `main` was pushed, not `environment/dev` — both deploy refs advanced
+  through the githost (Bearer + push token) and both pipeline-deployed green.
+  `/docs` routes now (401 anon is the intended authenticated posture).
+- **qits-containers is stuck on the seed image `qits/containers:latest`**: its
+  own pipeline is RED on this platform — verify fails with 403 where tests
+  expect 201 (`ContainersClient` vs the protect-container-APIs work, e190354);
+  the 71c8921 test-token commit did not fix it. Until that suite is green,
+  qits-containers cannot ship through the platform. THIS is the one real
+  "cannot apply fixes through the platform" blocker found.
+- Daemon submodule residue: workspace clones skip `qits-spa-docs`
+  (`update exited 1`) — untriaged.
+- Release hygiene: NOTHING has been released since 2026.814.* — all wohlben.eu
+  deploys are direct main pushes; live binaries self-identify as 2026.814
+  versions. A restore-default boot regresses; a release wave is overdue.
+
+Platform-improvement need raised (the systemic source of "fix applied, then
+came back"): deployment env config is a hand-edited properties file on a
+volume, snapshotted at deployer boot, silently re-stamped on every deploy.
+Minimal fix at source: qits-deployments re-reads extras per deploy (kills the
+snapshot class). Real fix DECIDED 2026-08-17: a new per-env service
+**qits-configuration** — versioned named values services are told at runtime,
+with secrets as one entry class carrying the qits-secrets-plan.md broker
+semantics (in-memory, approval-gated, one-shot redemption); plain entries are
+durable and readable at every deploy. The deployer must resolve from it per
+deploy (or subscribe to change events), never snapshot at boot — the store
+alone with snapshotting kept would just relocate the stale copy.
+
+### wohlben.eu bare-server platform LIVE (2026-08-15)
+
+**THE STANDING ENVIRONMENT IS THIS SERVER NOW.** Public dev platform on
+Hetzner (`ssh root@46.224.171.33`), env `dev`, boot 74/74, all 17 apps
+pipeline-deployed, **production TLS + sessions ON + edge-variant gateway**:
+anonymous browser → 302 /idp/login, API → 401. Register token in the server's
+`.qits-bootstrap.env` (one-time, admin). Config `/root/qits/.env`
+(SHIP_MAINS=1, ACME production); dev loop = push main + environment/dev to
+its githost from a qits-net container with the push token (recipe in the
+wohlben-eu-server memory file). DNS: the registrar's external A record
+`wohlben.eu → 46.224.171.33` is the whole contract — no NS delegation.
+Full recipes in the memory files (wohlben-eu-server,
+bare-server-cold-boot-prereqs).
+
+Proven on it since the boot:
+- Refinement/workspace flow works END TO END — first real workspace smoke on
+  the post-split platform. It flushed out the daemon's stale derived clone
+  base (`/artifacts/git/…`): qits-workspaces f01f260 now injects
+  `QITS_WORKSPACE_DAEMON_GIT_BASE_URL` (told-never-derived), deployed here
+  and on GitHub main. Auth was innocent.
+- NO fleet repo declares workspace services yet: none carries
+  `.config/qits/repository.yml` (only qits-projects' repository-template
+  seeds it into NEW repos), so every workspace shows "nothing to frame"
+  until a repo commits one (`services:` + `web-view:` block).
+
+Actionable residue, mostly for the CLI/DNS refactor session:
+
+- **WSL ORDER HAZARD: qits-gateway main builds `QITS_VARIANT=edge` now**
+  (2f16fd7). Do not rebuild/boot gateway on the WSL platform until its edge
+  flips sessions on; land `QITS_EDGE_SESSIONS_ENABLED=true` as the
+  ComposeTemplate default (two places, currently pinned false) in the refactor.
+- `PlatformModel`'s repo list lacks `platform-spa-idp` — githost never gets the
+  repo, idp CI dies on the submodule clone. Add it with the refactor.
+- ACME hooks: the edge's management listener (9000) speaks HTTPS once the acme
+  keystore is configured; `edgeLetsEncryptUrl()` and the hook curls must go
+  https + `-k`, or the certbot order 404s. Proven live: with https hooks the
+  whole domain path issued staging AND production for wohlben.eu.
+- Domain mode's registrar contract is now "external A record only" (DNS removal
+  session) — the closing report's NS/glue text goes with qits-platform-dns.
+- Renewal is still manual (`/root/qits/acme.sh` on the server), unscheduled.
 
 ### qits-platform-dns decommission (2026-08-15 session)
 
