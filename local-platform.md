@@ -15,7 +15,17 @@ Two sets to keep straight:
 | set | members | managed by | updated by |
 |---|---|---|---|
 | **deployer-managed** | all eleven: observability, idp, stt, projects, workspaces, events, platform-docs, gateway, artifacts, ci, **and qits-platform-deployments itself** | qits-platform-deployments — sha-addressed registry images, `qits-pd-` container names | a git push |
-| **bootstrap-made** | the ci-daemon binary, the `ci-base` step image, the deployer's run-args file (the `qits-platform-deployments-config` volume — the git host's push token among them), and the seed postgres with its `qits_deployments` role and database | the bootstrap | a bootstrap rerun |
+| **bootstrap-made** | the ci-daemon binary, the deployer's run-args file (the `qits-platform-deployments-config` volume — the git host's push token among them), and the seed postgres with its `qits_deployments` role and database | the bootstrap | a bootstrap rerun |
+| **seeded once, then published** | the five `qits/build-images/*` step images | the bootstrap seeds them; qits-oci's release publishes them | a qits-oci release, and a re-pull on any host that lost them |
+
+The third row used to be part of the second, and 2026-08-20 is why it is not. Every recipe names a
+step image *unqualified*, so docker resolved it against Docker Hub and it only ever worked because
+the bootstrap had left a copy in the host's local store. A `docker system prune` then deleted the
+platform's whole CI plane — `pull access denied for qits/build-images/ci-base` on every build in
+every repository — with a bootstrap rerun as the only recovery, and no run left that could fix it.
+qits-ci resolves an unqualified platform image against the registry now (`CiStepImage`), and
+qits-oci has published all five there all along, so losing them locally is a re-pull. Seeding
+remains a cold-start step, because the pipeline that publishes these runs on one of them.
 
 The deployer-managed set has two shapes, and each repo's `.config/qits/deployments.yml` says which
 it is:
