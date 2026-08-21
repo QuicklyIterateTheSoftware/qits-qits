@@ -62,9 +62,13 @@ Worktree `/home/wohlben/code/qits-qits-maintenance`; qits-ci work on
 `services/qits-ci` branch `feature/platform-pipelines` (a worktree of the
 submodule); new submodules `services/qits-platform-maintenance`,
 `frontends/qits-platform-spa-maintenance` (both on local main, unpushed).
-Next: verify service+SPA together (`clean verify` needs the webui gitlink),
-push both repos, release qits-ci, rollout per the plan's "Rollout" list,
-then delete the hop files.
+All three halves green locally (service `clean verify` with the SPA in its
+webui gitlink; qits-ci verify; SPA tests/build). NOTHING PUSHED YET. Next:
+push the two new repos' mains + the qits-ci and wrapper branches, then
+rollout per the plan's "Rollout" list ONLY after the wohlben.eu bootstrap
+is done (idp client with `qits:system` + `project=*`, qits-ci release,
+wrapper release, two new-repo rollouts), screenshot /maintenance, then
+delete the 71 hop files.
 
 ### qits-platform-orchestrator — LIVE on wohlben.eu (2026-08-21)
 

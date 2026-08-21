@@ -96,6 +96,18 @@ mt_bump              id, repository, group_name, branch, environment, trigger (S
                      status (REQUESTED|RUNNING|SUCCEEDED|FAILED|NOTHING_TO_DO), changes (json), started_at, finished_at, message
 ```
 
+Landed additions (service, 2026-08-21): `mt_scan` (scan rows behind
+`GET /scans/{id}`); `mt_repository.project` + `.main_branch`; `mt_group.ordinal`
+(first match wins needs an order); `mt_bump.branch` + `.ci_run_status`,
+`ci_run_id` comma-separated (the trigger answers a list; `ciRunIds` rides
+beside `ciRunId` on the wire). `mt_latest.latest` is the highest RELEASE, a
+prerelease only when the dependency never published a release. A third
+`location` form `parent:<g>:<a>`. Reactor walk is transitive (≤128 poms,
+never into `src/main/webui`); a pin resolved from a ROOT property is recorded
+against the root pom (the file the step edits). A MANUAL scan never
+auto-bumps. `bump.enabled=false` answers 409. Poller key
+`qits.maintenance.bump.poll-interval` (15s) doubles as restart recovery.
+
 "Pending" is computed, never stored: `mt_pin ⋈ mt_latest` where latest > version,
 grouped by `mt_group`. "Who pins X" is a query over `mt_pin`.
 
@@ -211,5 +223,11 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
   building service, SPA and the qits-ci platform pipeline in parallel.
 - 2026-08-21 — qits-ci half green on `feature/platform-pipelines` (3 commits,
   verify BUILD SUCCESS); wrapper pipeline file committed (08611b4).
+- 2026-08-21 — service green on its local main (11 commits; `clean test` 89/0,
+  `clean verify` with the SPA in the webui gitlink PASSED, PackagedSurfaceIT
+  9/9). Rollout needs: idp client `qits-platform-maintenance` with
+  `qits:system` + claim `project=*`, audiences `<env>-qits-ci`, `qits-projects`,
+  `qits-githost`. qits-ci read routes opened to `qits:system` (follow-up on
+  `feature/platform-pipelines`) so the client needs NO `qits:admin`.
 - 2026-08-21 — SPA green on its local main (82 tests, build, browser-checked
   against ng serve); API section above updated to the shapes it renders.
