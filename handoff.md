@@ -52,6 +52,106 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
+### qits-platform-orchestrator — LIVE on wohlben.eu (2026-08-21)
+
+Plan + contracts: `qits-orchestrator-plan.md` (status log has the full
+rollout order and the live-found defects). Released through the door and
+mirrored to GitHub by the platform backup: containers .81434/.82604/.84336,
+artifacts .81446, cli-bootstrap .81451, wrapper .81529, SPA .81549,
+orchestrator .81625/.84404. UI at https://wohlben.eu/orchestrator/
+(nav "Orchestrator"); gc runs nightly 03:40 UTC and on demand (Run now /
+Dry run). idp client `qits-platform-orchestrator` lives in
+qits-configuration (40 entries) and in `.qits-bootstrap.env`; artifacts GC
+policy `oci-images` P7D / blob grace P2D via extras.
+Open tails:
+- the artifacts engine condemns nothing until identities age past P7D
+  (platform is 5 days old) — the first registry reclaim is ~2026-08-23;
+  check the plan card then.
+- `containers.build-cache` keep-storage (20 GB) is per cache; the
+  bootstrap builder (13.7 GB) is below it and never prunes — lower
+  `qits.orchestrator.gc.build-cache-keep-bytes` or make it per-builder.
+- the SPA's `/main-navigation` comes from the edge; behind my ad-hoc
+  tunnel it read "Navigation unavailable" — fine through the real edge.
+- local WSL platform has none of this yet (bootstrap registration is in
+  cli-bootstrap .81451; a re-bootstrap ships it).
+
+### Storage lifecycle — analysis DONE, design drafted, nothing shipped (2026-08-21)
+
+`storage-lifecycle-plan.md` in the root: wohlben.eu is 116/150 GB five
+days after the reset; the registry (`qits_artifacts.blob_chunk`, 16 GB)
+grows ~2.7 GB/day, the CI BuildKit cache is 35 GB with no keep-storage,
+the host image store keeps every pulled image (55 dangling). The
+qits-artifacts GC engine EXISTS but is not executable on wohlben.eu (both
+pin readers 401 — no credential) and its P30D window would keep
+everything anyway. Next: L1.1–L1.3 in the plan (authenticate pins,
+schedule nightly, oci window P7D / blob grace P2D), then daemon.json
+builder GC + `buildx rm` of old bootstrap builders. ~50 GB one-time
+cleanup listed at the end of the plan — not run, needs the user's go.
+
+### CI-plane recovery EXECUTED on wohlben.eu (2026-08-21 morning)
+
+The `integrator.md` plan (was in the `remote/observability-improvements`
+workspace; workspace gone — see below) ran to completion. Disk-full →
+`docker system prune` had deleted the five `qits/build-images/*` step images
+AND the registry held zero tags for them, so CI was down platform-wide.
+Recovered: host rebuild of the five images, zombie RUNNING run swept via
+`service update --force dev-qits-ci`, then releases qits-ci-daemon
+2026.821.50407 (shell-not-bash contract; pin ADOPTED on its own), qits-ci
+.52538 (registry resolver + a NEW fix, see below), qits-oci .53110
+(step images now built on upstream `docker:28-dind`, published CalVer+latest
+— registry no longer empty, a pruned host re-pulls), edge .53216 (deployed
+the banked 2026.820 cache fix: SPA documents `no-cache`, hashed bundles stay
+immutable — verified live), wrapper .53830. All green through the door.
+
+- **New defect found+fixed on the way** (qits-ci e511035, in .52538): the
+  step-container git credential helper's wget arm used GNU-only
+  `--user/--password/--timeout`; BusyBox wget (docker:28-dind) refused and
+  every clone on that image died. Now a composed Basic header + `-T`,
+  proven against the live idp from a real dind container.
+- **Releasing the WRAPPER branch killed the workspace riding it** mid-call
+  (branch deleted by the door → container torn down → its commissioned
+  credential died). Release the wrapper last, from outside the workspace.
+- **dev-qits-gateway REMOVED** (`docker service rm`): this platform was
+  built without a gateway (edge routes directly), but the 08-19 train
+  registered+deployed it — deploy FAILED, rollback ROLLED_BACK, and it
+  crash-looped since ("No routes configured"; config store holds ZERO
+  entries for it, headRevision 0). Residue: the pd_service row
+  `qits-gateway` remains — a future gateway release would re-deploy and
+  re-fail; decide config-or-retire before releasing gateway again.
+- Open (integrator §6, untouched by decision): `qits.observability.url`
+  defaults to unprefixed `qits-observability` in eight repos — decide
+  deployment-config vs tier-aware default before touching them. Live
+  extras already override it for edge/deployments.
+- Host disk 81% (29G free) after the image rebuilds — watch it.
+- Release stamps 2026.821.* live on the platform githost (GitHub backup
+  mirrors them); local submodule mains lag until the next sync.
+
+### environments v4 — PHASE 1 LIVE EVERYWHERE (2026-08-18 ~10:45)
+
+Phase 1 is DONE on both platforms: qits-deployments and qits-events run as
+PLATFORM services under bare aliases — locally (clean 72/72 cold boot,
+22m31s) and on wohlben.eu (live migration, no wipe: 16 releases through the
+real door, identity via the extras store, both flips, predecessors removed,
+proof deploy qits-stt f1cc1b5 ACTIVE through the new deployer). GitHub holds
+every release via the platform backup. Tails and debts:
+- `dev-qits-events` still runs on wohlben.eu; six consumers' extras now say
+  `http://qits-events:8080` and migrate at their next deploy — remove the
+  old service after all six moved.
+- Local main-checkout submodule mains partially lag GitHub (deployments'
+  local line diverged; ff refused) — reconcile on next sync.
+- Fleet debts surfaced, none phase-1's: pin endpoints 401 plain GETs since
+  the machine-guard hardening (artifacts GC refuses safely); lib post-receive
+  suites red in the root step sandbox (embedded-pg; needs `user: build`);
+  release tags were missing from GitHub backups (qits-spa-ci case); ci's
+  self-redeploy sweeps its own in-flight version-tag run (replay via
+  SCMRelease trigger works).
+- wohlben.eu qits-deployments extras still carry the resource-db triple;
+  the volume file's extras block is a leak source for deleted keys — the
+  QITS_ENVIRONMENT line was hand-stripped; consider clearing the whole
+  extras block from the file.
+Phase 2 (memberships + UI) is next; phase 3 (GitHub renames) deferred by
+user decision 2026-08-17.
+
 ### environments v4 campaign STARTED (2026-08-17)
 
 Plan: `priority-feature.md` (rewritten; v2/v3 history at `0295806`). Phase 1
@@ -64,14 +164,22 @@ slug-name join, plus the environments UI; phase 3 GitHub renames to
 `environments-replatform`), integrates to local mains per phase, and smoke
 tests each phase by a worktree bootstrap on localhost:8080 before anything
 is pushed.
-- **THE LOCAL PLATFORM IS DOWN (2026-08-17 evening)**: unwrapped with
-  volumes for the phase-1 smoke bootstrap (doctrine tag sync ran first).
-  The cold boot from the worktree is blocked on today's
-  qits-integrations-quarkus releases (2026.817.*) — consumer lib pins
-  (qits-blobstore's qits-db-core, possibly siblings) are behind them, and
-  the qits-configuration session is doing one comprehensive sync home
-  after its release wave settles. Re-run the bootstrap after
-  fast-forwarding the worktree's lib mains, single pass.
+- **PHASE-1 SMOKE PASSED (2026-08-18 ~05:30)**: clean 72/72 cold boot from
+  the worktree in 22m31s; qits-deployments + qits-events live as platform
+  services under bare aliases; end-to-end deploy proven (ci replay push →
+  BuildSuccessful on the ONE bus → platform deployer → dev tier → seed
+  reaped). Eleven attempts, every failure banked as a commit (pin
+  coherence across 17 poms, eventstream release-line merge, qits-ci guard
+  suite, webui URL convention, spa-configuration seeding, platform-shape
+  container matcher). Follow-ups surfaced, NOT phase-1's: pin endpoints
+  401 plain GETs since the machine-guard hardening (artifacts GC refuses
+  safely, executable:false), and release tags are missing from GitHub
+  backups (qits-spa-ci 2026.815.141439 was tag-only on the platform
+  githost). Next: wohlben.eu wave per wohlben-rollout-runbook.md.
+  Two ops lessons: NEVER rerun the bootstrap over a completed platform
+  (the seed stack re-deploys beside deployer services and two postgreses
+  share one volume — WAL death), and hibernation kills postgres the same
+  way (a keep-awake guard runs during boots now).
 
 ### 2026-08-17 late evening addenda — DONE
 

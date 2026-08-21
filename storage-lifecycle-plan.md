@@ -236,7 +236,13 @@ restart). Mirror evicts nightly. No action beyond L1.5.
 3. L2 (needs the protect list; the deployer's pin endpoint is the source).
 4. L4, L1.4, L6.
 
-### One-time cleanup available today (not done — needs a decision)
+### One-time cleanup — DONE by the orchestrator's first real gc run (2026-08-21)
+
+The run below replaced the hand list: images, dead builder volumes and
+the build cache are reclaimed by `qits-platform-orchestrator` (nightly
+03:40 + on demand). The recipe stays for a host without the orchestrator.
+
+### One-time cleanup available today (superseded)
 
 Safe, ~50 GB: `docker image prune` (dangling only, 55 images);
 `docker buildx --builder default prune --keep-storage 15GB`;

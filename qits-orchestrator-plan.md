@@ -187,9 +187,33 @@ storage plan).
 - WP-C qits-platform-orchestrator service (domain, executor, gc definition, REST, scheduler, Quinoa, Dockerfile, CI ymls, deployments.yml).
 - WP-D qits-platform-spa-orchestrator.
 - WP-E cli-bootstrap registration.
-- WP-F rollout on wohlben.eu: repos to the platform githost (wrapper push adopts), idp client + extras entries, first deploy, first dry run, first real run with a reviewed plan.
+- WP-F rollout on wohlben.eu — DONE 2026-08-21 (see status log).
 
 ## Status log
 
 - 2026-08-21: plan written; submodules added; WP-A…E in flight.
 - 2026-08-21: WP-A containers b4c5db0 green (269 tests); WP-B artifacts a53df66 green (237); WP-D SPA a9d9c37 green (78); WP-E bootstrap d47255b green (424). WP-C service fa1b21d + e1dc42a green (17 domain + 7 service + 9 packaged IT); SPA follow-up 4542550 (pretty-print string bodies). Nothing pushed yet; the service's webui gitlink still points at the SPA seed commit until the SPA is pushed.
+- 2026-08-21 WP-F LIVE on wohlben.eu. Order that worked: `PUT /git/<repo>`
+  for both new repos (bearer dev-qits-artifacts, aud dev-qits-githost) →
+  mains seeded at the GitHub seed commits → containers/artifacts/cli-bootstrap
+  released through the door (.81434/.81446/.81451) → wrapper released
+  (.81529) → `POST /projects/api/projects/{id}/repositories/reconcile`
+  adopted both repos with their GitHub twins → SPA released (.81549) →
+  service webui gitlink bumped to the SPA's release merge → service
+  released (.81625) → deployer created the platform service + PG db from
+  `resources: postgresql:db`; health 200. idp client: 40 entries imported
+  into qits-configuration (`POST /configuration/api/import`) + the same
+  env-added on the live idp; secret recorded in `.qits-bootstrap.env`.
+  First dry run SUCCEEDED, every call 200. First real run SUCCEEDED:
+  images 44.5→39.4 GB, 3 dead builder volumes gone. Two live defects
+  fixed + released: containers needed `docker-buildx-plugin` (.82604),
+  multi-tag images must be untagged by ref + buildx needs a writable
+  `BUILDX_CONFIG` (.84336); orchestrator: a dry-run skip must not skip its
+  dependents (.84404). Artifacts GC policy applied via extras:
+  `oci-images` window P7D, blob grace P2D (redeployed through the
+  build-succeeded replay). GitHub holds every stamp via the platform backup.
+- 2026-08-21 second real run after the two fixes: 21 images / 18.9 GB
+  removed (0 failed), host build cache 4.0 GB pruned, usage.after ran;
+  host 116 GB → 109 GB used since the morning (registry reclaim starts
+  when identities age past P7D). Open tuning: `build-cache-keep-bytes`
+  is per cache — 20 GB leaves the 13.7 GB bootstrap builder untouched.
