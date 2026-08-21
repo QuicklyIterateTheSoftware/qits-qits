@@ -92,7 +92,7 @@ mt_pin               repository, manifest_path, ecosystem, name, version, range,
 mt_latest            ecosystem, name, latest, checked_at, source_url, error
 mt_group             repository, name, patterns (json), source (CONFIG|DEFAULT)
 mt_branch            repository, group_name, branch, state (NONE|PUSHED|STALE|RELEASED|FAILED), head_sha, updated_at
-mt_bump              id, repository, group_name, environment, trigger (SCHEDULED|MANUAL), ci_event_id, ci_run_id,
+mt_bump              id, repository, group_name, branch, environment, trigger (SCHEDULED|MANUAL), ci_event_id, ci_run_id,
                      status (REQUESTED|RUNNING|SUCCEEDED|FAILED|NOTHING_TO_DO), changes (json), started_at, finished_at, message
 ```
 
@@ -103,13 +103,16 @@ grouped by `mt_group`. "Who pins X" is a query over `mt_pin`.
 
 ```
 GET  /repositories                              → [{name, lastScanAt, status, message, pending, groups:[{name, branch, state, pending}]}]
-GET  /repositories/{name}                       → repository + pins:[{manifestPath, ecosystem, name, version, range, kind, latest, pending, group, location}]
-GET  /dependencies?name=<glob>                  → [{ecosystem, name, latest, pins:[{repository, version, manifestPath}]}]   # "who pins eventstream 2026.8.x"
+GET  /repositories/{name}                       → the same fields + pins:[{manifestPath, ecosystem, name, version, range, kind, latest, pending, group, location}]
+GET  /dependencies?name=<glob>                  → [{ecosystem, name, latest, pins:[{repository, version, manifestPath, pending}]}]   # "who pins eventstream 2026.8.x"
 POST /scans  {scope: INTERNAL|EXTERNAL|ALL, repository?}            → 202 {id}        # rescan + refresh latest
+GET  /scans/{id}                                → {id, scope, repository, status (REQUESTED|RUNNING|SUCCEEDED|FAILED), startedAt, finishedAt, message}
 POST /repositories/{name}/groups/{group}/bumps                      → 202 {id}        # "create the branch now"; 409 while one is active for that (repo, group)
-GET  /bumps?repository=&limit=20                → [mt_bump rows]
-GET  /bumps/{id}                                → row + the changes it sent + ci run id/status
+GET  /bumps?repository=&limit=20                → [bump]
+GET  /bumps/{id}                                → bump
+bump = {id, repository, group, branch, environment, trigger, ciEventId, ciRunId, status, changes:[…], startedAt, finishedAt, message}
 ```
+Every error body is `{"message": "…"}`. Wire names are camelCase; `group`, not `groupName`.
 
 Scan and bump requests are queued on ONE worker thread (the orchestrator's
 executor pattern: a sequence, not an interleaving). A scheduled run is the
@@ -208,3 +211,5 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
   building service, SPA and the qits-ci platform pipeline in parallel.
 - 2026-08-21 — qits-ci half green on `feature/platform-pipelines` (3 commits,
   verify BUILD SUCCESS); wrapper pipeline file committed (08611b4).
+- 2026-08-21 — SPA green on its local main (82 tests, build, browser-checked
+  against ng serve); API section above updated to the shapes it renders.
