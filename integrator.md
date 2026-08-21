@@ -7,6 +7,33 @@ from inside a workspace container, which has no docker.
 Read the release order in §4 before releasing anything. Two of the steps are order-dependent in a
 way that breaks every build on the platform if inverted, and one of those is not recoverable by CI.
 
+## 0. What has NOT been verified — read this before trusting anything below
+
+**None of this work has been through CI.** CI has been down for the entire period it was written
+(§1), so every "green" in this document is a **local suite on a workspace container** and nothing
+else. Specifically:
+
+- `qits-ci-daemon` 37 tests, `qits-ci` 227 tests, `qits-platform-edge` full `verify` — all local
+  `./mvnw`, none of them a CI run, none of them a packaged artifact, and none of them an integration
+  test against real containers. The daemon's `extended` ITs (`CiDaemonGateIT`,
+  `CiDaemonHandshakeIT`) need docker, a step image and a built daemon binary; **they have not been
+  run**, and they are the only place the bash→sh change is exercised against a real container.
+- **The `docker:28-dind` claim is from image metadata, not from running it.** `git` and `wget`
+  present, `bash`/`curl`/`jq` absent was read out of the image config's build history through the
+  mirror. It has never been used as a step image. If the first qits-oci release fails, check that
+  first: run `docker run --rm docker:28-dind sh -c 'git --version; wget --version; command -v bash'`
+  on the host.
+
+**Whether the edge's `2026.820.161525` is actually running is unknown.** It is released, tagged and
+on `environment/dev` at `5d1fd20`, but the deploy build failed and I could not distinguish a running
+old edge from a new one — the edge's own generated routes say `no-store` either way, and
+`/q/health` reports no version. Establish it before deciding step 4 is needed: fetch any SPA document
+through the edge and read `Cache-Control` on the **document** response. `no-cache` means the fix is
+live; `public, immutable, max-age=86400` means it is not.
+
+Two more things are inference rather than observation, and are marked as such where they appear: the
+`QITS_OBSERVABILITY_URL` diagnosis (§6) and the claim that the daemon pin will flip on release (§4).
+
 ---
 
 ## 1. How the platform got here
@@ -192,7 +219,7 @@ or an SPA** and that is correct. **After a release the source branch is deleted 
 | 1 | `qits-ci-daemon` | `remote/observability-improvements` | must ship **before** qits-oci, see below |
 | 2 | `qits-oci` | `remote/observability-improvements` | republishes the five images to the empty registry |
 | 3 | `qits-ci` | `remote/observability-improvements` | **must be after 2**, see below |
-| 4 | `qits-platform-edge` | `remote/edge-cache-doc` | triggers the deploy of the already-released cache fix |
+| 4 | `qits-platform-edge` | `remote/edge-cache-doc` | triggers the deploy of the already-released cache fix — **check first whether it is already deployed** (§0), in which case skip |
 | 5 | wrapper `qits-qits` | `remote/observability-improvements` | docs; no deploy, any time |
 
 **Why 1 before 2.** qits-oci's pipelines now declare `docker:28-dind`, which has no bash. Until the
@@ -246,8 +273,12 @@ done
 # expect a CalVer and "latest" in each
 
 # 4 — the edge stops serving SPA documents as immutable.
-# Check the document request for any SPA through the edge; index.html must be no-cache
-# while a hashed bundle keeps public, immutable, max-age=86400.
+# This is ALSO the check for whether step 4 was needed at all (§0): run it BEFORE releasing.
+# A browser session is required — these paths are gated, and this container's bearer is refused —
+# so read it from DevTools -> Network -> the document request, or with a session cookie:
+#   document (e.g. https://<host>/observability/)  -> must be: cache-control: no-cache
+#   hashed bundle (main-<HASH>.js)                 -> must stay: public, immutable, max-age=86400
+# If the document already says no-cache, 5d1fd20 deployed on its own and step 4 is unnecessary.
 ```
 
 ---
