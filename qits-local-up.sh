@@ -112,6 +112,23 @@ if [ -z "$ROOT" ]; then
   # there, not here.
   work=$(pwd)
 
+  # The durable progress supervisor. The warm/host launcher (HostLauncher) starts this; the cold
+  # path has to as well, or the bootstrap edge below has no upstream and answers 503 on the browser
+  # view. It owns the browser port (QITS_WEB_PORT, default 8480) and reads the worker's state from
+  # the shared progress file, so a worker crash cannot take the public view down. The supervisor
+  # tolerates a not-yet-written file. QITS_WEB=0 turns the whole view off.
+  progressenv=
+  if [ "${QITS_WEB:-1}" != 0 ]; then
+    progressenv="-e QITS_PROGRESS_FILE=$work/.qits-bootstrap-progress.json"
+    docker rm -f qits-bootstrap-progress >/dev/null 2>&1 || true
+    docker run -d --name qits-bootstrap-progress --restart unless-stopped \
+      --user "$(id -u):$(id -g)" -v "$work:$work" -w "$work" \
+      -e QITS_WEB_BIND=true -e QITS_WEB_HOST=0.0.0.0 \
+      "$image" progress-supervisor --state "$work/.qits-bootstrap-progress.json" >/dev/null \
+      && echo "progress supervisor up (browser view served through the bootstrap edge)" \
+      || echo "warning: progress supervisor did not start — the browser view will be unavailable"
+  fi
+
   # Only when there is one to hand on: `-it` against a pipe is docker's "the input device is not a
   # TTY" and a stopped run. Under `curl | sh` there is none, so the run draws plain lines.
   tty=
@@ -135,6 +152,7 @@ if [ -z "$ROOT" ]; then
     -w "$work" \
     -e HOME=/tmp \
     -e QITS_IN_CONTAINER=1 \
+    $progressenv \
     $names \
     "$image" "$@"
 fi
