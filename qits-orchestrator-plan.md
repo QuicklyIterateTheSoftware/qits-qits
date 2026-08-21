@@ -192,4 +192,4 @@ storage plan).
 ## Status log
 
 - 2026-08-21: plan written; submodules added; WP-A…E in flight.
-- 2026-08-21: WP-A containers b4c5db0 green (269 tests); WP-B artifacts a53df66 green (237); WP-D SPA a9d9c37 green (78); WP-E bootstrap d47255b green (424). WP-C service fa1b21d green (17 domain + 7 service + 9 packaged IT). Nothing pushed yet; the service's webui gitlink still points at the SPA seed commit until the SPA is pushed.
+- 2026-08-21: WP-A containers b4c5db0 green (269 tests); WP-B artifacts a53df66 green (237); WP-D SPA a9d9c37 green (78); WP-E bootstrap d47255b green (424). WP-C service fa1b21d + e1dc42a green (17 domain + 7 service + 9 packaged IT); SPA follow-up 4542550 (pretty-print string bodies). Nothing pushed yet; the service's webui gitlink still points at the SPA seed commit until the SPA is pushed.
