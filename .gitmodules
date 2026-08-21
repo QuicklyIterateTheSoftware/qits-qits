@@ -262,3 +262,15 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-platform-orchestrator"]
+	path = services/qits-platform-orchestrator
+	url = ../qits-platform-orchestrator.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-platform-spa-orchestrator"]
+	path = frontends/qits-platform-spa-orchestrator
+	url = ../qits-platform-spa-orchestrator.git
+	ignore = all
+	update = merge
+	branch = main
