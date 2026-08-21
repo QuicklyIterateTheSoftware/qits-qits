@@ -177,6 +177,23 @@ The service polls `GET /ci/api/runs/{runId}` (run ids from the trigger
 response) until terminal, then reads the branch head from the githost and
 writes `mt_branch`/`mt_bump`. No callback, no new token.
 
+### Landed shape (qits-ci `feature/platform-pipelines`, 2026-08-21) — overrides the above where it differs
+
+- Steps share NO working tree: each step clones, fetches the branch, commits its
+  own ecosystem and pushes. One bump = up to TWO commits. The service reads the
+  branch head; "head did not move after a green run" = NOTHING_TO_DO.
+- `location` honoured for maven only; npm edits the section that holds the
+  entry, docker anchors on the image name. `from` is never a precondition.
+- Step-side validation: `to` ∈ `[0-9A-Za-z._+-]+`, `group` ∈ `[0-9A-Za-z._-]+`,
+  plain refs, relative `manifestPath` without `..`. The service validates the same.
+- `payload.repository` is the public NAME; qits-ci resolves it against its
+  candidate list (projects' catalogue). A 200 with zero `runIds` = no run this
+  time → bump FAILED, the next scan requests again.
+- qits-ci config key `qits.ci.platform-pipelines-repository` (default
+  `qits-qits`; blank = off). Run rows carry `config_path` =
+  `.config/qits/ci-platform-event-maintenance-bump.yml`; a repo with a local
+  AND a platform trigger for one event gets two runs.
+
 ## Rollout (the orchestrator's recipe, twice)
 
 1. Seed both repos, add as submodules here (`--name`, `ignore = all`, `update = merge`).
@@ -189,3 +206,5 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
 
 - 2026-08-21 — decided; worktree `feature/maintenance`; three Opus subagents
   building service, SPA and the qits-ci platform pipeline in parallel.
+- 2026-08-21 — qits-ci half green on `feature/platform-pipelines` (3 commits,
+  verify BUILD SUCCESS); wrapper pipeline file committed (08611b4).
