@@ -137,7 +137,7 @@ The **gc** process (kind `gc`), steps and edges:
 
 Config (`qits.orchestrator.*`): `targets.{artifacts,containers,ci,deployments}-url`
 (defaults `http://qits-<name>:8080`; the live platform injects
-`dev-qits-*` for tier services), `gc.cron` (`0 40 3 * * ?`), `gc.enabled`,
+`dev-qits-*` for tier services), `gc.cron` (`0 0 3 * * ?`, read in `gc.time-zone`, UTC), `gc.enabled`,
 `gc.dry-run`, `gc.image-keep-prefixes` (`qits/build-images/,qits/graalvmce-musl-builder`),
 `gc.image-min-age` (PT6H), `gc.volume-min-age` (PT24H),
 `gc.build-cache-keep-bytes` (20 GB), `gc.call-timeout` (PT120S).
@@ -217,3 +217,23 @@ storage plan).
   host 116 GB → 109 GB used since the morning (registry reclaim starts
   when identities age past P7D). Open tuning: `build-cache-keep-bytes`
   is per cache — 20 GB leaves the 13.7 GB bootstrap builder untouched.
+- 2026-08-21 afternoon, "still too large" review (109 GB → target 50–60):
+  hand steps — `docker buildx rm` of the bootstrap builder (13 GB),
+  `docker buildx prune --all --keep-storage 10GB` (host cache 37→21 GB),
+  artifacts window P2D / grace P1D → 81 GB used within minutes. Code
+  wave released through the door: containers .102707 (`image ls --all`
+  so the 55 dangling images are collected; host prune `--all`;
+  `builderKeepStorageBytes`), orchestrator .102416 (host keep 10 GiB,
+  builder keep 1 GiB), cli-bootstrap .103111 (LAST phase
+  `teardown-bootstrap-builder`, `QITS_KEEP_BUILDER=1` for the dev loop;
+  `ensureBuilder` sweeps stale name-bump builders), qits-oci-postgresql
+  .102402 (`max_wal_size` 1 GB; DB restarted once, all services held).
+  Registry blobs (17 GB) age out over the next two days; then a one-time
+  `VACUUM FULL blob_chunk` returns the heap file.
+- 2026-08-21 13:05 UTC final run of the day with every fix deployed
+  (containers .102707, orchestrator .105603 — gc at 03:00 UTC daily):
+  64 images / 54.7 GB removed (the 55 dangling among them), host cache
+  5 GB pruned, registry 104 identities condemned (4.8 GiB, blobs sweep
+  after the P1D grace). Host: 116 GB (morning) → **68 GB used, 77 GB
+  free**. Tomorrow's run takes the registry blobs; then `VACUUM FULL
+  blob_chunk` once.
