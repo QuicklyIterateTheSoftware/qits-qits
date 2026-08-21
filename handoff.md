@@ -59,17 +59,20 @@ rollout order and the live-found defects). Released through the door and
 mirrored to GitHub by the platform backup: containers .81434/.82604/.84336,
 artifacts .81446, cli-bootstrap .81451, wrapper .81529, SPA .81549,
 orchestrator .81625/.84404. UI at https://wohlben.eu/orchestrator/
-(nav "Orchestrator"); gc runs nightly 03:40 UTC and on demand (Run now /
+(nav "Orchestrator"); gc runs daily at 03:00 UTC and on demand (Run now /
 Dry run). idp client `qits-platform-orchestrator` lives in
 qits-configuration (40 entries) and in `.qits-bootstrap.env`; artifacts GC
 policy `oci-images` P7D / blob grace P2D via extras.
+Disk review 2026-08-21 afternoon: 109 → 81 → **68 GB used** (final run 13:05 UTC) after the bootstrap
+builder removal + `prune --all` + artifacts P2D/P1D; code wave released
+(containers .102707 sees dangling images + prunes `--all`, orchestrator
+.102416 host/builder keep 10 GiB/1 GiB, cli-bootstrap .103111 teardown
+phase, oci-postgresql .102402 WAL 1 GB). Registry blobs (4.8 GiB condemned today) go at the 03:00 run tomorrow; then run `VACUUM FULL blob_chunk` once
+(needs free space ≥ the table) — PG does not shrink the file by itself.
 Open tails:
-- the artifacts engine condemns nothing until identities age past P7D
+- the artifacts engine condemns nothing until identities age past P2D
   (platform is 5 days old) — the first registry reclaim is ~2026-08-23;
   check the plan card then.
-- `containers.build-cache` keep-storage (20 GB) is per cache; the
-  bootstrap builder (13.7 GB) is below it and never prunes — lower
-  `qits.orchestrator.gc.build-cache-keep-bytes` or make it per-builder.
 - the SPA's `/main-navigation` comes from the edge; behind my ad-hoc
   tunnel it read "Navigation unavailable" — fine through the real edge.
 - local WSL platform has none of this yet (bootstrap registration is in
