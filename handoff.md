@@ -52,6 +52,20 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
+### qits-platform-maintenance — building on worktree `feature/maintenance` (2026-08-21)
+
+Contract: `qits-maintenance-plan.md`. Replaces the 71 `ci-event-upstream-*.yml`
+hop files with one platform service (inventory + latest + groups + bump
+branches, ff-only) and a qits-ci "platform-level pipeline"
+(`.config/qits/ci-platform-event-maintenance-bump.yml` in this wrapper).
+Worktree `/home/wohlben/code/qits-qits-maintenance`; qits-ci work on
+`services/qits-ci` branch `feature/platform-pipelines` (a worktree of the
+submodule); new submodules `services/qits-platform-maintenance`,
+`frontends/qits-platform-spa-maintenance` (both on local main, unpushed).
+Next: verify service+SPA together (`clean verify` needs the webui gitlink),
+push both repos, release qits-ci, rollout per the plan's "Rollout" list,
+then delete the hop files.
+
 ### qits-platform-orchestrator — LIVE on wohlben.eu (2026-08-21)
 
 Plan + contracts: `qits-orchestrator-plan.md` (status log has the full
