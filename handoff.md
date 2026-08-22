@@ -62,13 +62,14 @@ Worktree `/home/wohlben/code/qits-qits-maintenance`; qits-ci work on
 `services/qits-ci` branch `feature/platform-pipelines` (a worktree of the
 submodule); new submodules `services/qits-platform-maintenance`,
 `frontends/qits-platform-spa-maintenance` (both on local main, unpushed).
-All three halves green locally (service `clean verify` with the SPA in its
-webui gitlink; qits-ci verify; SPA tests/build). NOTHING PUSHED YET. Next:
-push the two new repos' mains + the qits-ci and wrapper branches, then
-rollout per the plan's "Rollout" list ONLY after the wohlben.eu bootstrap
-is done (idp client with `qits:system` + `project=*`, qits-ci release,
-wrapper release, two new-repo rollouts), screenshot /maintenance, then
-delete the 71 hop files.
+LIVE on wohlben.eu 2026-08-22 (five door releases, see the plan's status).
+Open: (1) service fix round for the `${project.groupId}` scan crash → release
+again + re-run the scan; (2) first real bump (a CI MaintenanceBump run + a
+`maintenance/<group>` branch) not yet proven live; (3) sync stamps home
+(GitHub twins mirror the githost) and move the wrapper gitlinks on a fresh
+branch; (4) delete the 71 hop files after the first green scheduled bump;
+(5) PLATFORM: no `ci-event-release.yml` run since the rebootstrap — version
+images are not pushed; investigate ReleaseJoin/SCMRelease.
 
 ### qits-platform-orchestrator — LIVE on wohlben.eu (2026-08-21)
 

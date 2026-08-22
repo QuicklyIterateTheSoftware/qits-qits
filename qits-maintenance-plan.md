@@ -231,3 +231,20 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
   `feature/platform-pipelines`) so the client needs NO `qits:admin`.
 - 2026-08-21 — SPA green on its local main (82 tests, build, browser-checked
   against ng serve); API section above updated to the shapes it renders.
+- 2026-08-22 — LIVE on wohlben.eu. Released through the door: qits-ci
+  2026.822.170613 (platform pipelines + qits:system reads; deployed c774890),
+  wrapper 2026.822.170641 (catalog + `ci-platform-event-maintenance-bump.yml`),
+  SPA 2026.822.171743, service 2026.822.171807 (deployed eafe858, PG db from
+  `resources:`), cli-bootstrap 2026.822.172843 (a re-bootstrap ships the
+  service: idp client, extras, repos, deploy order after ci/orchestrator). idp
+  client `qits-platform-maintenance` live (roles qits:system+qits-platform:system,
+  claim project=*), 33 extras entries in qits-configuration + fallback file,
+  secret in `.qits-bootstrap.env`. Catalog reconcile adopted both repos (UUID
+  rows, GitHub twins green). Door wants `repositoryId=<row uuid>` now (names
+  404) — `/root/qits/rel2.sh <repo> <bundle-ref> <branch> "<summary>"` resolves
+  it and clones from `/git/qits/<repo>`. First live scan over 49 repos FAILED:
+  an unresolved `${project.groupId}` pin reached the maven latest URL and
+  killed the scan (row stuck RUNNING) — fix round in flight. Platform-wide
+  observation: NO `ci-event-release.yml` run since the rebootstrap (qits-ci
+  log: "0 of 7 owed release(s) had an SCMRelease") — version-tag images are
+  not being pushed; not a maintenance defect, needs its own look.
