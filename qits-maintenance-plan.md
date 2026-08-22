@@ -248,3 +248,12 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
   observation: NO `ci-event-release.yml` run since the rebootstrap (qits-ci
   log: "0 of 7 owed release(s) had an SCMRelease") — version-tag images are
   not being pushed; not a maintenance defect, needs its own look.
+- 2026-08-22 — qits-ci 2026.822.173700 (deployed 7de5c09): `when: repository:`
+  is aliased to `repositoryName` like `repoId→repoName` (CiEventSelectionEvaluator)
+  — release pipelines match `SCMRelease` again platform-wide. Replayed the
+  service's SCMRelease via `POST /ci/api/events/trigger` (payload copied from
+  `/events/api/events?name=SCMRelease`, whose `payload` is a JSON STRING —
+  `fromjson` it): run 1114ee6f SUCCESS, `qits/qits-platform-maintenance:2026.822.171807`
+  in the registry. cli-bootstrap has no release pipeline (0 runs, expected).
+  Other releases made today before the fix (qits-workspaces 2026.822.164640)
+  still lack their version image — replay the same way if wanted.
