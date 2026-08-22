@@ -62,13 +62,14 @@ Worktree `/home/wohlben/code/qits-qits-maintenance`; qits-ci work on
 `services/qits-ci` branch `feature/platform-pipelines` (a worktree of the
 submodule); new submodules `services/qits-platform-maintenance`,
 `frontends/qits-platform-spa-maintenance` (both on local main, unpushed).
-All three halves green locally (service `clean verify` with the SPA in its
-webui gitlink; qits-ci verify; SPA tests/build). NOTHING PUSHED YET. Next:
-push the two new repos' mains + the qits-ci and wrapper branches, then
-rollout per the plan's "Rollout" list ONLY after the wohlben.eu bootstrap
-is done (idp client with `qits:system` + `project=*`, qits-ci release,
-wrapper release, two new-repo rollouts), screenshot /maintenance, then
-delete the 71 hop files.
+LIVE on wohlben.eu 2026-08-22, first bump proven (see the plan's status).
+Open: (1) flip `QITS_MAINTENANCE_BUMP_AUTO` back to true once a
+`maintenance.yml` group fences Angular 22 (node-blocks-angular-22); (2) after
+the first green SCHEDULED bump delete the 71 `ci-event-upstream-*.yml` hop
+files (one sweep, one wrapper release); (3) SPA cosmetic: SUCCEEDED message
+rendered in the error tone; (4) releases made before qits-ci 2026.822.173700
+lack version images (qits-workspaces 2026.822.164640) — replay recipe in the
+plan.
 
 ### qits-platform-orchestrator — LIVE on wohlben.eu (2026-08-21)
 
