@@ -274,3 +274,15 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-platform-maintenance"]
+	path = services/qits-platform-maintenance
+	url = ../qits-platform-maintenance.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-platform-spa-maintenance"]
+	path = frontends/qits-platform-spa-maintenance
+	url = ../qits-platform-spa-maintenance.git
+	ignore = all
+	update = merge
+	branch = main
