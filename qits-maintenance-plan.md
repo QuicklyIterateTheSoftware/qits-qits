@@ -257,3 +257,15 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
   in the registry. cli-bootstrap has no release pipeline (0 runs, expected).
   Other releases made today before the fix (qits-workspaces 2026.822.164640)
   still lack their version image — replay the same way if wanted.
+- 2026-08-22 evening — service 2026.822.175051 (deployed 63858ca): built-ins
+  resolved, `kind: UNRESOLVED`/`REACTOR`, own parent dropped, resolver never
+  throws, restart recovery. Scan ALL: 49 repos in 9s, 294 pins behind
+  (e.g. @angular/core 21→22.1.3 in all 15 SPAs — node-blocks-angular-22, so
+  group them in `maintenance.yml` before bumping). **First real bump PROVEN**:
+  qits-ci/dependencies → CI run ee853347 SUCCESS, branch
+  `maintenance/dependencies` (quinoa 2.9.0, quarkus-bom 3.38.3, lombok
+  1.18.46), 4m40s end to end. `bump.auto` is OFF for now (extras
+  `QITS_MAINTENANCE_BUMP_AUTO=false` in qits-configuration + live env) — ~45
+  bumps at once would saturate the single CI slot; flip it on deliberately.
+  Open: SPA shows a SUCCEEDED bump's message in the error tone (cosmetic);
+  the 71 hop files stay until the first green scheduled bump.
