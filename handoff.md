@@ -76,7 +76,7 @@ left there on purpose (the frozen Projects page, and the kept "red heading" prop
   githost FIRST (qits-ci pins it as submodule), then release qits-ci, then qits-cli-bootstrap.
   Not yet pushed to GitHub or the githost.
 
-**Zombie RUNNING run on wohlben.eu — SETTLED by SQL 2026-08-23 16:29 (FAILED, reason recorded); code fix IN FLIGHT on qits-ci main (cancel settles unowned RUNNING rows, draining flag, stop-first) — ships with the timeout feature (user decision: merge and ship both; spa-ci branch `release/timed-out-badge` quiet-pushed).** Original note: `d76a0f68` (qits-observability environment/dev): left
+**Zombie RUNNING run on wohlben.eu — SETTLED by SQL 2026-08-23 16:29 (FAILED, reason recorded); code fix on qits-ci main (cancel settles unowned RUNNING rows, draining flag, stop-first) shipped WITH the timeout feature (user decision). Release 2026.823.164332 ROLLED BACK at boot: the timeout commit had edited applied V1's comments → Flyway checksum refusal; V1 restored + comment-only V6, re-released 2026.823.165207 (watch the swarm task, not only the run). spa-ci branch `release/timed-out-badge` quiet-pushed; release it through the door after qits-ci is live.** Original note: `d76a0f68` (qits-observability environment/dev): left
 RUNNING by the 06:50 qits-ci start-first cutover (old task claimed it after the new task's sweep,
 Hibernate gone before it could fail it); its work was redone at 08:11 (`afb1b927` green). Settle:
 `update ci_run set status='FAILED', finished_at=now() where id='d76a0f68-cb80-4f9b-94c2-885e83693705';`
