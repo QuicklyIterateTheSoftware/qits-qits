@@ -35,7 +35,7 @@ downloader, and a shell, but no longer `bash` specifically.
 The deployer-managed set has two shapes, and each repo's `.config/qits/deployments.yml` says which
 it is:
 
-- **environment applications** — `qits-stt`, `qits-workspaces` and `qits-gateway`. One instance per
+- **environment applications** — `qits-stt`, `qits-workspaces` and their siblings. One instance per
   environment. They belong to the `dev` tier (branch `environment/dev`, network `qits-net`), deploy
   from that branch, and run as `qits-pd-dev-qits-<name>-<id8>`.
 - **platform services** — the other eight, `qits-platform-deployments` included. One instance for
@@ -162,10 +162,10 @@ deployment row, with the log tail in `detail`); nothing to clean up.
 Alternatively `QITS_SKIP_BUILD=1` on a bootstrap rerun pushes every repo and skips the seed
 builds — unchanged repos push up-to-date and trigger nothing.
 
-## Updating qits-gateway / qits-artifacts / qits-ci
+## Updating qits-artifacts / qits-ci
 
 The same push as any other service — they are deployer applications. Expect a few seconds of downtime
-on gateway or artifacts updates (the replace cutover stops the old container through the health
+on artifacts updates (the replace cutover stops the old container through the health
 gate; the host port rebinds when the fresh one starts). A failed gate restarts the old container.
 
 ## Updating qits-platform-deployments
