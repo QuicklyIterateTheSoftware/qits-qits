@@ -292,3 +292,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-platform-spa-system"]
+	path = frontends/qits-platform-spa-system
+	url = ../qits-platform-spa-system.git
+	ignore = all
+	update = merge
+	branch = main
