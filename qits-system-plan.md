@@ -154,3 +154,8 @@ and gets the replay.
   `qits-platform-edge.1` answers `uid=1001`, resize + Terminate + Stop glances all clean, zero
   leftover containers, service log shows every open/end. Screenshots in the main worktree's
   `.playwright-mcp/system-live-0*.png`. Released mains synced to GitHub with their tags.
+- 2026-08-23 19:40 — user asked that glances close automatically when leaving the Overview:
+  `qits.system.terminals.glances-linger=PT3S` (last-detach grace for GLANCES only; EXEC keeps
+  the general linger; still find-or-create shared). Released SPA 2026.823.173245 (wording) and
+  service 2026.823.173309 (deployed 451cb1c); proven live — navigate away, container gone,
+  log `Ending GLANCES terminal … (unattended for PT3S)`.
