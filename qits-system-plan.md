@@ -132,3 +132,25 @@ and gets the replay.
 
 - 2026-08-23 — decided; worktree `feature/system` (`/home/wohlben/code/qits-qits-system`);
   three Opus subagents building service, SPA and the bootstrap wiring in parallel.
+- 2026-08-23 evening — all three work packages green: service (94 unit tests, PackagedSurfaceIT
+  11/11 against the NATIVE binary; live smoke on the WSL host: exec into the edge container,
+  resize honoured, glances dashboard through the ro socket, no leftovers), SPA (86 tests, 11
+  browser screenshots against a stub), cli-bootstrap (477 tests; `platform-system` in the four
+  lists, extras block, `config.json` for registry + mirror). Rollout: cli-bootstrap
+  2026.823.171206, wrapper 2026.823.171252 (merged over the gateway-retirement main), projects
+  reconcile adopted both repos (rows dc85aa7d / 945daacb, githost mains at the GitHub heads),
+  idp client `qits-platform-system` live (extras imported + `service update --env-add`; token
+  minting 200), 14 extras entries imported (system 10, idp 4), `config.json` with registry AND
+  mirror auth on `qits-platform-system-config` (manifest inspect 200 against both), glances
+  image pre-pulled through the mirror with a service credential (PROVEN: `hub/` prefix + Basic
+  client credential). SPA 2026.823.171747 (a branch already in main is refused by the door —
+  ALREADY_INTEGRATED — so a release needs one commit of its own), service 2026.823.171819
+  promoted to environment/dev. Lesson re-learned live: `timeout 25 docker run --rm …` leaves the
+  container running when the CLI dies — the `docker rm -f` belt is not optional.
+- 2026-08-23 19:25 — **LIVE on wohlben.eu.** CI runs SUCCESS (post-receive b890d06b, release
+  a32aba79), deployer created `qits-platform-system` 1/1 at 5028372, health 200, nav shows
+  System. Browser proof through the public edge as `claude-verify`: Overview draws glances
+  (host CPU/MEM/LOAD, 24 containers via the ro socket), Nodes → node → containers → `sh` into
+  `qits-platform-edge.1` answers `uid=1001`, resize + Terminate + Stop glances all clean, zero
+  leftover containers, service log shows every open/end. Screenshots in the main worktree's
+  `.playwright-mcp/system-live-0*.png`. Released mains synced to GitHub with their tags.
