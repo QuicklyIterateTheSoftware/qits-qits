@@ -26,6 +26,27 @@ per-consumer container OOM scores shipped.** All via normal releases (no reboot)
 
 ## In flight right now (2026-08-23)
 
+**qits-gateway retired for good (2026-08-23 evening).** Why it was still "deployed": the wrapper
+catalog still named it, so the cold boot built it, qits-platform-maintenance bumped its spa-home
+gitlink (`maintenance/qits-spa-home` 06:11) and auto-released it (2026.823.63523), and the deployer
+ran `dev-qits-gateway` crash-looping on its `gateway-routes` health check. Done: submodule dropped
+from the wrapper (4ebc0b2, released 2026.823.161820 — the catalog reconcile deregistered the repo
+row; history stays on the githost), deployer service+application rows deleted (machine token,
+audience `qits-deployments`), swarm service + dead task + images removed on wohlben.eu,
+bootstrap CLI prose/test names scrubbed (0aaa8a1, local, no release), qits-platform-idp shipped
+`prod-qits-gateway` client removed (dcbf590, 63+11 tests green) and RELEASED 2026.823.162522
+(deploy run watched). GitHub repo
+`qits-gateway` untouched (archive it by hand if wanted).
+- **Gap surfaced:** nothing serves `/` now — the edge answers "No active deployment endpoint in
+  environment dev matches /" (it did so before the removal too; the gateway used to carry
+  qits-spa-home). The main-navigation "Home" link points there. Decide where the landing page
+  lives (edge-served spa-home, or drop the link).
+- Wrapper local main merged origin/main (25186bc) with the gateway removal on top; push to GitHub
+  after review. `priority-feature.md` / `qits-configuration-plan.md` carry older uncommitted edits
+  (stashed and restored, not mine).
+
+## In flight right now (2026-08-23, Design tab)
+
 **Design tab (frozen HTML designs) in the refining route — LIVE on wohlben.eu.** Contracts +
 follow-ups: `design-tab-plan.md`. Shipped: qits-projects 2026.823.153819 (+ two follow
 re-releases bumping the webui gitlink), qits-spa-projects 2026.823.154424 + 2026.823.160313
@@ -55,7 +76,7 @@ left there on purpose (the frozen Projects page, and the kept "red heading" prop
   githost FIRST (qits-ci pins it as submodule), then release qits-ci, then qits-cli-bootstrap.
   Not yet pushed to GitHub or the githost.
 
-**Zombie RUNNING run on wohlben.eu** — `d76a0f68` (qits-observability environment/dev): left
+**Zombie RUNNING run on wohlben.eu — SETTLED by SQL 2026-08-23 16:29 (FAILED, reason recorded); code fix on qits-ci main (cancel settles unowned RUNNING rows, draining flag, stop-first) shipped WITH the timeout feature (user decision). Release 2026.823.164332 ROLLED BACK at boot: the timeout commit had edited applied V1's comments → Flyway checksum refusal; V1 restored + comment-only V6, re-released 2026.823.165207 — LIVE (stop-first proven), cancel API proven on a synthetic unowned row. qits-spa-ci 2026.823.165819 (TIMED_OUT badge) released; qits-ci follow redeployed 8a456191 stop-first. DONE. Local mains (qits-ci 7bc1dc6, qits-spa-ci d8e96b6, qits-cli-bootstrap 0aaa8a1) lag the githost stamps: fetch + ff before next work.** Original note: `d76a0f68` (qits-observability environment/dev): left
 RUNNING by the 06:50 qits-ci start-first cutover (old task claimed it after the new task's sweep,
 Hibernate gone before it could fail it); its work was redone at 08:11 (`afb1b927` green). Settle:
 `update ci_run set status='FAILED', finished_at=now() where id='d76a0f68-cb80-4f9b-94c2-885e83693705';`
