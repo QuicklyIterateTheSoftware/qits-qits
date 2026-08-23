@@ -1,9 +1,3 @@
-[submodule "qits-gateway"]
-	path = services/qits-gateway
-	url = ../qits-gateway.git
-	ignore = all
-	branch = main
-	update = merge
 [submodule "qits-artifacts"]
 	path = services/qits-artifacts
 	url = ../qits-artifacts.git
