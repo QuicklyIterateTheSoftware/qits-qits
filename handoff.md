@@ -173,126 +173,24 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
-### GitHub backup vs. the release train's force-pushed maintenance/* branches (2026-08-21)
+### qits-platform-maintenance — building on worktree `feature/maintenance` (2026-08-21)
 
-qits-projects' backup row went FAILED on wohlben.eu: the train's upstream legs
-`git push --force` to `maintenance/<upstream>` on the githost, the backup pushes
-`refs/heads/*` WITHOUT force (by design — never rewind or delete on the twin),
-so a bump that is force-rewritten before it is released leaves a GitHub tip the
-backup can never fast-forward past, and the whole repo's row stays red.
-Fixed by hand (deleted GitHub `maintenance/qits-projects-daemon` e40da40 and
-`maintenance/qits-spa-projects` 817b0a0 — superseded bumps, content in main under
-other shas — from the projects container's mirror with its credential store,
-then `POST /projects/api/repositories/qits-projects/backup-sync`; row green).
-Recipe: `docker exec <dev-qits-projects> sh -c 'cd /data/mirrors/mirrors/<repo>.git
-&& git -c credential.helper="store --file=/data/git-credentials" push --end-of-options
-<github-url> :refs/heads/maintenance/<x>'`.
-OPEN: it recurs on every superseded bump. Decide a durable rule — either the
-backup force-updates `refs/heads/maintenance/*` only (train-owned, never
-hand-work), or the train's leg deletes/realigns the twin's branch, or the
-door deletes the maintenance branch on release (it already does for release
-branches). Sweep 2026-08-21 (all 45 rows green, no sha mismatch): GitHub-only
-`maintenance/*` tips — latent, bite on the next superseded bump — in
-deployments (qits-eventstream), workspaces (qits-eventstream,
-qits-spa-workspaces, qits-workspace-daemon), events (qits-spa-events),
-artifacts (qits-spa-artifacts), ci (qits-eventstream, qits-spa-ci),
-projects-daemon + workspace-daemon (qits-oci-workspace), observability
-(qits-spa-observability), gateway (qits-spa-home). Delete them with the
-recipe above when a row goes red, or pre-emptively.
-
-### Repository identity rollback — RULED, planned, no code yet (2026-08-21)
-
-User ruling (non-negotiable, in memory `repository-identity-ruling`): githost
-keys repos by UUID, internal to qits-projects only; the ONE clone URL for
-everything is `/git/<projectId>/<repoName>`; d795bdc name-as-id rolls back.
-Plan: `repository-identity-rollback-plan.md` (WP-A..K, full blast radius
-cited). Migration is a clean break: back up wohlben.eu (tags home first!),
-land + release the campaign, re-bootstrap. Seam wave LANDED on each
-submodule's main (nothing pushed): githost 6662b82 (events carry
-projectId/repoName from the push address; name blob/tree; resolver outage
-= 503; `qits.githost.storage-client` guard, unset = legacy), projects
-85a8396 (UUID minting, alias-only resolution, per-project uniqueness),
-idp 133198d (`clients/<client-id>` self-role on every client bearer,
-namespace refused everywhere). Consumer wave LANDED: projects 22b01a0
-(flat `GET /projects/api/repositories` machine listing, name nullable),
-ci 5a0338f (CiRun project_id/repo_name V5, name clone/config URLs,
-`QITS_CI_PROJECT_ID`/`QITS_CI_REPO_NAME` step env, `repoId:` matcher
-matches repoName, enumeration via `qits.ci.projects-url` — configured
-listing REPLACES githost listing), workspaces c33540a (release door
-`projectId`+`repositoryName` XOR `repositoryId`, RepositoryLookup
-findByName; NOTE plan premise stale — RepositoryAddressResolver
-production path already existed), deployments 73d2cc9 (applicationName =
-repoName??repoId resolved once at intake; pins/aliases/db names stay
-names; BuildTips floor reads rows by name; git-host-url default fixed),
-daemons 0e963d6 + 2945489 (`<gitBase>/<projectId>/<repoName>`, dead
-`/artifacts/git` fallback deleted, missing git base fails loudly).
-Everywhere: absent names → legacy id-addressed fallback (pre-cutover
-compat). WP-G LANDED (29 repos, 40 release calls → name form; webui
-paths are stale second checkouts of the frontends repos — changes land
-once, on frontends mains). WP-I LANDED (githost SPA = storage view, no
-clone address rendered, cfc6da1 + webui cherry-pick 030df27; ci SPA
-labels by repoName, keys stay repoId, 8aba03a). WP-H LANDED (cli
-16a18ce+d8446d9, projects cf5b68b1: adopt endpoint POST
-/projects/api/projects/{id}/repositories/adopt qits:system idempotent;
-register-repos phase after deploy-projects; guard delivered via githost
-extras only; Boot.gitUrl/storageId the single addressing seam) — BUT
-with the FALLBACK seeding: seeded bares keep name-shaped opaque ids
-(two verified ordering blockers, see plan "Open decisions"); new repos
-mint UUIDs. Both open decisions RULED (2026-08-21): (1) qits-projects
-joins the SEED STACK — full UUID seeding, no name-id wart (WP-L LANDED
-cli 86cf944: seed image + 3 DBs + stack service, phase order
-qits-project → git-repos [mint UUID, PUT, adopt, THEN push
-name-addressed], register-repos phase deleted, guard stays extras-only,
-report prints /git/qits/<name>.git); (2) clone URL project segment =
-the SLUG (WP-M LANDED: projects 9f5d115 id-then-slug on the by-name
-endpoint only, SPA 7b243b6 + webui d88d83a). HARD PREREQ LANDED: projects e30cbbf honours
-`qits.startup-seed.reconcile-repositories=false` (gate sits in
-SelfSeedService.reconcile after ensureProject; the enabled switch's
-env-add flip verified). CAMPAIGN IS CODE-COMPLETE and PUSHED TO GITHUB. All 31
-campaign submodule mains fast-forward-pushed to the org 2026-08-21
-(ff-checked each first, zero force). Backup verified: all 48 repos'
-heads+tags on GitHub; qits-spa-configuration made public by the user +
-current. Ship model chosen: QITS_SHIP_MAINS at rebootstrap (NOT
-release-through-old-door); pg dumps skipped (nothing but git to keep).
-Wrapper catalog unchanged (no repos added/removed) so no wrapper push
-needed. REMAINING: WP-K teardown + clean-break rebootstrap of
-wohlben.eu from the GitHub org with the new CLI (green gates in the
-plan doc: external clone /git/qits/qits-qits, full CI round-trip by
-name, release-by-name, GC pin round-trip, scoped workspace provision).
-LAUNCHED 2026-08-21: teardown done (disk 68G->22G, only
-retained volumes qits-edge-acme/letsencrypt + qits_shared_dot_claude
-left), stale /root/qits wrapper+src+.qits-bootstrap.env cleared, cold
-boot running detached on wohlben.eu (log /root/qits/cold-boot.log,
-status view :8480) building qits-bootstrap:cold from
-qits-cli-bootstrap.git#main = 86cf944 (confirmed). Cold path chosen
-via curl|sh (warm needs GraalVM the server lacks). COLD-BOOT PIN-COHERENCE FIX (2026-08-21): the first two boots
-died in the byte-plane library seed — the concurrent lib-calver
-campaign released qits-blobstore .818.45340 / eventstream .818.45652 /
-registries .818.45443 / githost-events .820.65553 but left consumers
-pinning superseded versions. A ship-mains cold boot builds those libs
-from source, so stale pins fail to resolve (Maven http-blocker on the
-absent registry). Swept all stale pins to current mains and pushed:
-qits-registries 847ce1b, then qits-artifacts 9a82fb0, qits-ci 84f5096,
-qits-containers 9e0d5c5, qits-githost 94259f2, qits-platform-edge
-26ccfec, qits-platform-mirror ee349df, qits-projects 4780a5ac.
-auth-core/db-core/arch-rules/containers-client verified coherent
-(integrations-quarkus modules @ .817.175344). NOTE for lib-calver
-session: this completes pin-coherence for the seed set. 8480 CAVEAT:
-the shim COLD path publishes NO browser port (runs bootstrap-edge on
-127.0.0.1:8481 only) — wohlben.eu:8480 cannot reach it; monitor via
-/root/qits/cold-boot.log. Green gates to
-verify at end: external clone /git/qits/qits-qits, CI round-trip
-by name, release-by-name, GC pin round-trip, scoped workspace provision.
-NOTE: this host has no
-persistent GitHub push auth (broken Windows credential helper); a PAT
-was used once via a Linux askpass and shredded. Known host flake noted by
-the last agent: qits-projects `ForeignPtyTest.closingTheMasterHangsUp…`
-and `HangupImmunityTest` fail on clean main too on this WSL2 host
-(SIGHUP/PTY family, suite-load dependent; pass alone) — pre-existing,
-not campaign damage. WP-K (backup: tags home first! + clean-break
-rebootstrap) NOT STARTED — destructive, needs explicit go. Build note:
-qits-eventstream 2026.818.45652 is not in the local platform registry
-(WP-C agent installed it to ~/.m2 from libs/ as a workaround).
+Contract: `qits-maintenance-plan.md`. Replaces the 71 `ci-event-upstream-*.yml`
+hop files with one platform service (inventory + latest + groups + bump
+branches, ff-only) and a qits-ci "platform-level pipeline"
+(`.config/qits/ci-platform-event-maintenance-bump.yml` in this wrapper).
+Worktree `/home/wohlben/code/qits-qits-maintenance`; qits-ci work on
+`services/qits-ci` branch `feature/platform-pipelines` (a worktree of the
+submodule); new submodules `services/qits-platform-maintenance`,
+`frontends/qits-platform-spa-maintenance` (both on local main, unpushed).
+LIVE on wohlben.eu 2026-08-22, first bump proven (see the plan's status).
+Open: (1) flip `QITS_MAINTENANCE_BUMP_AUTO` back to true once a
+`maintenance.yml` group fences Angular 22 (node-blocks-angular-22); (2) after
+the first green SCHEDULED bump delete the 71 `ci-event-upstream-*.yml` hop
+files (one sweep, one wrapper release); (3) SPA cosmetic: SUCCEEDED message
+rendered in the error tone; (4) releases made before qits-ci 2026.822.173700
+lack version images (qits-workspaces 2026.822.164640) — replay recipe in the
+plan.
 
 ### qits-platform-orchestrator — LIVE on wohlben.eu (2026-08-21)
 
