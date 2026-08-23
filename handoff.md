@@ -34,7 +34,8 @@ from the wrapper (4ebc0b2, released 2026.823.161820 — the catalog reconcile de
 row; history stays on the githost), deployer service+application rows deleted (machine token,
 audience `qits-deployments`), swarm service + dead task + images removed on wohlben.eu,
 bootstrap CLI prose/test names scrubbed (0aaa8a1, local, no release), qits-platform-idp shipped
-`prod-qits-gateway` client removal IN FLIGHT (subagent; needs an idp release). GitHub repo
+`prod-qits-gateway` client removed (dcbf590, 63+11 tests green) and RELEASED 2026.823.162522
+(deploy run watched). GitHub repo
 `qits-gateway` untouched (archive it by hand if wanted).
 - **Gap surfaced:** nothing serves `/` now — the edge answers "No active deployment endpoint in
   environment dev matches /" (it did so before the removal too; the gateway used to carry
