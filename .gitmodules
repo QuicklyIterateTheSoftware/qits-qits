@@ -280,3 +280,15 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-platform-system"]
+	path = services/qits-platform-system
+	url = ../qits-platform-system.git
+	ignore = all
+	update = merge
+	branch = main
+[submodule "qits-platform-spa-system"]
+	path = frontends/qits-platform-spa-system
+	url = ../qits-platform-spa-system.git
+	ignore = all
+	update = merge
+	branch = main
