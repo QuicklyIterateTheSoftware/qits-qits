@@ -52,6 +52,22 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
+### qits-platform-system — building on worktree `feature/system` (2026-08-23)
+
+Contract: `qits-system-plan.md`. New platform service + SPA at `/system` (nav `System:14`):
+glances web terminal (Overview), swarm nodes/services/configs/secrets, node-local docker
+resources with `[bash]`/`[sh]` exec buttons into the web terminal. Decisions: the service
+HOLDS the docker socket (third holder, admin console); glances runs from
+`mirror.dev.localhost:8080/hub/nicolargo/glances:4.5.6-full` (pull through the mirror PROVEN on
+wohlben.eu with a service client credential; image pre-pulled there; hardened flag set proven).
+Worktree `/home/wohlben/code/qits-qits-system`; three Opus subagents: service
+(`services/qits-platform-system`), SPA (`frontends/qits-platform-spa-system`, GitHub remote was
+empty — first push seeds it), bootstrap (`cli/qits-cli-bootstrap` on local main). Next: green
+gates → native build (orchestrator, one at a time) → rollout per the plan's recipe
+(cli-bootstrap + wrapper releases, githost PUT ×2, reconcile, idp client + extras +
+`config.json` with registry AND mirror auth on `qits-platform-system-config`, SPA release,
+gitlink bump, service release, browser proof).
+
 ### qits-platform-maintenance — building on worktree `feature/maintenance` (2026-08-21)
 
 Contract: `qits-maintenance-plan.md`. Replaces the 71 `ci-event-upstream-*.yml`
