@@ -147,3 +147,10 @@ and gets the replay.
   ALREADY_INTEGRATED — so a release needs one commit of its own), service 2026.823.171819
   promoted to environment/dev. Lesson re-learned live: `timeout 25 docker run --rm …` leaves the
   container running when the CLI dies — the `docker rm -f` belt is not optional.
+- 2026-08-23 19:25 — **LIVE on wohlben.eu.** CI runs SUCCESS (post-receive b890d06b, release
+  a32aba79), deployer created `qits-platform-system` 1/1 at 5028372, health 200, nav shows
+  System. Browser proof through the public edge as `claude-verify`: Overview draws glances
+  (host CPU/MEM/LOAD, 24 containers via the ro socket), Nodes → node → containers → `sh` into
+  `qits-platform-edge.1` answers `uid=1001`, resize + Terminate + Stop glances all clean, zero
+  leftover containers, service log shows every open/end. Screenshots in the main worktree's
+  `.playwright-mcp/system-live-0*.png`. Released mains synced to GitHub with their tags.

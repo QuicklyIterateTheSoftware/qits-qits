@@ -194,22 +194,22 @@ this platform. Boot with `QITS_SHIP_MAINS=1`, or release first.
 Another session owns the lib calver campaign and edits this file — merge, do not
 clobber.
 
-### qits-platform-system — building on worktree `feature/system` (2026-08-23)
+### qits-platform-system — LIVE on wohlben.eu (2026-08-23)
 
-Contract: `qits-system-plan.md`. New platform service + SPA at `/system` (nav `System:14`):
-glances web terminal (Overview), swarm nodes/services/configs/secrets, node-local docker
-resources with `[bash]`/`[sh]` exec buttons into the web terminal. Decisions: the service
-HOLDS the docker socket (third holder, admin console); glances runs from
-`mirror.dev.localhost:8080/hub/nicolargo/glances:4.5.6-full` (pull through the mirror PROVEN on
-wohlben.eu with a service client credential; image pre-pulled there; hardened flag set proven).
-Worktree `/home/wohlben/code/qits-qits-system`; three Opus subagents: service
-(`services/qits-platform-system`), SPA (`frontends/qits-platform-spa-system`, GitHub remote was
-empty — first push seeds it), bootstrap (`cli/qits-cli-bootstrap` on local main). Next: green
-gates → native build (orchestrator, one at a time) → rollout per the plan's recipe
-(cli-bootstrap + wrapper releases, githost PUT ×2, reconcile, idp client + extras +
-`config.json` with registry AND mirror auth on `qits-platform-system-config`, SPA release,
-gitlink bump, service release, browser proof).
-
+Contract + status log: `qits-system-plan.md`. UI at https://wohlben.eu/system/ (nav
+`System:14`): glances web terminal, swarm nodes/services/configs/secrets, node containers with
+`[bash]`/`[sh]` exec terminals — browser-proven through the public edge. Released: cli-bootstrap
+2026.823.171206, wrapper .171252, SPA .171747, service .171819 (deployed 5028372). The service
+holds the docker socket (third holder); glances = `mirror.dev.localhost:8080/hub/nicolargo/glances:4.5.6-full`
+pulled with the service's own credential (`config.json` on `qits-platform-system-config`).
+Open:
+- the idp client was `service update --env-add`ed on the live idp AND imported into
+  qits-configuration — the next idp deploy reads the store, nothing to do unless it 401s;
+- `docker service ls` carries no UpdatedAt, so the Services table's UPDATED column is an em
+  dash (detail pages have it) — cosmetic;
+- v1 reaches the local node only (`NODE_REMOTE` 409 for others); per-node reach needs a design;
+- worktree `/home/wohlben/code/qits-qits-system` (`feature/system`) can be removed once this
+  section is banked on main.
 ### qits-platform-maintenance — building on worktree `feature/maintenance` (2026-08-21)
 
 Contract: `qits-maintenance-plan.md`. Replaces the 71 `ci-event-upstream-*.yml`
