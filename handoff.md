@@ -26,6 +26,26 @@ per-consumer container OOM scores shipped.** All via normal releases (no reboot)
 
 ## In flight right now (2026-08-23)
 
+**qits-gateway retired for good (2026-08-23 evening).** Why it was still "deployed": the wrapper
+catalog still named it, so the cold boot built it, qits-platform-maintenance bumped its spa-home
+gitlink (`maintenance/qits-spa-home` 06:11) and auto-released it (2026.823.63523), and the deployer
+ran `dev-qits-gateway` crash-looping on its `gateway-routes` health check. Done: submodule dropped
+from the wrapper (4ebc0b2, released 2026.823.161820 — the catalog reconcile deregistered the repo
+row; history stays on the githost), deployer service+application rows deleted (machine token,
+audience `qits-deployments`), swarm service + dead task + images removed on wohlben.eu,
+bootstrap CLI prose/test names scrubbed (0aaa8a1, local, no release), qits-platform-idp shipped
+`prod-qits-gateway` client removal IN FLIGHT (subagent; needs an idp release). GitHub repo
+`qits-gateway` untouched (archive it by hand if wanted).
+- **Gap surfaced:** nothing serves `/` now — the edge answers "No active deployment endpoint in
+  environment dev matches /" (it did so before the removal too; the gateway used to carry
+  qits-spa-home). The main-navigation "Home" link points there. Decide where the landing page
+  lives (edge-served spa-home, or drop the link).
+- Wrapper local main merged origin/main (25186bc) with the gateway removal on top; push to GitHub
+  after review. `priority-feature.md` / `qits-configuration-plan.md` carry older uncommitted edits
+  (stashed and restored, not mine).
+
+## In flight right now (2026-08-23, Design tab)
+
 **Design tab (frozen HTML designs) in the refining route — LIVE on wohlben.eu.** Contracts +
 follow-ups: `design-tab-plan.md`. Shipped: qits-projects 2026.823.153819 (+ two follow
 re-releases bumping the webui gitlink), qits-spa-projects 2026.823.154424 + 2026.823.160313
