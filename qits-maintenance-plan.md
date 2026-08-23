@@ -231,3 +231,41 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
   `feature/platform-pipelines`) so the client needs NO `qits:admin`.
 - 2026-08-21 — SPA green on its local main (82 tests, build, browser-checked
   against ng serve); API section above updated to the shapes it renders.
+- 2026-08-22 — LIVE on wohlben.eu. Released through the door: qits-ci
+  2026.822.170613 (platform pipelines + qits:system reads; deployed c774890),
+  wrapper 2026.822.170641 (catalog + `ci-platform-event-maintenance-bump.yml`),
+  SPA 2026.822.171743, service 2026.822.171807 (deployed eafe858, PG db from
+  `resources:`), cli-bootstrap 2026.822.172843 (a re-bootstrap ships the
+  service: idp client, extras, repos, deploy order after ci/orchestrator). idp
+  client `qits-platform-maintenance` live (roles qits:system+qits-platform:system,
+  claim project=*), 33 extras entries in qits-configuration + fallback file,
+  secret in `.qits-bootstrap.env`. Catalog reconcile adopted both repos (UUID
+  rows, GitHub twins green). Door wants `repositoryId=<row uuid>` now (names
+  404) — `/root/qits/rel2.sh <repo> <bundle-ref> <branch> "<summary>"` resolves
+  it and clones from `/git/qits/<repo>`. First live scan over 49 repos FAILED:
+  an unresolved `${project.groupId}` pin reached the maven latest URL and
+  killed the scan (row stuck RUNNING) — fix round in flight. Platform-wide
+  observation: NO `ci-event-release.yml` run since the rebootstrap (qits-ci
+  log: "0 of 7 owed release(s) had an SCMRelease") — version-tag images are
+  not being pushed; not a maintenance defect, needs its own look.
+- 2026-08-22 — qits-ci 2026.822.173700 (deployed 7de5c09): `when: repository:`
+  is aliased to `repositoryName` like `repoId→repoName` (CiEventSelectionEvaluator)
+  — release pipelines match `SCMRelease` again platform-wide. Replayed the
+  service's SCMRelease via `POST /ci/api/events/trigger` (payload copied from
+  `/events/api/events?name=SCMRelease`, whose `payload` is a JSON STRING —
+  `fromjson` it): run 1114ee6f SUCCESS, `qits/qits-platform-maintenance:2026.822.171807`
+  in the registry. cli-bootstrap has no release pipeline (0 runs, expected).
+  Other releases made today before the fix (qits-workspaces 2026.822.164640)
+  still lack their version image — replay the same way if wanted.
+- 2026-08-22 evening — service 2026.822.175051 (deployed 63858ca): built-ins
+  resolved, `kind: UNRESOLVED`/`REACTOR`, own parent dropped, resolver never
+  throws, restart recovery. Scan ALL: 49 repos in 9s, 294 pins behind
+  (e.g. @angular/core 21→22.1.3 in all 15 SPAs — node-blocks-angular-22, so
+  group them in `maintenance.yml` before bumping). **First real bump PROVEN**:
+  qits-ci/dependencies → CI run ee853347 SUCCESS, branch
+  `maintenance/dependencies` (quinoa 2.9.0, quarkus-bom 3.38.3, lombok
+  1.18.46), 4m40s end to end. `bump.auto` is OFF for now (extras
+  `QITS_MAINTENANCE_BUMP_AUTO=false` in qits-configuration + live env) — ~45
+  bumps at once would saturate the single CI slot; flip it on deliberately.
+  Open: SPA shows a SUCCEEDED bump's message in the error tone (cosmetic);
+  the 71 hop files stay until the first green scheduled bump.
