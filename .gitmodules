@@ -112,14 +112,14 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-events"]
-	path = services/qits-events
+[submodule "qits-platform-events"]
+	path = services/qits-platform-events
 	url = ../qits-events.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-events"]
-	path = frontends/qits-spa-events
+[submodule "qits-platform-spa-events"]
+	path = frontends/qits-platform-spa-events
 	url = ../qits-spa-events.git
 	ignore = all
 	update = merge
@@ -148,8 +148,8 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-deployments"]
-	path = services/qits-deployments
+[submodule "qits-platform-deployments"]
+	path = services/qits-platform-deployments
 	url = ../qits-deployments.git
 	ignore = all
 	update = merge
@@ -166,8 +166,8 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-deployments"]
-	path = frontends/qits-spa-deployments
+[submodule "qits-platform-spa-deployments"]
+	path = frontends/qits-platform-spa-deployments
 	url = ../qits-spa-deployments.git
 	ignore = all
 	update = merge
