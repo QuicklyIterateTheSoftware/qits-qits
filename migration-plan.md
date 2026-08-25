@@ -728,10 +728,10 @@ cut sites (§6), and items 11–13 of §9 are theirs to absorb or hand on.
 1. ~~**Observability naming**~~ — **settled.** Both, not one: `qits-observability` the
    submodule, `qits-telemetry` the maven module and package inside it (§3.6). The gateway
    constant is now `OBSERVABILITY`; `qits-otel` is retired.
-2. **`services/qits-repositories` removal** — **half done.** The `REPOSITORIES` constant is
-   gone from `QitsService`. Still to do: drop the entry from `.gitmodules` and `git rm` the
-   gitlink. The name collides with `domain.repository`; the git host it was meant to hold
-   went to `qits-artifacts` (§3.4).
+2. ~~**`services/qits-repositories` removal**~~ — **done.** The `REPOSITORIES` constant is
+   gone from `QitsService`, and the submodule is deinited and removed from `.gitmodules`
+   and the tree (2026-08-25). The name collides with `domain.repository`; the git host it
+   was meant to hold went to `qits-artifacts` (§3.4).
 3. ~~**Daemon execution-seam flip**~~ — **settled, but not by flipping.** The seam did not
    move onto the control socket; it **dissolved**. Both surfaces went into the container, so
    there is no host `docker exec` client left to flip: `CommandRegistry.java:100,150` became a

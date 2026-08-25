@@ -388,7 +388,7 @@ does not have: **there is no `createdAt` and no `updatedAt` on the live workspac
 
 - **The service split already happened.** On the new platform, branches, commits, sync, submodules and
   the repository entity live in **qits-projects**; workspaces live in **qits-workspaces**.
-  `services/qits-repositories/` is an empty stub containing only a one-line README. The branch-tree
+  The `qits-repositories` submodule was an empty stub and has been removed. The branch-tree
   data and the workspace data are now two services, joined by a repository id held as a plain string
   with no foreign key and a deliberate rule against ever making it one. Anything that redraws the old
   tree is a cross-service join in the browser.
