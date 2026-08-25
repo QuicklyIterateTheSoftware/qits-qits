@@ -1136,7 +1136,8 @@ db-patience wave-2 remnant at the same time:
 - Residue: qits-artifacts `docs/openapi.yml` regenerates on verify and
   carries pre-existing version drift (uncommitted, untouched).
 - Fleet calver audit (42 submodules): everything has a cycle EXCEPT
-  qits-spa-docs (no recipes, 0.0.0), qits-repositories (empty stub),
+  qits-spa-docs (no recipes, 0.0.0), qits-repositories (empty stub, submodule
+  removed 2026-08-25),
   cli-bootstrap (deliberately off-train), and two wired-but-never-released
   SPAs (spa-githost, platform-spa-mirror). qits-ci-daemon has a cycle but
   its 2026.803.184200 tag was never synced home.
@@ -1192,7 +1193,6 @@ db-patience wave-2 remnant at the same time:
   product decision (projects SPA renders `<origin>/git/...`); anonymous push
   via the env vhost stays ref-gated only by the push-option token until then.
 - **qits-spa-docs has no CI recipes** (version 0.0.0, off every train).
-- **qits-repositories** is an empty stub — remove it.
 - **Drop projects' archunit workaround** (`epics/src/test/resources/
   archunit.properties`) — the `allowEmptyShould` fix is released and pinned.
 - **Release pipelines push `:$QITS_CI_SHA`, not `:$version`.** Fixed in the ten

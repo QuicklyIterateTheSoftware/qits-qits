@@ -52,12 +52,6 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-repositories"]
-	path = services/qits-repositories
-	url = ../qits-repositories.git
-	ignore = all
-	branch = main
-	update = merge
 [submodule "qits-projects"]
 	path = services/qits-projects
 	url = ../qits-projects.git
