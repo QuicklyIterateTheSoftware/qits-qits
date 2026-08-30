@@ -158,13 +158,21 @@ if [ -z "$ROOT" ]; then
 fi
 
 # --- warm: compile the CLI and let its host half take over ---------------------------------------
-# BOTH LAYOUTS, whichever this checkout is on: cli/ is the archetype layout's place for the
-# bootstrap CLI, components/qits-bootstrap/ is the component layout's. The one that holds a checkout
-# wins, so this script works either side of the wrapper's reorganisation. HostLauncher.CLI_PATHS is
-# the same pair on the Java side.
-CLI="$ROOT/cli/qits-cli-bootstrap"
-CLI_ALT="$ROOT/components/qits-bootstrap/qits-cli-bootstrap"
-[ -f "$CLI/pom.xml" ] || [ ! -f "$CLI_ALT/pom.xml" ] || CLI="$CLI_ALT"
+# EVERY LAYOUT AND NAME THIS CLI HAS HAD, NEWEST FIRST: components/qits-bootstrap/qits-bootstrap-cli
+# is the component layout with the repository renamed, components/qits-bootstrap/qits-cli-bootstrap
+# is the component layout before it, cli/ is the archetype layout. The first that holds a checkout
+# wins, so this script works on either side of the reorganisation and of the rename — and newest
+# first is what makes a half-pulled wrapper compile what it just moved to rather than the stale copy
+# beside it. HostLauncher.CLI_PATHS is the same list on the Java side.
+CLI_PATHS="components/qits-bootstrap/qits-bootstrap-cli
+components/qits-bootstrap/qits-cli-bootstrap
+cli/qits-cli-bootstrap"
+CLI="$ROOT/components/qits-bootstrap/qits-bootstrap-cli"
+for cli_path in $CLI_PATHS; do
+  [ -f "$ROOT/$cli_path/pom.xml" ] || continue
+  CLI="$ROOT/$cli_path"
+  break
+done
 
 # The version in the runner's name is release-stamped, so the name is not fixed. Take the newest.
 resolve_runner() {
@@ -175,8 +183,8 @@ resolve_runner
 # The payload image is built from this checkout, so it is not optional here — without it the CLI
 # has nothing to build itself from.
 [ -f "$CLI/pom.xml" ] || {
-  echo "the bootstrap CLI is not checked out — looked in cli/qits-cli-bootstrap and" \
-       "components/qits-bootstrap/qits-cli-bootstrap. Run: git submodule update --init" >&2
+  echo "the bootstrap CLI is not checked out — looked in" $CLI_PATHS "." \
+       "Run: git submodule update --init" >&2
   exit 2
 }
 
