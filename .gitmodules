@@ -16,21 +16,21 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-userflows"]
-	path = components/qits-userflows/qits-userflows
-	url = ../qits-userflows.git
+[submodule "qits-userflows-javalib"]
+	path = components/qits-userflows/qits-userflows-javalib
+	url = ../qits-userflows-javalib.git
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-integrations-angular"]
-	path = components/qits-integrations/qits-integrations-angular
-	url = ../qits-integrations-angular.git
+[submodule "qits-integrations-angular-jslib"]
+	path = components/qits-integrations/qits-integrations-angular-jslib
+	url = ../qits-integrations-angular-jslib.git
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-integrations-quarkus"]
-	path = components/qits-integrations/qits-integrations-quarkus
-	url = ../qits-integrations-quarkus.git
+[submodule "qits-integrations-quarkus-javalib"]
+	path = components/qits-integrations/qits-integrations-quarkus-javalib
+	url = ../qits-integrations-quarkus-javalib.git
 	ignore = all
 	branch = main
 	update = merge
@@ -64,9 +64,9 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-spa-ui-components"]
-	path = components/qits-ui-components/qits-spa-ui-components
-	url = ../qits-spa-ui-components.git
+[submodule "qits-ui-components-jslib"]
+	path = components/qits-ui-components/qits-ui-components-jslib
+	url = ../qits-ui-components-jslib.git
 	ignore = all
 	branch = main
 	update = merge
@@ -190,15 +190,15 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-blobstore"]
-	path = components/qits-registries/qits-blobstore
-	url = ../qits-blobstore.git
+[submodule "qits-blobstore-javalib"]
+	path = components/qits-registries/qits-blobstore-javalib
+	url = ../qits-blobstore-javalib.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-registries"]
-	path = components/qits-registries/qits-registries
-	url = ../qits-registries.git
+[submodule "qits-registries-javalib"]
+	path = components/qits-registries/qits-registries-javalib
+	url = ../qits-registries-javalib.git
 	ignore = all
 	update = merge
 	branch = main
