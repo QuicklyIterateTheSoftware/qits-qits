@@ -130,15 +130,15 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-oci"]
-	path = components/qits-build-images/qits-oci
-	url = ../qits-oci.git
+[submodule "qits-build-images-oci"]
+	path = components/qits-build-images/qits-build-images-oci
+	url = ../qits-build-images-oci.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-cli-bootstrap"]
-	path = components/qits-bootstrap/qits-cli-bootstrap
-	url = ../qits-cli-bootstrap.git
+[submodule "qits-bootstrap-cli"]
+	path = components/qits-bootstrap/qits-bootstrap-cli
+	url = ../qits-bootstrap-cli.git
 	ignore = all
 	update = merge
 	branch = main
@@ -172,15 +172,15 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-oci-workspace"]
-	path = components/qits-workspaces/qits-oci-workspace
-	url = ../qits-oci-workspace.git
+[submodule "qits-workspace-oci"]
+	path = components/qits-workspaces/qits-workspace-oci
+	url = ../qits-workspace-oci.git
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-oci-postgresql"]
-	path = components/qits-database/qits-oci-postgresql
-	url = ../qits-oci-postgresql.git
+[submodule "qits-database-oci"]
+	path = components/qits-database/qits-database-oci
+	url = ../qits-database-oci.git
 	ignore = all
 	update = merge
 	branch = main
