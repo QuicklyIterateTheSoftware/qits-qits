@@ -158,7 +158,13 @@ if [ -z "$ROOT" ]; then
 fi
 
 # --- warm: compile the CLI and let its host half take over ---------------------------------------
+# BOTH LAYOUTS, whichever this checkout is on: cli/ is the archetype layout's place for the
+# bootstrap CLI, components/qits-bootstrap/ is the component layout's. The one that holds a checkout
+# wins, so this script works either side of the wrapper's reorganisation. HostLauncher.CLI_PATHS is
+# the same pair on the Java side.
 CLI="$ROOT/cli/qits-cli-bootstrap"
+CLI_ALT="$ROOT/components/qits-bootstrap/qits-cli-bootstrap"
+[ -f "$CLI/pom.xml" ] || [ ! -f "$CLI_ALT/pom.xml" ] || CLI="$CLI_ALT"
 
 # The version in the runner's name is release-stamped, so the name is not fixed. Take the newest.
 resolve_runner() {
@@ -169,7 +175,8 @@ resolve_runner
 # The payload image is built from this checkout, so it is not optional here — without it the CLI
 # has nothing to build itself from.
 [ -f "$CLI/pom.xml" ] || {
-  echo "cli/qits-cli-bootstrap is not checked out — run: git submodule update --init" >&2
+  echo "the bootstrap CLI is not checked out — looked in cli/qits-cli-bootstrap and" \
+       "components/qits-bootstrap/qits-cli-bootstrap. Run: git submodule update --init" >&2
   exit 2
 }
 

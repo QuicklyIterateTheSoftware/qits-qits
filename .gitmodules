@@ -1,287 +1,287 @@
 [submodule "qits-artifacts"]
-	path = services/qits-artifacts
+	path = components/qits-artifacts/qits-artifacts
 	url = ../qits-artifacts.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-observability"]
-	path = services/qits-observability
+	path = components/qits-observability/qits-observability
 	url = ../qits-observability.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-workspace-daemon"]
-	path = daemons/qits-workspace-daemon
+	path = components/qits-workspaces/qits-workspace-daemon
 	url = ../qits-workspace-daemon.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-userflows"]
-	path = libs/qits-userflows
+	path = components/qits-userflows/qits-userflows
 	url = ../qits-userflows.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-integrations-angular"]
-	path = libs/qits-integrations-angular
+	path = components/qits-integrations/qits-integrations-angular
 	url = ../qits-integrations-angular.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-integrations-quarkus"]
-	path = libs/qits-integrations-quarkus
+	path = components/qits-integrations/qits-integrations-quarkus
 	url = ../qits-integrations-quarkus.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-workspaces"]
-	path = services/qits-workspaces
+	path = components/qits-workspaces/qits-workspaces
 	url = ../qits-workspaces.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-stt"]
-	path = services/qits-stt
+	path = components/qits-stt/qits-stt
 	url = ../qits-stt.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-ci"]
-	path = services/qits-ci
+	path = components/qits-ci/qits-ci
 	url = ../qits-ci.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-projects"]
-	path = services/qits-projects
+	path = components/qits-projects/qits-projects
 	url = ../qits-projects.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-spa-home"]
-	path = frontends/qits-spa-home
+	path = components/qits-home/qits-spa-home
 	url = ../qits-spa-home.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-spa-ui-components"]
-	path = libs/qits-spa-ui-components
+	path = components/qits-ui-components/qits-spa-ui-components
 	url = ../qits-spa-ui-components.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-ci-daemon"]
-	path = daemons/qits-ci-daemon
+	path = components/qits-ci/qits-ci-daemon
 	url = ../qits-ci-daemon.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-workspaces"]
-	path = frontends/qits-spa-workspaces
+	path = components/qits-workspaces/qits-spa-workspaces
 	url = ../qits-spa-workspaces.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-ci"]
-	path = frontends/qits-spa-ci
+	path = components/qits-ci/qits-spa-ci
 	url = ../qits-spa-ci.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-observability"]
-	path = frontends/qits-spa-observability
+	path = components/qits-observability/qits-spa-observability
 	url = ../qits-spa-observability.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-artifacts"]
-	path = frontends/qits-spa-artifacts
+	path = components/qits-artifacts/qits-spa-artifacts
 	url = ../qits-spa-artifacts.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-projects"]
-	path = frontends/qits-spa-projects
+	path = components/qits-projects/qits-spa-projects
 	url = ../qits-spa-projects.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-events"]
-	path = services/qits-platform-events
-	url = ../qits-events.git
+	path = components/qits-events/qits-platform-events
+	url = ../qits-platform-events.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-events"]
-	path = frontends/qits-platform-spa-events
-	url = ../qits-spa-events.git
+	path = components/qits-events/qits-platform-spa-events
+	url = ../qits-platform-spa-events.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-eventstream"]
-	path = libs/qits-eventstream
+	path = components/qits-eventstream/qits-eventstream
 	url = ../qits-eventstream.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-idp"]
-	path = services/qits-platform-idp
+	path = components/qits-idp/qits-platform-idp
 	url = ../qits-platform-idp.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-oci"]
-	path = images/qits-oci
+	path = components/qits-build-images/qits-oci
 	url = ../qits-oci.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-cli-bootstrap"]
-	path = cli/qits-cli-bootstrap
+	path = components/qits-bootstrap/qits-cli-bootstrap
 	url = ../qits-cli-bootstrap.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-deployments"]
-	path = services/qits-platform-deployments
-	url = ../qits-deployments.git
+	path = components/qits-deployments/qits-platform-deployments
+	url = ../qits-platform-deployments.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-docs"]
-	path = services/qits-docs
+	path = components/qits-docs/qits-docs
 	url = ../qits-docs.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-docs"]
-	path = frontends/qits-spa-docs
+	path = components/qits-docs/qits-spa-docs
 	url = ../qits-spa-docs.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-deployments"]
-	path = frontends/qits-platform-spa-deployments
-	url = ../qits-spa-deployments.git
+	path = components/qits-deployments/qits-platform-spa-deployments
+	url = ../qits-platform-spa-deployments.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-edge"]
-	path = services/qits-platform-edge
+	path = components/qits-edge/qits-platform-edge
 	url = ../qits-platform-edge.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-oci-workspace"]
-	path = images/qits-oci-workspace
+	path = components/qits-workspaces/qits-oci-workspace
 	url = ../qits-oci-workspace.git
 	ignore = all
 	branch = main
 	update = merge
 [submodule "qits-oci-postgresql"]
-	path = images/qits-oci-postgresql
+	path = components/qits-database/qits-oci-postgresql
 	url = ../qits-oci-postgresql.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-projects-daemon"]
-	path = daemons/qits-projects-daemon
+	path = components/qits-projects/qits-projects-daemon
 	url = ../qits-projects-daemon.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-blobstore"]
-	path = libs/qits-blobstore
+	path = components/qits-registries/qits-blobstore
 	url = ../qits-blobstore.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-registries"]
-	path = libs/qits-registries
+	path = components/qits-registries/qits-registries
 	url = ../qits-registries.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-mirror"]
-	path = services/qits-platform-mirror
+	path = components/qits-mirror/qits-platform-mirror
 	url = ../qits-platform-mirror.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-githost"]
-	path = services/qits-githost
+	path = components/qits-githost/qits-githost
 	url = ../qits-githost.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-githost"]
-	path = frontends/qits-spa-githost
+	path = components/qits-githost/qits-spa-githost
 	url = ../qits-spa-githost.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-mirror"]
-	path = frontends/qits-platform-spa-mirror
+	path = components/qits-mirror/qits-platform-spa-mirror
 	url = ../qits-platform-spa-mirror.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-containers"]
-	path = services/qits-containers
+	path = components/qits-containers/qits-containers
 	url = ../qits-containers.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-idp"]
-	path = frontends/qits-platform-spa-idp
+	path = components/qits-idp/qits-platform-spa-idp
 	url = ../qits-platform-spa-idp.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-configuration"]
-	path = services/qits-configuration
+	path = components/qits-configuration/qits-configuration
 	url = ../qits-configuration.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-spa-configuration"]
-	path = frontends/qits-spa-configuration
+	path = components/qits-configuration/qits-spa-configuration
 	url = ../qits-spa-configuration.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-orchestrator"]
-	path = services/qits-platform-orchestrator
+	path = components/qits-orchestrator/qits-platform-orchestrator
 	url = ../qits-platform-orchestrator.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-orchestrator"]
-	path = frontends/qits-platform-spa-orchestrator
+	path = components/qits-orchestrator/qits-platform-spa-orchestrator
 	url = ../qits-platform-spa-orchestrator.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-maintenance"]
-	path = services/qits-platform-maintenance
+	path = components/qits-maintenance/qits-platform-maintenance
 	url = ../qits-platform-maintenance.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-maintenance"]
-	path = frontends/qits-platform-spa-maintenance
+	path = components/qits-maintenance/qits-platform-spa-maintenance
 	url = ../qits-platform-spa-maintenance.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-system"]
-	path = services/qits-platform-system
+	path = components/qits-system/qits-platform-system
 	url = ../qits-platform-system.git
 	ignore = all
 	update = merge
 	branch = main
 [submodule "qits-platform-spa-system"]
-	path = frontends/qits-platform-spa-system
+	path = components/qits-system/qits-platform-spa-system
 	url = ../qits-platform-spa-system.git
 	ignore = all
 	update = merge
