@@ -1,12 +1,12 @@
-[submodule "qits-artifacts"]
-	path = components/qits-artifacts/qits-artifacts
-	url = ../qits-artifacts.git
+[submodule "qits-artifacts-service"]
+	path = components/qits-artifacts/qits-artifacts-service
+	url = ../qits-artifacts-service.git
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-observability"]
-	path = components/qits-observability/qits-observability
-	url = ../qits-observability.git
+[submodule "qits-observability-service"]
+	path = components/qits-observability/qits-observability-service
+	url = ../qits-observability-service.git
 	ignore = all
 	branch = main
 	update = merge
@@ -34,27 +34,27 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-workspaces"]
-	path = components/qits-workspaces/qits-workspaces
-	url = ../qits-workspaces.git
+[submodule "qits-workspaces-service"]
+	path = components/qits-workspaces/qits-workspaces-service
+	url = ../qits-workspaces-service.git
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-stt"]
-	path = components/qits-stt/qits-stt
-	url = ../qits-stt.git
+[submodule "qits-stt-service"]
+	path = components/qits-stt/qits-stt-service
+	url = ../qits-stt-service.git
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-ci"]
-	path = components/qits-ci/qits-ci
-	url = ../qits-ci.git
+[submodule "qits-ci-service"]
+	path = components/qits-ci/qits-ci-service
+	url = ../qits-ci-service.git
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-projects"]
-	path = components/qits-projects/qits-projects
-	url = ../qits-projects.git
+[submodule "qits-projects-service"]
+	path = components/qits-projects/qits-projects-service
+	url = ../qits-projects-service.git
 	ignore = all
 	branch = main
 	update = merge
@@ -76,45 +76,45 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-workspaces"]
-	path = components/qits-workspaces/qits-spa-workspaces
-	url = ../qits-spa-workspaces.git
+[submodule "qits-workspaces-frontend"]
+	path = components/qits-workspaces/qits-workspaces-frontend
+	url = ../qits-workspaces-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-ci"]
-	path = components/qits-ci/qits-spa-ci
-	url = ../qits-spa-ci.git
+[submodule "qits-ci-frontend"]
+	path = components/qits-ci/qits-ci-frontend
+	url = ../qits-ci-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-observability"]
-	path = components/qits-observability/qits-spa-observability
-	url = ../qits-spa-observability.git
+[submodule "qits-observability-frontend"]
+	path = components/qits-observability/qits-observability-frontend
+	url = ../qits-observability-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-artifacts"]
-	path = components/qits-artifacts/qits-spa-artifacts
-	url = ../qits-spa-artifacts.git
+[submodule "qits-artifacts-frontend"]
+	path = components/qits-artifacts/qits-artifacts-frontend
+	url = ../qits-artifacts-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-projects"]
-	path = components/qits-projects/qits-spa-projects
-	url = ../qits-spa-projects.git
+[submodule "qits-projects-frontend"]
+	path = components/qits-projects/qits-projects-frontend
+	url = ../qits-projects-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-events"]
-	path = components/qits-events/qits-platform-events
-	url = ../qits-platform-events.git
+[submodule "qits-events-platform-service"]
+	path = components/qits-events/qits-events-platform-service
+	url = ../qits-events-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-events"]
-	path = components/qits-events/qits-platform-spa-events
-	url = ../qits-platform-spa-events.git
+[submodule "qits-events-platform-frontend"]
+	path = components/qits-events/qits-events-platform-frontend
+	url = ../qits-events-platform-frontend.git
 	ignore = all
 	update = merge
 	branch = main
@@ -124,9 +124,9 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-idp"]
-	path = components/qits-idp/qits-platform-idp
-	url = ../qits-platform-idp.git
+[submodule "qits-idp-platform-service"]
+	path = components/qits-idp/qits-idp-platform-service
+	url = ../qits-idp-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
@@ -142,33 +142,33 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-deployments"]
-	path = components/qits-deployments/qits-platform-deployments
-	url = ../qits-platform-deployments.git
+[submodule "qits-deployments-platform-service"]
+	path = components/qits-deployments/qits-deployments-platform-service
+	url = ../qits-deployments-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-docs"]
-	path = components/qits-docs/qits-docs
-	url = ../qits-docs.git
+[submodule "qits-docs-service"]
+	path = components/qits-docs/qits-docs-service
+	url = ../qits-docs-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-docs"]
-	path = components/qits-docs/qits-spa-docs
-	url = ../qits-spa-docs.git
+[submodule "qits-docs-frontend"]
+	path = components/qits-docs/qits-docs-frontend
+	url = ../qits-docs-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-deployments"]
-	path = components/qits-deployments/qits-platform-spa-deployments
-	url = ../qits-platform-spa-deployments.git
+[submodule "qits-deployments-platform-frontend"]
+	path = components/qits-deployments/qits-deployments-platform-frontend
+	url = ../qits-deployments-platform-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-edge"]
-	path = components/qits-edge/qits-platform-edge
-	url = ../qits-platform-edge.git
+[submodule "qits-edge-platform-service"]
+	path = components/qits-edge/qits-edge-platform-service
+	url = ../qits-edge-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
@@ -202,87 +202,87 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-mirror"]
-	path = components/qits-mirror/qits-platform-mirror
-	url = ../qits-platform-mirror.git
+[submodule "qits-mirror-platform-service"]
+	path = components/qits-mirror/qits-mirror-platform-service
+	url = ../qits-mirror-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-githost"]
-	path = components/qits-githost/qits-githost
-	url = ../qits-githost.git
+[submodule "qits-githost-service"]
+	path = components/qits-githost/qits-githost-service
+	url = ../qits-githost-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-githost"]
-	path = components/qits-githost/qits-spa-githost
-	url = ../qits-spa-githost.git
+[submodule "qits-githost-frontend"]
+	path = components/qits-githost/qits-githost-frontend
+	url = ../qits-githost-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-mirror"]
-	path = components/qits-mirror/qits-platform-spa-mirror
-	url = ../qits-platform-spa-mirror.git
+[submodule "qits-mirror-platform-frontend"]
+	path = components/qits-mirror/qits-mirror-platform-frontend
+	url = ../qits-mirror-platform-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-containers"]
-	path = components/qits-containers/qits-containers
-	url = ../qits-containers.git
+[submodule "qits-containers-service"]
+	path = components/qits-containers/qits-containers-service
+	url = ../qits-containers-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-idp"]
-	path = components/qits-idp/qits-platform-spa-idp
-	url = ../qits-platform-spa-idp.git
+[submodule "qits-idp-platform-frontend"]
+	path = components/qits-idp/qits-idp-platform-frontend
+	url = ../qits-idp-platform-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-configuration"]
-	path = components/qits-configuration/qits-configuration
-	url = ../qits-configuration.git
+[submodule "qits-configuration-service"]
+	path = components/qits-configuration/qits-configuration-service
+	url = ../qits-configuration-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-spa-configuration"]
-	path = components/qits-configuration/qits-spa-configuration
-	url = ../qits-spa-configuration.git
+[submodule "qits-configuration-frontend"]
+	path = components/qits-configuration/qits-configuration-frontend
+	url = ../qits-configuration-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-orchestrator"]
-	path = components/qits-orchestrator/qits-platform-orchestrator
-	url = ../qits-platform-orchestrator.git
+[submodule "qits-orchestrator-platform-service"]
+	path = components/qits-orchestrator/qits-orchestrator-platform-service
+	url = ../qits-orchestrator-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-orchestrator"]
-	path = components/qits-orchestrator/qits-platform-spa-orchestrator
-	url = ../qits-platform-spa-orchestrator.git
+[submodule "qits-orchestrator-platform-frontend"]
+	path = components/qits-orchestrator/qits-orchestrator-platform-frontend
+	url = ../qits-orchestrator-platform-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-maintenance"]
-	path = components/qits-maintenance/qits-platform-maintenance
-	url = ../qits-platform-maintenance.git
+[submodule "qits-maintenance-platform-service"]
+	path = components/qits-maintenance/qits-maintenance-platform-service
+	url = ../qits-maintenance-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-maintenance"]
-	path = components/qits-maintenance/qits-platform-spa-maintenance
-	url = ../qits-platform-spa-maintenance.git
+[submodule "qits-maintenance-platform-frontend"]
+	path = components/qits-maintenance/qits-maintenance-platform-frontend
+	url = ../qits-maintenance-platform-frontend.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-system"]
-	path = components/qits-system/qits-platform-system
-	url = ../qits-platform-system.git
+[submodule "qits-system-platform-service"]
+	path = components/qits-system/qits-system-platform-service
+	url = ../qits-system-platform-service.git
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-platform-spa-system"]
-	path = components/qits-system/qits-platform-spa-system
-	url = ../qits-platform-spa-system.git
+[submodule "qits-system-platform-frontend"]
+	path = components/qits-system/qits-system-platform-frontend
+	url = ../qits-system-platform-frontend.git
 	ignore = all
 	update = merge
 	branch = main
