@@ -4,28 +4,31 @@ Home repository aggregating the application's submodules.
 
 ## Layout
 
-Submodules are grouped by the role a module plays, not by its technology:
+Submodules are grouped by the component they belong to, not by the role they
+play:
 
-    services/      deployable backend services
-    daemons/       long-running background agents
-    libs/          shared code consumed by other modules
-    frontends/     anything served to a user at a URL
-    cli/           command-line tools
-    images/        build definitions for published platform OCI images
+    components/<component>/<repository>
 
-These six directories are the whole set. Framework-specific glue —
-`qits-integrations-angular`, `qits-integrations-quarkus` — is shared code, so it
-lives in `libs/` like any other lib.
+One directory per technical component, and every submodule lives in one. A
+component is any cohesive unit of the product — it does not need a deployable.
+`components/qits-ci/` holds the service, its frontend and its daemon side by
+side; `components/qits-registries/` holds two libraries and no service at all.
 
-Role-named directories outlive the tech inside them: an entry that stops being
-a SPA and becomes server-rendered still belongs in `frontends/`, so nothing has
-to move. The repository name stays free to be specific about shape where that
-helps — `frontends/qits-spa-home` is a fine pairing, and so would be
-`frontends/qits-ssr-docs` beside it.
+This replaces the old role directories (`services/`, `daemons/`, `libs/`,
+`frontends/`, `cli/`, `images/`). Role was the wrong axis: it scattered the
+three or four repositories you change together across four groups, and it made
+the archetype — a property of a single repository — decide the whole tree. The
+component is what you work on; the role is a detail of one entry inside it.
 
-`frontends/` holds one entry per thing served at a URL. Shared frontend code —
-component libraries and the like — is a lib, which is what keeps the category
-from collecting anything merely written in JavaScript.
+The component directory name says what the thing is, never how it is built:
+`qits-database`, not `qits-postgresql`. The implementation may change, the
+component does not.
+
+Repository names inside a component are today's names, unchanged. The rename to
+the `<component>[-<modifier>]-<role>[-<tech>]` grammar is phase 2 — see
+`wrapper-reorganization-plan.md` for the grammar and the map of which repository
+belongs to which component. Until then a directory can hold names of the old
+shape (`components/qits-ci/qits-spa-ci`), and that is expected.
 
 ## Submodules
 
@@ -72,25 +75,30 @@ commit` entry, or `git submodule status`.
 
 ### Adding a submodule
 
-    git submodule add --name <name> ../<name>.git <dir>/<name>
+    git submodule add --name <name> ../<name>.git components/<component>/<name>
     git config -f .gitmodules submodule.<name>.ignore all
     git config -f .gitmodules submodule.<name>.update merge
-    git submodule set-branch --branch main <dir>/<name>
-    git add .gitmodules <dir>/<name> && git commit
+    git submodule set-branch --branch main components/<component>/<name>
+    git add .gitmodules components/<component>/<name> && git commit
 
-`--name` is not optional. Modern git (seen on 2.53) defaults the submodule
-*name* to the full path, so adding at `frontends/qits-spa-home` names the entry
-`frontends/qits-spa-home`, while every entry here uses the bare repository
-name. The mismatch is quiet and costly: the `git config` lines above then write
-a *second*, orphan `[submodule "<name>"]` section holding `ignore`/`update`
-while the real entry goes without them, and the checkout lands in
+`--name` is not optional, and the component layout makes it more load-bearing,
+not less. Modern git (seen on 2.53) defaults the submodule *name* to the full
+path, so adding at `components/qits-ci/qits-spa-ci` names the entry
+`components/qits-ci/qits-spa-ci` — a three-segment name — while every entry here
+uses the bare repository name, which is also the key the platform catalog adopts
+by. The mismatch is quiet and costly: the `git config` lines above then write a
+*second*, orphan `[submodule "<name>"]` section holding `ignore`/`update` while
+the real entry goes without them, and the checkout lands in
 `.git/modules/<path>` rather than `.git/modules/<name>`. Pass `--name` and the
 whole problem disappears.
 
 Backing that out takes `git submodule deinit -f <path>`, `git rm -f <path>`,
-and `rm -rf .git/modules/<dir>`. Note `git rm` refuses while `.gitmodules` has
-unstaged edits (`fatal: please stage your changes to .gitmodules`), so restore
-that file first.
+and `rm -rf .git/modules/<name>` — the bare name, not the path: with `--name`
+passed the checkout never sat under a nested directory, so nothing deeper than
+`.git/modules/<name>` needs removing (without it, look for the three-segment
+`.git/modules/components/<component>/<name>` instead). Note `git rm` refuses
+while `.gitmodules` has unstaged edits (`fatal: please stage your changes to
+.gitmodules`), so restore that file first.
 
 Do not gitignore or `git rm --cached` the gitlink — that breaks `update --init`.
 

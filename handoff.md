@@ -24,6 +24,62 @@ per-consumer container OOM scores shipped.** All via normal releases (no reboot)
   release), retrigger-deploy.sh / retrigger-config.sh (re-fire environment/dev),
   recut-daemon.sh (empty-commit re-cut when a release tag was lost).
 
+## In flight right now (2026-08-30, wrapper reorganization)
+
+**Design settled, implementation started.** The whole design — component layout, name
+grammar, the full repo map, phases, rename runbook — is `wrapper-reorganization-plan.md`
+in this root. The empty `wrapper-reorganization` workspace branch waits on the platform.
+
+**Phase 1 wave 1 DONE, releases rolling (2026-08-30).** Four workstreams landed, all
+green, details + follow-ups banked in the plan doc: qits-projects `component` fact
+(9fec91cb), ui-components component grouping + open-set addresses (984eb33),
+qits-cli-bootstrap dual-layout (c581efa — .gitmodules is the path authority; found the
+four stale platform-events/deployments urls that silently built from GitHub), and the
+estate path audit. Released so far: qits-spa-ui-components 2026.830.81942 (green),
+qits-projects 2026.830.82133 (cut, build in flight at last handoff edit).
+
+**All seven SPAs adapted and committed** (2026-08-30): projects a8579ae, ci 392d6ce,
+artifacts c4090b0, workspaces c6d2f2c, githost b08617c, docs 313d94e, configuration
+ea31cf2. Fleet guard design: `isRepositoryAddress` keyed on OWN_SEGMENTS derived from
+each app's route table (open middle segment allowed; `/qits/nonsense/<repo>` now
+resolves project-scoped by design). qits-cli-bootstrap released 2026.830.83039
+(stamp-only, repo has no pipelines — a runs.sh watcher on it waits forever).
+
+**SPA release train in progress, STRICTLY one at a time** (each SPA release triggers its
+service's maintenance train = two native builds): qits-spa-projects 2026.830.91507
+released, service train building at last edit. Queue: ci → artifacts → workspaces →
+githost → docs → configuration. AFTER EACH TRAIN: check the service's GitHub backup —
+the force-pushed maintenance/<spa> branch breaks the non-force backup
+([[train-branch-breaks-backup]]); delete GitHub's copy + re-run backup if FAILED.
+
+**Then the wrapper flip** (paths to components/, fix the four stale
+platform-events/deployments urls, sweep stale dirs services/qits-gateway +
+services/qits-repositories + integrations/ duplicate, template skeleton in
+qits-projects, CLAUDE.md doctrine, commit the qits-local-up.sh edit, push to platform
+githost + GitHub). Phase 2 (renames) starts with the projects rename endpoint + deployer
+`application:` override — do NOT rename anything before those exist.
+
+## In flight right now (2026-08-26, repository delete lifecycle)
+
+**Ruling:** the wrapper reconcile never deletes rows again; rows the wrapper stopped declaring are
+reported `UNDECLARED` and get a Delete button on the project setup page; that DELETE removes the
+projects row AND the bare on qits-githost, synchronously over REST (`DELETE /git/<id>`, projects'
+service client only). No tombstone, no retention. Two ghosts measured on wohlben.eu before the change:
+qits-gateway `8b18ec41…` (534 KB) and qits-repositories `dbd2a9a4…` (2.5 KB) — 51 bares vs 49 rows.
+
+**SHIPPED 2026-08-26 ~19:00 UTC on wohlben.eu:** qits-githost 2026.826.181237 (`8cf0f7a9`, DELETE /git/:id →
+204/404/400 behind the storage-client guard, four `git_*` row families in one tx; blobs stay orphaned —
+no refcount), qits-spa-projects 2026.826.184427 (`059e6258`, warning badge "not in wrapper" + two-press
+Delete on the card, page owns the request), qits-projects 2026.826.185052 (`25637c91` via the upstream-spa
+train; `GitHostRepositories.delete`, `deleteInternal` calls the host inside its tx, reconcile reports
+`UNDECLARED`, listing entries carry `declared`). All three mains + tags synced home to GitHub; backups
+SUCCEEDED after the train. Ghosts purged with the dev-qits-projects bearer: 49 bares = 49 rows. Live
+check: reconcile 48 KEPT, 49 rows before/after; page screenshot `project-setup-after-delete-lifecycle.png`.
+**Open:** the WRAPPER is not synced home (platform 94d7db9 ahead; local/GitHub still declare
+qits-repositories); the backup job still runs for undeclared rows; a githost blob census sweep for the
+bytes of deleted repos; the projects→githost delete hop is proven by tests + the host purge, not yet by a
+live UI delete (no undeclared row exists to press).
+
 ## In flight right now (2026-08-23)
 
 **qits-gateway retired for good (2026-08-23 evening).** Why it was still "deployed": the wrapper
