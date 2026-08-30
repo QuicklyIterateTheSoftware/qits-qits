@@ -52,6 +52,46 @@ githost → docs → configuration. AFTER EACH TRAIN: check the service's GitHub
 the force-pushed maintenance/<spa> branch breaks the non-force backup
 ([[train-branch-breaks-backup]]); delete GitHub's copy + re-run backup if FAILED.
 
+**Phase 2 STARTED and PROVEN (2026-08-30 afternoon).** Both prerequisites LIVE: deployer
+`application:` override (2026.830.122232) and the projects rename endpoint
+(2026.830.122821). First rename executed end to end: qits-eventstream →
+qits-eventstream-javalib (row PATCH → GitHub → wrapper release 2026.830.123803 →
+reconcile 47 KEPT + 1 SYNC_TARGET_UPDATED; new clone URL 200, old 404). Found+fixed
+live: the four lib release pipelines' `repoId:` matchers were dead since the identity
+cutover (UUID storage ids) — eventstream's now matches `repoName:` and fired green
+(2026.830.125350, first lib artifact since 2026-08-22). REMAINING renames follow the
+plan doc's proven runbook + ripple checklist (blobstore/integrations fix their dead
+matchers WITH their renames; consumers' upstream-eventstream files in qits-ci +
+qits-deployments still name qits-eventstream and need the new name).
+
+**PHASE 2 COMPLETE (2026-08-30 night): ALL 44 renames live.** Final wave: 15 frontends
++ 18 services in one batch (33 row PATCHes, 33 GitHub renames, wrapper release
+2026.830.163656, reconcile 15 KEPT + 33 SYNC_TARGET_UPDATED, zero strays). Every
+service pins `application:` — proven end to end by qits-docs-service releasing through
+the door under its new name and deploying as dev-qits-docs (2026.830.163740). Browser
+verified: sidebar all-new names, zero stale, Code page works on renamed repos. Also
+revived en route: qits-artifacts' release pipeline (matched the pre-split name
+qits-platform-artifacts — calver docker publishes dead since the split). Remaining
+tails: phase 3 (blobstore→registries merge), spa-home archival, docs sweep (README
+prose old names), the four chrome-automation-less SPAs, daemons' own repoId matchers,
+next-bootstrap proof of the CLI's REPOSITORIES table.
+
+Earlier progress record:
+**Phase 2 progress (2026-08-30 late): 11 renames live.** Libs (7) + images/CLI (4:
+qits-build-images-oci, qits-database-oci with `application: qits-oci-postgresql`
+protecting the platform DB, qits-workspace-oci, qits-bootstrap-cli). Wrapper
+2026.830.161742, reconcile 44 KEPT + 4 SYNC_TARGET_UPDATED. The bootstrap CLI now
+splits application-vs-repository names (REPOSITORIES table holds all renames). Code
+spinner regression FIXED live (spa-githost scopeGroup migration, 2026.830.160321,
+browser-verified). REMAINING: frontends wave (per-SPA: rename + owning service's
+.gitmodules/upstream-spa yml + application: key bundled into the same service
+release — spa-home excluded, archival), then services (BEFORE renaming
+qits-artifacts: add qits-artifacts-service to the CLI's WrapperDir.MARKER_REPOS;
+settle the qits-deployments/qits-events short-name rows; verify each release matcher
+EMPIRICALLY — the registry/run history is the oracle, pattern inference was wrong
+twice). Daemons keep their names; their own repoId release matchers worth a
+repoName pass in a cleanup batch.
+
 **Then the wrapper flip** (paths to components/, fix the four stale
 platform-events/deployments urls, sweep stale dirs services/qits-gateway +
 services/qits-repositories + integrations/ duplicate, template skeleton in

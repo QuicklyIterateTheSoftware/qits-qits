@@ -1,10 +1,13 @@
 # wrapper-reorganization: group repositories by component, not archetype
 
-Status: **PHASE 1 EXECUTED 2026-08-30** — all code workstreams released and deployed
-(projects, chrome, bootstrap CLI, all seven SPAs through their service trains; githost,
-docs and configuration JOINED the train in the process), the flip commit staged and
-released with the campaign. Phase 2 (renames) and phase 3 (merges) remain designed, not
-started. Remaining phase-1 tails are under "Open items".
+Status: **PHASES 1 AND 2 EXECUTED 2026-08-30.** The wrapper is `components/`, and ALL
+44 renames are LIVE: 7 libs, 3 images + CLI, 15 frontends, 18 services — every repo in
+the `<component>[-<modifier>]-<role>[-<tech>]` grammar. Final reconcile: 15 KEPT + 33
+SYNC_TARGET_UPDATED, zero strays. Every service pins its deployed identity with
+`application:` (hosts, databases, wire names unchanged). Outside the rename set, as
+designed: qits-qits (the wrapper), the three daemons (already conformant), qits-spa-home
+(archival pending). Phase 3 (blobstore merges into qits-registries) remains. Remaining
+tails are under "Open items".
 
 ## Goal
 
@@ -177,18 +180,28 @@ name is metadata on the projects row, name-addressed reads resolve through that 
 
 Prerequisite builds, both small:
 
-- **qits-projects: the rename endpoint.** `PATCH /projects/api/repositories/<id>` with the
-  new name (refuse a taken name), publishing `RepositoryRenamed`. The bare does not move;
-  `/git/<project>/<newName>` works the moment the row changes. CI already keys runs by
-  storage `repo_id` with `repo_name` as nullable metadata, so new pushes carry the new
-  name by themselves; a CI event consumer that sweeps old rows to the new name is a
-  nice-to-have, not a blocker. Verify: how backup-sync keys its GitHub mapping.
-- **qits-platform-deployments: an `application:` override in `deployments.yml`.** Today
-  the app name IS the repo name, and databases (`qits_` + name minus prefix), wire names,
-  per-service hosts and idp clients derive from it. With the override, the repo
-  `qits-ci-service` keeps deploying as application `qits-ci`: nothing about the running
-  platform moves, only the repo identity. This dissolves the services blast radius.
-  Verify: where the deployer picks the application name off the build event.
+- **qits-projects rename endpoint: BUILT** (fd804082 + c448f664, release pending).
+  `PATCH /projects/api/repositories/{repoId}` body `{name}` → `{repository,
+  previousName, changed}`; refuses taken/illegal names and the wrapper row; publishes
+  `RepositoryRenamed(projectId, repositoryId, oldName, newName, renamedAt)` after the
+  tx. VERIFIED: no githost call (all verbs address the UUID; names resolve via the
+  alias table — old aliases DROPPED, no redirect); backupUrl self-heals at the first
+  reconcile after the `.gitmodules` push (`SYNC_TARGET_UPDATED`); the one window is the
+  row reading UNDECLARED between the PATCH and the wrapper push (deliberate, tested).
+  Archetype re-derives from a suffixed new name, suffix-less preserves. Creation's
+  archetype is optional now (derived from the name suffix; neither → 400). The template
+  seeds `components/README.md` teaching the grammar; the six dirs are gone from the
+  skeleton while `fromDirectory` stays for legacy wrappers.
+- **qits-platform-deployments `application:` override: BUILT** (committed, release
+  pending). One optional key; absent = byte-identical to today; present = the name for
+  EVERY derivation (verified: the name resolves once in RepositoryRef.applicationName
+  and threads by value; substitution lives in one DeployService helper). Validation via
+  PdIdentifiers.requireName. Edges: duplicate application names are LAST-WINS and
+  logged (pd_service records no repository identity — refusing needs a storage-id
+  column, follow-up); an unreadable spec falls back to the repository name; changing
+  the value later = decommission + new app. ORDER: release the deployer BEFORE any
+  repo writes `application:`. qits-workspaces is untouched (it only checks the file
+  exists).
 
 The per-repo runbook — ordering is what avoids the reconcile trap (reconcile adopts by
 name, so a renamed `.gitmodules` entry would otherwise read as remove+add: new empty bare,
@@ -208,6 +221,63 @@ Order: libs first (no `deployments.yml`, smallest consumer surface — the provi
 frontends next (plus the owning service's `.gitmodules`), services last (after the
 `application:` override ships). Maven/npm coordinates are independent and stay put.
 
+**LIB WAVE COMPLETE 2026-08-30 evening: all seven libs renamed and released green
+under their new identities** (eventstream-, blobstore-, registries-,
+userflows-javalib; integrations-angular-, integrations-quarkus-,
+ui-components-jslib — the last was qits-spa-ui-components). Wrapper release
+2026.830.132744, reconcile 42 KEPT + 6 SYNC_TARGET_UPDATED. Consumer matchers across
+12 repos are COORDINATE-KEYED now (repository: conditions dropped where a packageName
+existed) and PROVEN live: the integrations-quarkus release fired upstream-auth-core
+green in ci/artifacts/deployments, and the automated service train wave followed.
+Landed on platform mains via direct config-only pushes (-o qits.no-ci), not releases.
+NOTE: "dead matcher" is per-repo EMPIRICAL, not pattern — ui-components' repoId
+matcher was alive (mixed storage-id era); verify by measurement at each rename.
+Remaining: images+cli (qits-build-images-oci, qits-database-oci, qits-workspace-oci,
+qits-bootstrap-cli), frontends (+owning-service .gitmodules + upstream-spa matchers,
+which have no coordinate and need the new names), services last (application: keys;
+also settle the short-name rows qits-deployments/qits-events + qits-artifacts'
+release matcher naming qits-platform-artifacts — verify each empirically).
+
+**SPA bump-release mechanism, learned the hard way:** SPA repos release their
+maintenance branches via the OLD prefix-gated step INSIDE `ci-post-receive.yml` —
+they need NO `ci-event-maintenance-release.yml`, and adding one double-calls the
+door (second call red on ALREADY_INTEGRATED). What the SPAs did get: readable bump
+branch names (`maintenance/ui-components` instead of `maintenance/<uuid>` — the
+event's `repository` field carries a storage id since the renames). Four SPAs have
+NO chrome automation at all (docs, githost, mirror, configuration) — a later
+fleet-completion batch.
+
+**PROVEN 2026-08-30 on qits-eventstream → qits-eventstream-javalib** (both prerequisites
+released and deployed: deployer 2026.830.122232, projects 2026.830.122821). Result:
+reconcile 47 KEPT + 1 SYNC_TARGET_UPDATED, same UUID, zero UNDECLARED, new clone
+address 200 / old 404, backupUrl healed to the renamed GitHub repo. Wrapper mechanics
+for an entry rename: `git mv` the path, rewrite the `[submodule]` section name AND the
+relative url, then per checkout type — gitfile checkouts need `.git/modules/<name>`
+moved + the gitfile and `core.worktree` repointed; embedded-`.git` checkouts
+(eventstream, platform-edge, oci-workspace) need only `remote set-url`. Wrapper release
+through the door, then POST `/repositories/reconcile`. Consumers cloning from the
+PLATFORM githost see no redirect (aliases are dropped!) — update consumer
+`.gitmodules` promptly; GitHub-side consumers ride redirects meanwhile.
+
+**The rename ripple is the `.config/qits` matchers, and the proving ground mapped them:**
+
+- `repoId: { exact: <name> }` matchers (the four lib release pipelines: eventstream,
+  blobstore, integrations-angular, integrations-quarkus) were LATENTLY DEAD since the
+  2026-08-22 identity cutover — storage ids are UUIDs, the match never fired, those
+  libs published NO release artifact since then, silently. Fix = `repoName: { exact:
+  <new name> }` (SCMPublishTag carries it). PROVEN: eventstream-javalib's release
+  pipeline fired green after the fix (2026.830.125350) — first lib artifact publish
+  since the cutover. Fix the other three WITH their renames.
+- `repository: { exact: <name> }` matchers (service release pipelines, upstream-spa
+  files, upstream-eventstream/auth-core consumers) key the PUBLIC NAME off
+  SCMRelease/SoftwareRelease — they break on rename and must be updated to the new
+  name in the same campaign: the renamed repo's own release yml, every
+  `ci-event-upstream-*` naming it (qits-ci + qits-deployments name qits-eventstream;
+  the SPA upstream files name the qits-spa-* repos), and the maintenance files'
+  `repoId: { exact: <service> }`... note those DO match today (verify against the
+  event, same UUID caveat may apply per event type). `packageName` matchers key maven
+  coordinates and are rename-proof.
+
 **Phase 3 — merges, only after the reorg.**
 
 - Fold qits-blobstore into the qits-registries repo and retire the blobstore repo. The
@@ -221,4 +291,16 @@ frontends next (plus the owning service's `.gitmodules`), services last (after t
 
 - Phase 2 verifies: backup-sync's GitHub mapping key; where the deployer reads the
   application name off the build event.
+
+## Phase 2 rulings (2026-08-30, user)
+
+- **Archetype is determined by the name.** The rename endpoint re-derives the row's
+  archetype from the new name's role suffix, so the renames ARE the archetype-change
+  mechanism; a committed `repository.yml` archetype would also be an acceptable
+  override. No separate PATCH-archetype operation.
+- The template-skeleton reshape (deferred phase-1 tail) rides the rename-endpoint
+  release in qits-projects.
+- Creation stops requiring archetype: derived from the name suffix when absent.
+- Phase 2 STARTED 2026-08-30: rename endpoint + skeleton (qits-projects) and the
+  `application:` override (qits-platform-deployments) delegated in parallel.
 - Archive qits-spa-home (independent of this plan, but ordered before it renames anything).
