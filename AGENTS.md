@@ -12,7 +12,7 @@ play:
 One directory per technical component, and every submodule lives in one. A
 component is any cohesive unit of the product — it does not need a deployable.
 `components/qits-ci/` holds the service, its frontend and its daemon side by
-side; `components/qits-registries/` holds two libraries and no service at all.
+side; `components/qits-integrations/` holds two libraries and no service at all.
 
 This replaces the old role directories (`services/`, `daemons/`, `libs/`,
 `frontends/`, `cli/`, `images/`). Role was the wrong axis: it scattered the
@@ -24,11 +24,17 @@ The component directory name says what the thing is, never how it is built:
 `qits-database`, not `qits-postgresql`. The implementation may change, the
 component does not.
 
-Repository names inside a component are today's names, unchanged. The rename to
-the `<component>[-<modifier>]-<role>[-<tech>]` grammar is phase 2 — see
-`wrapper-reorganization-plan.md` for the grammar and the map of which repository
-belongs to which component. Until then a directory can hold names of the old
-shape (`components/qits-ci/qits-spa-ci`), and that is expected.
+Repository names follow the `<component>[-<modifier>]-<role>[-<tech>]` grammar:
+`qits-ci-service`, `qits-ci-frontend`, `qits-ci-daemon`,
+`qits-idp-platform-service`, `qits-eventstream-javalib`. Roles are `service`,
+`frontend`, `daemon`, `oci`, `cli`, `javalib` and `jslib`; `platform` is a tier
+modifier before the role; a tech suffix appears only where the role alone is
+ambiguous. See `wrapper-reorganization-plan.md` for the full map of which
+repository belongs to which component.
+
+The repository name is not the application name. A service keeps its deployed
+identity — the `qits-ci` application is built from `qits-ci-service` — and so do
+maven artifactIds, npm packages, image coordinates, wire names and databases.
 
 ## Submodules
 
@@ -83,8 +89,8 @@ commit` entry, or `git submodule status`.
 
 `--name` is not optional, and the component layout makes it more load-bearing,
 not less. Modern git (seen on 2.53) defaults the submodule *name* to the full
-path, so adding at `components/qits-ci/qits-spa-ci` names the entry
-`components/qits-ci/qits-spa-ci` — a three-segment name — while every entry here
+path, so adding at `components/qits-ci/qits-ci-frontend` names the entry
+`components/qits-ci/qits-ci-frontend` — a three-segment name — while every entry here
 uses the bare repository name, which is also the key the platform catalog adopts
 by. The mismatch is quiet and costly: the `git config` lines above then write a
 *second*, orphan `[submodule "<name>"]` section holding `ignore`/`update` while

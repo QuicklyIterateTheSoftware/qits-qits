@@ -13,7 +13,7 @@ and serves it from the service process. The client lives in its own repository a
 service as a git submodule at Quinoa's default `web-ui-dir`, so the path is a convention rather than
 a setting.
 
-## The frontend repository (`qits-spa-<name>`)
+## The frontend repository (`qits-<name>-frontend`)
 
 - The **default Angular CLI starter**: standalone components, routing (`app.routes.ts` +
   `provideRouter`), **no SSR** — no `@angular/ssr`, no `server.ts`. The build is static files; the
@@ -28,7 +28,8 @@ a setting.
   fetches its own JavaScript from the wrong place — and no server-side test can see it.
 - CLI-default `.gitignore` (`/node_modules`, `/dist`); `package-lock.json` committed.
 
-Each client is a submodule **twice**: in this superproject at `frontends/qits-spa-<name>`, and in
+Each client is a submodule **twice**: in this superproject at
+`components/qits-<name>/qits-<name>-frontend`, and in
 its backend at `service/src/main/webui`. Both entries follow the platform submodule convention
 (`--name <bare repo name>`, `ignore = all`, `update = merge`, `branch = main`).
 
@@ -50,7 +51,7 @@ adding anything that sounds like a web framework.
 ```properties
 quarkus.quinoa.ui-root-path=/<segment>
 quarkus.quinoa.enable-spa-routing=true
-quarkus.quinoa.build-dir=dist/qits-spa-<name>/browser
+quarkus.quinoa.build-dir=dist/qits-spa-<name>/browser   # the angular.json project name, which kept its qits-spa- spelling
 quarkus.quinoa.ignored-path-prefixes=/api,/q[,per-service extras]
 ```
 
@@ -379,6 +380,9 @@ identically; a redirect would be a gateway-level decision, deliberately not solv
 
 ## The landing-page exception: qits-spa-home at the gateway
 
+**History.** Both halves of this are retired: the gateway is gone, the apex serves nothing, and
+qits-spa-home was archived on 2026-08-30. The section is kept for the route-order reasoning.
+
 One client deliberately deviates from the recipe above, in exactly four ways — everything else
 (Angular 21 on npm, standard scaffold, host node locally) is the same. `qits-spa-home` is the
 platform landing page, served by **qits-gateway** from a submodule at its `src/main/webui`:
@@ -416,7 +420,7 @@ lockfile keeps the developer-host origin, which is correct locally.
 ## Checklist: adding the next SPA-serving service
 
 1. Scaffold the client (Angular CLI defaults, no SSR), set `baseHref` to `"/<segment>/"`, push.
-2. Superproject: submodule at `frontends/qits-spa-<name>` with the standard entry config.
+2. Superproject: submodule at `components/qits-<name>/qits-<name>-frontend` with the standard entry config.
 3. Backend: submodule at `service/src/main/webui` (same config), quinoa 2.8.2, the four
    `application.properties` keys above with their reasoning in comments.
 4. Decide `ignored-path-prefixes` by enumerating every literal route — then *measure* on the

@@ -1,8 +1,8 @@
 # npm registry: two facts rescued from the retired plan
 
-The hosted npm registry + npmjs proxy shipped in services/qits-artifacts; the plan was verified
+The hosted npm registry + npmjs proxy shipped in qits-artifacts-service; the plan was verified
 fully implemented and retired 2026-08-01. The contract lives in the repo's README/CLAUDE.md and
-qits-ci's README. These two facts had no other home.
+qits-ci-service's README. These two facts had no other home.
 
 - **What the proxy buys, measured**: cold install 10.6 s / warm 1.7 s over 568 tarballs. The only
   install-time quantification of the pull-through cache anywhere (the GC plan carries sizes only).

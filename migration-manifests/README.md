@@ -74,7 +74,7 @@ Last run: **926 / 926 classified, nothing unclassified.**
   **The `service/` side splits with it**, via the name rules in `classify()`. Matching the
   directory alone sent the whole boundary to projects and stranded 24 workspace-scoped
   files there with no other owner (fixed 2026-07-26).
-- `DAEMON_MOVED` lists classes that left `WS_REPO` for `daemons/qits-workspace-daemon`
+- `DAEMON_MOVED` lists classes that left `WS_REPO` for `components/qits-workspaces/qits-workspace-daemon`
   (file browsing, framework detection). They are listed rather than deleted so that a
   rerun cannot silently re-adopt them.
 - **Basename matching is unsafe on these manifests.** `workspace-daemon-protocol/` is

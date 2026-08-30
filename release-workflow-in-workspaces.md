@@ -180,7 +180,7 @@ git switch -c my-fix origin/main      # or: git switch <workspace-branch>
   qits-configuration entry `env.QITS_IDP_CLIENT_DEV_QITS_WORKSPACES_ROLES` for application
   `qits-platform-idp` now ends in `,qits:admin` and the idp was redeployed (`POST
   /platform-deployments/api/events/build-succeeded` re-posting its own sha re-reads the extras) —
-  and in the bootstrap default (qits-cli-bootstrap `2026.820.131511`, `ComposeTemplate`). A platform
+  and in the bootstrap default (qits-bootstrap-cli `2026.820.131511`, `ComposeTemplate`). A platform
   booted from an older bootstrap needs that one entry and one idp redeploy; the acceptance test is a
   `200` from the door for a bearer minted from the container's pair.
 - **A pin train ships an SPA; your service release rides on top of it.** Releasing an SPA or a lib
