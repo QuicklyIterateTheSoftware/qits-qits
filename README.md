@@ -11,7 +11,7 @@ Using this approach will most likely not work with brownfield projects.
 
 Set `QITS_DOMAIN` at bootstrap to serve a real domain: qits-platform-dns
 becomes its authoritative nameserver and the edge gets HTTPS with a Let's
-Encrypt certificate slot. See the qits-cli-bootstrap README for the knobs
+Encrypt certificate slot. See the qits-bootstrap-cli README for the knobs
 and the issuance step.
 
 ## Credentials on a development host
@@ -59,14 +59,14 @@ triggers the deployment.
 `maintenance/*` branches are opened automatically. When an upstream
 publishes a SoftwareRelease, a pipeline in each dependent bumps the
 version pin, commits, and pushes the branch. The pipelines live in
-`.config/qits/`. Example from `qits-platform-spa-deployments`, reacting to a new
+`.config/qits/`. Example from `qits-deployments-platform-frontend`, reacting to a new
 `@qits/ui-components` release:
 
 ```yaml
 # .config/qits/ci-event-upstream-ui-components.yml
 event: SoftwareRelease
 when:
-  - repository: { exact: qits-spa-ui-components }
+  - repository: { exact: qits-ui-components-jslib }
     packageType: { exact: npm }
     packageName: { exact: "@qits/ui-components" }
 steps:

@@ -2,7 +2,7 @@
 
 The event-bus feature shipped 2026-07-31 and its plan (`eventsourcing-plan.md`) was verified
 fully implemented and retired 2026-08-01. The contract lives in shipped code and repo docs
-(qits-events' controllers and AGENTS.md; `libs/qits-eventstream`'s README/AGENTS.md, which the
+(qits-events-platform-service's controllers and AGENTS.md; qits-eventstream-javalib's README/AGENTS.md, which the
 consumer repos vendor as submodule copies). These items had no other home.
 
 ## Parked follow-ups (deliberate, not forgotten)
@@ -22,6 +22,6 @@ lifecycle, config binding, ack strategies) — too much for an in-service first 
 banal explicit API was deliberately extraction-friendly: "migrating to a reactive-messaging
 connector later changes the internals of one module and no consumer's mental model."
 
-The library HAS since been extracted (`libs/qits-eventstream`). The trigger condition for
+The library HAS since been extracted (`components/qits-eventstream/qits-eventstream-javalib`). The trigger condition for
 revisiting the connector shape has arrived; nothing forces it, but the option was priced and
 recorded here so it is a decision, not a rediscovery.

@@ -547,7 +547,7 @@ the title honest additionally means the branch listing, from a different service
 
 ### What the new SPA already is, and how each option relates to it
 
-This matters, so it gets its own reading rather than a footnote. `qits-spa-workspaces` is not a
+This matters, so it gets its own reading rather than a footnote. `qits-workspaces-frontend` is not a
 skeleton — it is a considered, finished, one-repository list, and it is better than the old screen in
 several specific ways.
 

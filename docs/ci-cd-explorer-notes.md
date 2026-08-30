@@ -6,7 +6,7 @@ item below) and retired. Contracts live in the repos' code, AGENTS.md and docs/o
 ## The one unimplemented commitment
 
 - **Live-output auto-scroll** on `/ci/runs/<id>`: the pane was to follow output unless the user
-  scrolled up. Never built (zero scroll handling in qits-spa-ci). Ride the next qits-spa-ci
+  scrolled up. Never built (zero scroll handling in qits-ci-frontend). Ride the next qits-ci-frontend
   change; do not spend a qits-ci redeploy on it alone.
 
 ## Named fast-follows (parked deliberately, recorded nowhere else)
@@ -38,6 +38,6 @@ item below) and retired. Contracts live in the repos' code, AGENTS.md and docs/o
 - `/ci/api/nope` and `/cd/api/nope` 404 with Vert.x's stock `text/html` error page; the ITs
   assert "404 and not the client", which is the correct claim.
 - `**/.quinoa` is missing from qits-cd's `.dockerignore`.
-- qits-spa-workspaces' nav-link count assertion is relaxed (`> 0`) where the other seven pin 8.
+- qits-workspaces-frontend's nav-link count assertion is relaxed (`> 0`) where the other seven pin 8.
 - All SPAs pin `@qits/ui-components@^0.0.4` while the lib is on calver — the caret will never
   cross; the release-train fan-out is what unfreezes it.

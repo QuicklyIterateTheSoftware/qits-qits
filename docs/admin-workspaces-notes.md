@@ -39,13 +39,13 @@ start that service in. Deliberately *not* a spec field: a caller-supplied group 
 assembled privilege the spec's shape exists to prevent, and a group with no bind beside it would be
 a membership nothing justifies.
 
-**images/qits-oci-workspace** — the client. `docker-ce-cli` alone, no daemon: a socket with nothing
+**qits-workspace-oci** — the client. `docker-ce-cli` alone, no daemon: a socket with nothing
 to speak to it is a bind and not a capability. It is in the base rather than in a second image
 because the whole difference between the two would be a CLI that does nothing without a bind only
 the platform can grant. In every non-admin workspace the binary is inert and says so ("Cannot
 connect to the Docker daemon"), which is the honest state.
 
-**qits-spa-workspaces** — the asking, and the seeing. The checkbox starts unticked on every press
+**qits-workspaces-frontend** — the asking, and the seeing. The checkbox starts unticked on every press
 and is never remembered: the answer belongs to one workspace rather than to a preference. The list
 marks the workspaces that hold the socket, because a privilege nobody can see is one nobody gives
 back.

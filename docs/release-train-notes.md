@@ -1,9 +1,10 @@
 # The release train: design history rescued from the retired hops plan
 
 Shipped and observed 2026-07-31/08-01; the plan was verified fully implemented and retired
-2026-08-01. The shipped shape is documented in services/qits-ci README (branches: filters, skip
-semantics, loop footguns), frontends/qits-spa-home README (the bump/maintenance conventions), and
-services/qits-workspaces AGENTS.md (/branches/release). This is the record of the road not taken.
+2026-08-01. The shipped shape is documented in qits-ci-service's README (branches: filters, skip
+semantics, loop footguns) and qits-workspaces-service's AGENTS.md (/branches/release). The
+bump/maintenance conventions lived in qits-spa-home's README, which went with that repository when
+it was archived. This is the record of the road not taken.
 
 ## Why branch filtering is a STEP key, not a pipeline key
 

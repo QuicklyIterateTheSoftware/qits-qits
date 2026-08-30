@@ -6,7 +6,7 @@ workstation, all four pipeline deployments ACTIVE and healthy).
 [`qits-local-up.sh`](qits-local-up.sh) bootstraps the whole platform on the workstation's docker
 daemon **through the platform's own pipeline**: it hand-builds only the build/deploy core, and
 that core builds and deploys everything else the way it would in production. The bootstrap itself
-is [`cli/qits-cli-bootstrap`](cli/qits-cli-bootstrap), a CLI the script compiles and runs; its
+is [`components/qits-bootstrap/qits-bootstrap-cli`](components/qits-bootstrap/qits-bootstrap-cli), a CLI the script compiles and runs; its
 README is the reference for knobs and known gaps. This document is the *flow* — what to run when
 something changes.
 
@@ -16,7 +16,7 @@ Two sets to keep straight:
 |---|---|---|---|
 | **deployer-managed** | all eleven: observability, idp, stt, projects, workspaces, events, platform-docs, gateway, artifacts, ci, **and qits-platform-deployments itself** | qits-platform-deployments — sha-addressed registry images, `qits-pd-` container names | a git push |
 | **bootstrap-made** | the ci-daemon binary, the deployer's run-args file (the `qits-platform-deployments-config` volume — the git host's push token among them), and the seed postgres with its `qits_deployments` role and database | the bootstrap | a bootstrap rerun |
-| **built and published, like anything else** | the five `qits/build-images/*` step images | qits-oci, whose own pipelines run on upstream `docker:28-dind` through the mirror | a qits-oci release, and a re-pull on any host that lost them |
+| **built and published, like anything else** | the five `qits/build-images/*` step images | qits-build-images-oci, whose own pipelines run on upstream `docker:28-dind` through the mirror | a qits-build-images-oci release, and a re-pull on any host that lost them |
 
 The third row used to be part of the second, and 2026-08-20 is why it is not. Every recipe names a
 step image *unqualified*, so docker resolved it against Docker Hub and it only ever worked because
@@ -26,7 +26,7 @@ every repository — with a bootstrap rerun as the only recovery, and no run lef
 because the pipeline that publishes those images ran on one of them.
 
 Both halves of that are closed. qits-ci resolves an unqualified platform image against the registry
-(`CiStepImage`), so a host that lost them re-pulls rather than rebuilds. And qits-oci's own pipelines
+(`CiStepImage`), so a host that lost them re-pulls rather than rebuilds. And qits-build-images-oci's own pipelines
 run on `docker:28-dind`, an upstream image through the OCI mirror, so nothing it publishes is needed
 to publish it — which is what took these off the bootstrap entirely rather than merely making them
 recoverable. The enabling change was in qits-ci-daemon: a step image must provide `git` and a
@@ -82,7 +82,7 @@ local commits included — GitHub `main` is only the fallback):
 
     ./qits-local-up.sh
 
-It runs **on the host** now, not as a container: the script compiles `cli/qits-cli-bootstrap` and
+It runs **on the host** now, not as a container: the script compiles `components/qits-bootstrap/qits-bootstrap-cli` and
 runs the binary, which shells the host's docker and git. Nothing needs the socket mounted. The run
 shows what it is doing on the terminal and at `http://localhost:8480` in a browser.
 `./qits-local-up.sh unwrap` takes the platform off the machine again.
@@ -99,7 +99,7 @@ database over JDBC from the host, through `127.0.0.1:5433` (`QITS_PG_PORT`). Eve
 database is created by the deployer itself: a repo declares `resources: postgresql:db` in its
 `deployments.yml`, and provisioning runs before its container starts.
 
-Every knob, mode and flag is the CLI's: see [cli/qits-cli-bootstrap/README.md](cli/qits-cli-bootstrap/README.md).
+Every knob, mode and flag is the CLI's: see [components/qits-bootstrap/qits-bootstrap-cli/README.md](components/qits-bootstrap/qits-bootstrap-cli/README.md).
 
 ## Updating a pipeline-deployed service
 
@@ -123,7 +123,7 @@ protected ref on the git host, so updating it needs a push option carrying this 
 push token; `environment/dev` is not protected, but carry the token there too and one command
 shape covers both:
 
-    cd services/qits-observability
+    cd components/qits-observability/qits-observability-service
     git commit ...
     git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability \
         main HEAD:environment/dev
@@ -218,7 +218,7 @@ platform needs that; it only matters when deliberately testing the mirror's offl
 
 Volumes, env and sockets come from the deployer's `qits.platform.deployments.run-args.<application>`
 config, which lives in `config/application.properties` on the `qits-platform-deployments-config`
-volume. The source of truth is the generated properties **in `cli/qits-cli-bootstrap`** — edit it
+volume. The source of truth is the generated properties **in `components/qits-bootstrap/qits-bootstrap-cli`** — edit it
 there and rerun (`--skip-build` suffices), which rewrites the volume; the deployer reads the key at
 `docker run` time, so the next deployment of that application (empty commit push, at worst) applies
 it.
@@ -234,7 +234,7 @@ deployer-managed core included.
 
 To add a service: give the repo a `.config/qits/ci-post-receive.yml`, a `docker/Dockerfile` and a
 `deployments.yml` if it needs anything but the defaults, then push `environment/dev`. Add its name
-to `DEPLOYABLES` in `cli/qits-cli-bootstrap`'s `PlatformModel` (plus run-args if it needs state) so
+to `DEPLOYABLES` in `components/qits-bootstrap/qits-bootstrap-cli`'s `PlatformModel` (plus run-args if it needs state) so
 the bootstrap carries it too.
 
 ## Teardown
