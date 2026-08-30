@@ -118,9 +118,9 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-eventstream"]
-	path = components/qits-eventstream/qits-eventstream
-	url = ../qits-eventstream.git
+[submodule "qits-eventstream-javalib"]
+	path = components/qits-eventstream/qits-eventstream-javalib
+	url = ../qits-eventstream-javalib.git
 	ignore = all
 	update = merge
 	branch = main
