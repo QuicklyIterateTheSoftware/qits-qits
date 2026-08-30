@@ -58,12 +58,6 @@
 	ignore = all
 	branch = main
 	update = merge
-[submodule "qits-spa-home"]
-	path = components/qits-home/qits-spa-home
-	url = ../qits-spa-home.git
-	ignore = all
-	branch = main
-	update = merge
 [submodule "qits-ui-components-jslib"]
 	path = components/qits-ui-components/qits-ui-components-jslib
 	url = ../qits-ui-components-jslib.git
