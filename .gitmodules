@@ -184,12 +184,6 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-blobstore-javalib"]
-	path = components/qits-registries/qits-blobstore-javalib
-	url = ../qits-blobstore-javalib.git
-	ignore = all
-	update = merge
-	branch = main
 [submodule "qits-registries-javalib"]
 	path = components/qits-registries/qits-registries-javalib
 	url = ../qits-registries-javalib.git
