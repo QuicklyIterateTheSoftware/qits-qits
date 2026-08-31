@@ -274,3 +274,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-workspace-editor-oci"]
+	path = components/qits-workspaces/qits-workspace-editor-oci
+	url = ../qits-workspace-editor-oci.git
+	branch = main
+	ignore = all
+	update = merge
