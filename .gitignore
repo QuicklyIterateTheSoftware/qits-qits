@@ -9,3 +9,6 @@ docker-compose.qits.yml
 # clean: a dirty tree blocks the recreate door and reads as unfinished work.
 .openvscode-server/
 .cache/
+.m2/
+.npm/
+.redhat/
