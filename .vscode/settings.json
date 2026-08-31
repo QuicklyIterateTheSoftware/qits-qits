@@ -1,0 +1,7 @@
+{
+  // The project's editor settings: applied to everyone who opens this project's web editor,
+  // versioned like any other file. User-level overrides live in .openvscode-server/ (ignored,
+  // on the volume) and win over these.
+  "workbench.colorTheme": "Default Dark Modern",
+  "window.autoDetectColorScheme": false
+}
