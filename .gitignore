@@ -2,3 +2,13 @@
 docker-compose.qits.yml
 .qits-bootstrap.env
 .qits-bootstrap/
+
+# The web editor and the tooling it hosts write their state into the checkout —
+# the wrapper IS the editor's home directory, and the volume is what makes that
+# state survive a container replacement. Ignored so the working tree stays
+# clean: a dirty tree blocks the recreate door and reads as unfinished work.
+.openvscode-server/
+.cache/
+.m2/
+.npm/
+.redhat/

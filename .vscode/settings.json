@@ -1,0 +1,15 @@
+{
+  // The project's editor settings: applied to everyone who opens this project's web editor,
+  // versioned like any other file. User-level overrides live in .openvscode-server/ (ignored,
+  // on the volume) and win over these.
+  "workbench.colorTheme": "Default Dark Modern",
+  "window.autoDetectColorScheme": false,
+
+  // The Java language server's embedded Maven reads ~/.m2/settings.xml and ignores MAVEN_ARGS,
+  // so without this it falls back to the poms' registry.dev.localhost default — the deployment
+  // host's EDGE vhost, which answers 401 inside the network. /etc/qits/maven-settings.xml is the
+  // platform file every CLI build already runs with: a mirror of the `qits-maven` id onto
+  // ${env.QITS_MAVEN_REPOSITORY_URL}, the qits-net alias that answers anonymously.
+  "java.configuration.maven.userSettings": "/etc/qits/maven-settings.xml",
+  "java.configuration.maven.globalSettings": "/etc/qits/maven-settings.xml"
+}
