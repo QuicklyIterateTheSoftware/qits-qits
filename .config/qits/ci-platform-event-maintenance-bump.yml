@@ -12,17 +12,28 @@
 # branch head rather than expect a single commit.
 #
 # What this reads of a `changes[]` entry, and what it does not:
-#   ecosystem     maven here, npm and docker in the second step
-#   manifestPath  the file to edit, repository-relative
+#   ecosystem     maven here, npm, docker and gitlink in the second step
+#   manifestPath  the file to edit, repository-relative - EXCEPT for gitlink, where it
+#                 is the DIRECTORY the submodule sits at and no file exists
 #   name          npm/docker: the thing to install or the image to re-tag
 #                 maven: the commit message only - `location` carries the coordinates
+#                 gitlink: the SIBLING REPOSITORY, which is what the clone url is
+#                 derived from. Load-bearing, and the only ecosystem where it is.
 #   to            the new version, refused unless [0-9A-Za-z._+-]+
 #   from          the commit message only. It is NOT a precondition: a manifest that
-#                 already holds `to` is a no-op, never a failure.
+#                 already holds `to` is a no-op, never a failure. For gitlink it is the
+#                 commit sha the tree holds now, which is what makes the body readable.
 #   location      maven: `property:<name>` or `dependency:<groupId>:<artifactId>`
 #                 npm: IGNORED - npm updates the entry in whichever section holds it
 #                 docker: IGNORED - `line:<n>` goes stale the moment the first step
 #                 commits, so the edit is anchored on the image name instead
+#                 gitlink: IGNORED - `gitlink:<path>` restates manifestPath
+#
+# GITLINK REPLACES THE `ci-event-upstream-frontend.yml` HOP FILES. Fifteen service
+# repositories each carried one: it watched its own SPA's SCMRelease, fetched the tag
+# and force-pushed `maintenance/frontend`. The same move is an ordinary pin here - one
+# entry in `.gitmodules`, one row in the inventory, one commit on the shared branch,
+# released through the same door as everything else.
 event: MaintenanceBump
 steps:
   - image: qits/build-images/maven-base:latest
@@ -209,17 +220,18 @@ steps:
       set -eu
 
       # --- what this step has to do, if anything -----------------------------------
-      # npm and docker changes. node-base carries node, npm, git and curl - and NO jq,
-      # so the payload is read with `node -p`/`node -e`, exactly as the angular hop file
-      # this replaces does.
+      # npm, docker and gitlink changes. node-base carries node, npm, git and curl - and
+      # NO jq, so the payload is read with `node -p`/`node -e`, exactly as the angular
+      # hop file this replaces does. gitlink needs only the git that is already here.
       node -e '
         const payload = JSON.parse(process.env.QITS_EVENT_PAYLOAD || "{}");
-        const mine = (payload.changes || []).filter(c => c.ecosystem === "npm" || c.ecosystem === "docker");
+        const mine = (payload.changes || []).filter(c =>
+          c.ecosystem === "npm" || c.ecosystem === "docker" || c.ecosystem === "gitlink");
         process.stdout.write(mine.map(c =>
           [c.ecosystem, c.name, c.from || "", c.to, c.manifestPath, c.location || ""].join("\t") + "\n").join(""));
       ' > /tmp/bump-node.tsv
       if [ ! -s /tmp/bump-node.tsv ]; then
-        echo "no npm or docker changes in this bump"
+        echo "no npm, docker or gitlink changes in this bump"
         exit 0
       fi
 
@@ -287,7 +299,13 @@ steps:
         case "$manifest" in
           ''|/*|*..*|*[!0-9A-Za-z._/-]*) echo "refusing an implausible manifest: $manifest" >&2; exit 1 ;;
         esac
-        [ -f "$manifest" ] || { echo "no such manifest: $manifest" >&2; exit 1; }
+        # A gitlink's path is a DIRECTORY, and in this clone it is an empty one - the
+        # submodule is never initialised here, because the whole edit is an index entry.
+        # So the file test guards the two ecosystems that edit a file, and no more.
+        if [ "$ecosystem" != "gitlink" ] && [ ! -f "$manifest" ]; then
+          echo "no such manifest: $manifest" >&2
+          exit 1
+        fi
 
         if [ "$ecosystem" = "npm" ]; then
           if [ -z "${QITS_NPM_PROXY_URL:-}" ] || [ -z "${QITS_NPM_REGISTRY_URL:-}" ]; then
@@ -317,6 +335,32 @@ steps:
           awk -v img="$name" -v to="$to" -f /tmp/bump-from.awk "$manifest" > /tmp/bump-edited
           mv /tmp/bump-edited "$manifest"
           git add -- "$manifest"
+        elif [ "$ecosystem" = "gitlink" ]; then
+          # The submodule move, and it is an INDEX write rather than a file edit: a
+          # gitlink is a 160000 entry in the tree and there is no text anywhere that
+          # holds the sha. `.gitmodules` names the sibling and never its version.
+          #
+          # The name reaches a URL, so it is held to a repository name and nothing
+          # else - a slash here would build a clone url pointing somewhere else on the
+          # host, and `@` and `.` sequences are how you leave a path at all.
+          case "$name" in
+            ''|*[!0-9A-Za-z._-]*) echo "refusing an implausible submodule: $name" >&2; exit 1 ;;
+          esac
+          # The sibling is derived from OUR OWN clone url, which is the same derivation
+          # the `ci-event-upstream-frontend.yml` hop files and `ci-event-build.yml` make:
+          # every repository of a project is a sibling path under one host, and the url
+          # this run was given is the only address that is certainly reachable from here.
+          sibling="${QITS_CI_REPOSITORY_URL%/*}/$name"
+          if ! git fetch -q "$sibling" "refs/tags/$to"; then
+            echo "no tag $to in $sibling" >&2
+            exit 1
+          fi
+          # Peeled: a release tag may be annotated, and the index entry has to be the
+          # commit it points at rather than the tag object.
+          sha=$(git rev-parse --verify "FETCH_HEAD^{commit}")
+          # --add because the entry may be absent from a tree built off baseRef, and
+          # --cacheinfo because there is nothing on disk to add: the mode says gitlink.
+          git update-index --add --cacheinfo "160000,$sha,$manifest"
         else
           echo "unknown ecosystem for this step: $ecosystem" >&2
           exit 1
@@ -328,7 +372,7 @@ steps:
 
       # --- commit and push ---------------------------------------------------------
       if git diff --cached --quiet; then
-        echo "every npm and docker change in this bump is already the pin - nothing to commit"
+        echo "every npm, docker and gitlink change in this bump is already the pin - nothing to commit"
         exit 0
       fi
       {
