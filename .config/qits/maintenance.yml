@@ -1,0 +1,5 @@
+# The gitlinks committed here are bank markers, not version pins — they are EXPECTED to lag.
+# See "Submodules" in README.md/CLAUDE.md: every submodule follows its own `main`, and the
+# recorded commits exist so `git submodule update --init` works on a fresh clone. Without this,
+# qits-maintenance would read all 47 of them as upgrades and bump them nightly.
+ignore: [gitlink]
