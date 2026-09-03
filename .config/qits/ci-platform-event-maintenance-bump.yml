@@ -25,8 +25,13 @@
 #                 commit sha the tree holds now, which is what makes the body readable.
 #   location      maven: `property:<name>` or `dependency:<groupId>:<artifactId>`
 #                 npm: IGNORED - npm updates the entry in whichever section holds it
-#                 docker: IGNORED - `line:<n>` goes stale the moment the first step
-#                 commits, so the edit is anchored on the image name instead
+#                 docker: it says WHICH KIND OF LINE holds the pin, and there are two.
+#                 `line:<n>` is IGNORED - a line number goes stale the moment the first
+#                 step commits, so a FROM is anchored on the image name instead.
+#                 `arg:<name>` is NOT ignored and is the anchor itself: the pin sits in
+#                 an `ARG <name>=<image>:<tag>` default that a later `FROM ${<name>}`
+#                 resolves, and the argument's name is a stable address where a line
+#                 number is not
 #                 gitlink: IGNORED - `gitlink:<path>` restates manifestPath
 #
 # GITLINK REPLACES THE `ci-event-upstream-frontend.yml` HOP FILES. Fifteen service
@@ -246,10 +251,13 @@ steps:
         esac
       done
 
-      # --- the docker edit, anchored and counted -----------------------------------
-      # `location` is a line number and this does not use it: a line number goes stale
-      # the moment the maven step commits, and the image name is the thing that is
-      # actually true about the line. Exactly one FROM must match, or the step fails.
+      # --- the docker edits, anchored and counted ----------------------------------
+      # TWO PROGRAMS, because a base image is pinned in one of two places and the
+      # payload's `location` says which.
+      #
+      # A `line:<n>` location is not used: a line number goes stale the moment the maven
+      # step commits, and the image name is the thing that is actually true about the
+      # line. Exactly one FROM must match, or the step fails.
       cat > /tmp/bump-from.awk <<'AWK'
       BEGIN { n = 0; pfx = img ":" }
       {
@@ -270,6 +278,52 @@ steps:
       END {
         if (n != 1) {
           printf("matched %d FROM lines for %s, expected 1\n", n, img) > "/dev/stderr"
+          exit 3
+        }
+      }
+      AWK
+
+      # An `arg:<name>` location IS the anchor. Three repositories pin their base image
+      # in an `ARG <name>=<image>:<tag>` default with a `FROM ${<name>}` below it, so
+      # that `docker build --build-arg` can override what a literal FROM cannot - and
+      # the argument's name is an address that survives every edit above it. The image
+      # name is checked as well as the argument's, so a payload that named the wrong
+      # one edits nothing rather than the wrong thing.
+      cat > /tmp/bump-arg.awk <<'AWK'
+      BEGIN { n = 0; pfx = img ":" }
+      {
+        if (match($0, "^[ \t]*[Aa][Rr][Gg][ \t]+" arg "=")) {
+          # Both halves are cut BEFORE the next match(), which overwrites RSTART.
+          head = substr($0, 1, RSTART + RLENGTH - 1)
+          rest = substr($0, RSTART + RLENGTH)
+          # AN ARG DEFAULT CARRIES A REGISTRY HOST AND THE PAYLOAD DOES NOT. The default
+          # has to be an address a `docker build` can pull on its own, while the name the
+          # inventory records is the portable one - `qits/workspace`, the same spelling
+          # mt_latest is keyed by. So a leading host is stepped over and written back
+          # untouched. Docker's own test for one: a first segment carrying a dot or a
+          # colon, or spelled localhost. A namespace is never mistaken for a host.
+          host = ""
+          slash = index(rest, "/")
+          if (slash > 1) {
+            first = substr(rest, 1, slash - 1)
+            if (first ~ /[.:]/ || first == "localhost") {
+              host = substr(rest, 1, slash)
+              rest = substr(rest, slash + 1)
+            }
+          }
+          if (index(rest, pfx) == 1) {
+            tail = substr(rest, length(pfx) + 1)
+            after = ""
+            if (match(tail, /[ \t]/)) after = substr(tail, RSTART)
+            $0 = head host pfx to after
+            n++
+          }
+        }
+        print
+      }
+      END {
+        if (n != 1) {
+          printf("matched %d ARG %s lines for %s, expected 1\n", n, arg, img) > "/dev/stderr"
           exit 3
         }
       }
@@ -332,7 +386,28 @@ steps:
           fi
           git add -- "$manifest" "$lock"
         elif [ "$ecosystem" = "docker" ]; then
-          awk -v img="$name" -v to="$to" -f /tmp/bump-from.awk "$manifest" > /tmp/bump-edited
+          # Which line holds the pin - see the two programs above. Anything that is not
+          # an `arg:` location is a FROM, which is what every other docker pin is.
+          case "$location" in
+            arg:*)
+              # The argument's name reaches an awk -v AND is interpolated into that
+              # program's own regex, so it is held to what docker allows a build
+              # argument to be called and refused otherwise - a name with a `.` or a `*`
+              # in it would be a pattern rather than a name.
+              argument=${location#arg:}
+              case "$argument" in
+                ''|[0-9]*|*[!0-9A-Za-z_]*)
+                  echo "refusing an implausible build argument: $argument" >&2
+                  exit 1
+                  ;;
+              esac
+              awk -v arg="$argument" -v img="$name" -v to="$to" \
+                  -f /tmp/bump-arg.awk "$manifest" > /tmp/bump-edited
+              ;;
+            *)
+              awk -v img="$name" -v to="$to" -f /tmp/bump-from.awk "$manifest" > /tmp/bump-edited
+              ;;
+          esac
           mv /tmp/bump-edited "$manifest"
           git add -- "$manifest"
         elif [ "$ecosystem" = "gitlink" ]; then
