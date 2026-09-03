@@ -613,3 +613,32 @@ across another service's HTTP call.
   release, the maven `packageName` check against one live frame, draining the
   pre-split branches before `BUMP_INTERNAL_AUTO=true`, and the hop-file waves —
   the 16 `ci-event-maintenance-release.yml` and the inline blocks last of all.
+
+**2026-09-03 — the epic closes: the trains are retired and the service runs the line.**
+The three-lane manual proof passed end to end (protocol: remove the pipelines first, then the
+upstream change, then event pickup, then a manual renovation that merges and releases itself):
+npm via a real feature (`@qits/ui-components`' pending-builds bolt) bumped hop-free into the
+workspaces SPA; gitlink via the wrapper arm's first live `update-index`, shipping that SPA into
+its service; maven via a qits-eventstream release bumped into qits-ci-service. On the strength of
+that, EVERY transitional pipeline is gone: all 47 hop files except the three build-time
+base-image follows (`FROM ${ARG}` in workspace-editor-oci, workspace-daemon, projects-daemon —
+not config pins, no deployable to attach an extras entry to; their designed successor is a
+DockerParser that reads a literal `ARG X=image:tag` default as a docker pin, `location:
+arg:<name>`), and all 34 release-door triggers (16 event files, 18 inline steps), removed only
+after the direct ask was OBSERVED creating requests in production (bacac82a, 2b2c2e96, 772b03d6
+— 03:21). The one config pin among the old hops, projects' refinement image, rides
+qits-configuration's `PINS` now (the map became one-image→many-applications for it).
+
+Three defects the rollout surfaced and closed, each with its doctrine written where it bit:
+the two-datasource claim-transaction wedge (twice — spot-auditing the listener-reachable store
+surface failed both times; every `MaintenanceStore` method now owns its transaction, and a test
+opens a real claim around `onFrame` to prove the sandwich); the deployed release door ignoring a
+method-level `@RolesAllowed` its own tree carried (root cause unfound; the door no longer bets on
+the mechanism — the class admits the pair and the person-only doors refuse `qits:system` in their
+first line); and the inventory trusting the catalog in one direction only (48 pre-rename ghosts
+bumped by the first nightly; a full-catalog scan now marks the dropped ABSENT and clears their
+pins, guarded against partial and empty readings).
+
+Nightly bumps are LIVE (`bump.internal.auto=true` in the dev extras since 2026-09-02 evening;
+external stays manual). What the platform does now is the plan's first paragraph, verbatim, with
+nothing beside it.
