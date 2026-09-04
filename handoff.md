@@ -47,19 +47,65 @@ The streamline-release-flow epic retired every `ci-event-build.yml`/`ci-event-us
 - qits-ci main (`2026.904.130928`, deployed) still ships the flip defaults in
   `ci/src/main/resources/META-INF/microprofile-config.properties`; launcher untouched by the epic.
 
+### DONE (2026-09-04 afternoon): the daemons joined the mirror
+
+qits-projects-daemon (`2026.904.153549`→`.160152`), qits-workspace-daemon (`.153848`→`.160522`) and
+qits-ci-daemon (`.153949`) now resolve Central through the mirror in every plane: fleet
+`.qits-maven-settings.xml`, Dockerfile `ARG QITS_MAVEN_CENTRAL_URL` + secret mounts + `-s` on the
+mvnw RUN, `--network host` + build-arg in both pipelines (sbom builds byte-identical for the cache
+hit). ci-daemon's hand-rolled musl builder gets `--network host -e QITS_MAVEN_CENTRAL_URL=…` and
+`-s` on its inner mvnw — deliberately credless (edge reads are anonymous; a transient container's
+env is inspectable). All three verified: uncached maven layers ran green under the active profile,
+which has no direct-Central fallback.
+
+### Two platform defects found on the way (release-request flow), one fixed
+
+1. **QA-gate race — a red gating run can release (OBSERVED, open).** ci-daemon's first release
+   (`2026.904.153949`) released 19s AFTER its gating run finished FAILED. Mechanism: the settle
+   window (`qits.projects.release-requests.settle`, 30s) counts from `armedAt`; with the single CI
+   worker every QA run outlasts it. When the run terminates, the live active-runs probe answers 0
+   immediately, but the `BuildFailed` verdict arrives via the durable bus consumer seconds later —
+   the 30s sweep tick in that gap sees "no active runs, no verdict, settle expired" and passes the
+   gate VACUOUSLY. The ledger now holds the red verdict; evaluate() ignores settled requests. Green
+   releases likely go through the same door harmlessly. Fix direction: restart the settle window
+   when the active count reaches zero ("quiet for `settle`", not "armed for `settle`"), and/or have
+   the qits-ci probe report that terminal runs exist so the gate knows verdicts are owed. (The
+   musl-toolchain download from more.musl.cc that reddened the run is its own flake — the Dockerfile
+   already suggests mirroring that tarball; the tag's release recipe later rebuilt green.)
+2. **Nine release recipes triggered on the dead `SCMPublishTag` — FIXED fleet-wide on main.** The
+   epic's tag primitive fires no post-receive, so recipes listening for the tag event never run: the
+   tag strands with no artifact, no `SoftwareRelease`, no merge to main (both daemons demonstrated
+   it live). Affected: eventstream/registries/integrations-quarkus/integrations-angular/
+   ui-components libs, both daemons, both workspace OCI images (ci-daemon was already fixed by the
+   epic; every service uses SCMRelease). A normal release of the fix would itself strand (trigger
+   files are read at main), so the corrected files were committed DIRECTLY to the nine mains via
+   qits-githost's `POST /repositories/{id}/commits` primitive (qits:system; catalog id IS the
+   githost id). The stranded daemon tags were superseded by fresh release requests, whose octopus
+   folds picked the old tags up as implicit sources exactly as designed — both re-releases ran the
+   fixed recipe end to end and merged to main. Fix content: `event: SCMRelease`,
+   `when: - repository: {exact: <name>}` (ci-daemon's proven shape), payload `.tagName`→`.version`,
+   restore prose now points at the manual trigger door (`POST /ci/api/events/trigger` — note it
+   demands a token whose `project` claim is literally `*`; workspace-commissioned clients carry
+   none, which is why the supersede path was used instead of a replay).
+
 ### Open (optional) follow-ups, none blocking
 
-- **qits-projects-daemon and qits-workspace-daemon docker builds resolve Central directly**: both run
-  `./mvnw package -Dnative` with NO settings file (`-s` absent, no `.qits-maven-settings.xml`). This
-  was always outside the campaign's 18-repo scope (derived from "has a settings file", not "runs
-  maven in docker"). Routing them through the mirror needs: settings file + Dockerfile ARG/ENV +
-  secret mounts + pipeline build-arg, per the fleet pattern.
 - `CiDaemonLauncher`'s field javadoc still says the build-url "ships empty" and that a non-empty one
   "reddened every image build" (the pre-`/mirror` world) — stale, fix next time qits-ci is touched.
 - Parked follow-up still parked: qits-workspaces doesn't inject `QITS_MAVEN_CENTRAL_URL` into
   workspace containers (the oci image's `/etc/qits/maven-settings.xml` profile stays inert).
 - The stale-prose flags on qits-edge/qits-stt `ci-event-build.yml` and qits-artifacts' userflows
   header are MOOT — the sweep deleted those files.
+- The superseded daemon requests (`ae714a27`/`ebaafcce`) keep `mergedToMainAt: null`; their tags'
+  content reached main via the superseding folds. Whether their pending-merge rows resolved by
+  ancestry shows on the next daemon release (harmless implicit re-folds if not).
+- The wrapper itself has no release recipe, so wrapper releases never emit `SoftwareRelease` and
+  never merge to main (defect #5's shape, observed on `2026.904.152345`): each release strands as an
+  unmerged tag riding every later request's implicit sources. Decide a wrapper finalization story
+  (a minimal release recipe, or a projects-side rule for recipe-less repos).
+- qits-system-platform-service's GitHub backup is FAILING (push refused) — noticed 2026-09-04, untriaged.
+- more.musl.cc is slow/flaky; mirror the musl toolchain tarball through the platform mirror
+  (ci-daemon's Dockerfile.musl-builder names the URL and already suggests this).
 
 The plan below is kept as the record of what was done.
 
