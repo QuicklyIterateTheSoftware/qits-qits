@@ -222,6 +222,12 @@ GET  /scans/{id}                                → {id, scope, repository, trig
 POST /repositories/{name}/groups/{group}/bumps                      → 202 {id}        # "create the branch now"; 409 while one is active for that (repo, group)
 GET  /bumps?repository=&limit=20                → [bump]
 GET  /bumps/{id}                                → bump
+GET  /pins                                      → {generatedAt, repositories:[{name, status, lastScanAt, headSha}],
+                                                    pins:[{ecosystem, name, version, repository, manifestPath}]}
+                                                  # the artifact GC's dependency keep-set: INTERNAL maven/npm/docker rows
+                                                  # only (gitlink excluded — its version is a commit sha); rows as stored,
+                                                  # total order; 503 when the inventory has never been filled, because an
+                                                  # empty answer would read as "nothing is referenced" to a collector
 bump = {id, repository, group, branch, environment, trigger, ciEventId, ciRunId, ciRunIds, configPath,
         status, ciRunStatus, changes:[…], startedAt, finishedAt, message}
 ```
