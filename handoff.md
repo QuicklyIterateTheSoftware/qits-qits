@@ -4,6 +4,178 @@ What is still open. Everything shipped and closed is in git history; durable
 lessons are in the memory files
 (`~/.claude/projects/-home-wohlben-code-qits-qits/memory/`).
 
+## SHIPPED (2026-09-04): route Maven Central through the mirror for the BUILD plane
+
+**DONE AND CLOSED (2026-09-04 afternoon).** The fan-out below executed: all 18 `<server>` releases
+(16-repo paced train + artifacts/ci) and the qits-ci build-url flip (`2026.903.222315`) are released
+and deployed. The owed "literal build-log proof" is closed — and it could never have appeared as a
+log line: builds run maven with `-ntp` (no download lines at all) and step logs cap at 64 KB. The
+equivalent proof was assembled live instead (admin-workspace probe 1201, torn down after):
+
+- A **live CI step container** carries `QITS_MAVEN_CENTRAL_MIRROR_URL=http://mirror.dev.localhost:8080/mirror/maven/central`
+  and `QITS_MAVEN_PROXY_URL=http://qits-platform-mirror:8080/mirror/maven/central` — the injection is live.
+- **Host netns reaches the URL**: `mirror.dev.localhost` resolves to 127.0.0.1 in the host's hosts file
+  (the edge publishes 8080), and an anonymous GET from a `--network host` container fetched the real
+  artifact bytes. The 2026-09-01 "000 unreachable" probe is superseded.
+- With the env non-empty the settings profile DISABLES direct Central — there is no silent fallback —
+  so every green build whose mvnw layer actually ran (e.g. qits-workspaces QA fold 14:12Z, layer
+  `#13 DONE 240.2s`, uncached, empty ~/.m2) resolved Central through `/mirror` by construction.
+- **Why the mirror's central cache shows no build-plane accesses: the EDGE caches the artifacts.**
+  They are served `cache-control: public, max-age=31536000, immutable` + strong etag; reads on the
+  mirror vhost are anonymous (unify-ingress method-scoped auth), maven is never challenged, sends no
+  Authorization, and gets edge-cache hits. Measured: edge GET with Basic bumps the mirror's
+  `lastAccessedAt` (auth bypasses the cache); the same GET anonymous does not. Builds resolve at LAN
+  speed off the edge cache; the mirror is the origin behind it. Step plane (in-network
+  `qits-platform-mirror:8080/mirror/maven/central`) hits the mirror directly — its access bursts
+  align with maven-base steps (e.g. 607 pkgs at 13:48Z under the workspaces verify).
+- Corollary: since GETs are anonymous-allowed at the edge, the `<server id="qits-central-proxy">`
+  creds are belt-only for reads (they matter if the vhost read policy ever tightens). The ordering
+  barrier was still honoured.
+
+### Audit vs the release-flow rearchitecture (shipped in parallel, 2026-09-04)
+
+The streamline-release-flow epic retired every `ci-event-build.yml`/`ci-event-userflows.yml`/
+`ci-post-receive.yml` — the files this campaign had wired. Audited all 46 submodules at current main:
+**nothing to do, the sweep carried the wiring forward.**
+
+- Every docker-building service repo's `ci-event-release-request.yml` AND `ci-event-release.yml` pass
+  `--build-arg QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_CENTRAL_MIRROR_URL:-}"` on the image build and
+  export `QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}"` before in-step mvnw. Libs export the
+  step-plane URL only (no docker build). All 18 `.qits-maven-settings.xml` `<server>` entries intact.
+- **The mirror's circularity guard survived**: qits-mirror's new pipelines hardcode
+  `--build-arg QITS_MAVEN_CENTRAL_URL=""` with the reasoning in a comment. Do not change it.
+- qits-ci main (`2026.904.130928`, deployed) still ships the flip defaults in
+  `ci/src/main/resources/META-INF/microprofile-config.properties`; launcher untouched by the epic.
+
+### Open (optional) follow-ups, none blocking
+
+- **qits-projects-daemon and qits-workspace-daemon docker builds resolve Central directly**: both run
+  `./mvnw package -Dnative` with NO settings file (`-s` absent, no `.qits-maven-settings.xml`). This
+  was always outside the campaign's 18-repo scope (derived from "has a settings file", not "runs
+  maven in docker"). Routing them through the mirror needs: settings file + Dockerfile ARG/ENV +
+  secret mounts + pipeline build-arg, per the fleet pattern.
+- `CiDaemonLauncher`'s field javadoc still says the build-url "ships empty" and that a non-empty one
+  "reddened every image build" (the pre-`/mirror` world) — stale, fix next time qits-ci is touched.
+- Parked follow-up still parked: qits-workspaces doesn't inject `QITS_MAVEN_CENTRAL_URL` into
+  workspace containers (the oci image's `/etc/qits/maven-settings.xml` profile stays inert).
+- The stale-prose flags on qits-edge/qits-stt `ci-event-build.yml` and qits-artifacts' userflows
+  header are MOOT — the sweep deleted those files.
+
+The plan below is kept as the record of what was done.
+
+### Original plan (executed)
+
+**Goal.** Finish the maven-central-mirror work so that image builds (native-image
+`docker build`s — the bulk of maven traffic) resolve Central through the mirror and
+cache it, not only the userflows/step plane. See memory `maven-central-mirror-campaign.md`
+for the full backstory; this section is the forward plan.
+
+**Status: the hard part is DONE and PROVEN; only a mechanical fan-out remains.**
+
+### Why /mirror (root cause, settled)
+A native-image `docker build` resolves maven inside the RUN in the HOST network namespace
+with the image's own resolv.conf. It can only reach the mirror through the EDGE vhost
+`mirror.dev.localhost`. The edge routes `/artifacts` to the hosted registry — `/artifacts`
+is qits-artifacts' PRIMARY route and primary routes TRAVEL to every vhost
+(`EdgeRouter.travels()`), so `mirror.dev.localhost/artifacts/maven/central` is handed to the
+registry and 404s. `/mirror` is the mirror's OWN route, which the edge carries to it.
+Auth is NOT the blocker: `EdgeAuth` brokers HTTP Basic → idp `client_credentials`, so the
+commissioned client the build already holds is accepted (measured 200). The postponed idp
+basic-auth feature is UNRELATED. The `/artifacts` paths were a leftover from before the
+byte-plane split; user decided to use `/mirror` ("that's why it exists").
+
+### DONE — released and on main
+1. **qits-registries `2026.902.190920`** — `qits.registries.maven.mirror-mount` config
+   (empty default; mirror sets `/mirror/maven`). ADDITIVE second maven mount beside
+   `/artifacts/maven`, so nothing migrates atomically. Files: `maven/.../MavenPaths.java`
+   (`artifactRoute(mount)`), `MavenRoutes.java` (`mirrorMount` Optional + `registerMount()`),
+   `MavenMirrorMountTest`. Handlers are mount-agnostic (read named path groups).
+2. **qits-mirror `2026.902.204548`** — pin bump to 190920 + `qits.registries.maven.mirror-mount=/mirror/maven`
+   in `application.properties`. DEPLOYED and VERIFIED:
+   `/mirror/maven/central` serves **200 in-network AND 200 via the edge with commissioned Basic**.
+   (`/mirror` is already in `quarkus.quinoa.ignored-path-prefixes`, so no Quinoa change.)
+
+### REMAINING — the fan-out (order-critical). Do in a clean, quiet session.
+**Step A — add the `<server>` to all 18 service repos' `.qits-maven-settings.xml`, FIRST.**
+Inside the existing `<servers>` (beside `qits-maven-network`), verbatim:
+```xml
+    <server>
+      <id>qits-central-proxy</id>
+      <username>${env.QITS_MAVEN_AUTH_USR}</username>
+      <password>${env.QITS_MAVEN_AUTH_PSW}</password>
+    </server>
+```
+These env vars are the commissioned client, already mounted by each `docker/Dockerfile`'s
+mvnw RUN (`--secret id=qits-client-id,env=QITS_MAVEN_AUTH_USR` etc.) for `qits-maven-network`.
+In the step plane they're unset and never sent (no 401 in-network) — inert, exactly like the
+existing server. NO path change to the settings files (the URL is the injected env var).
+The 18 repos (all with a docker/Dockerfile that runs `-s .qits-maven-settings.xml`):
+  artifacts, ci, configuration, containers, deployments, docs, edge, events, githost, idp,
+  maintenance, mirror, observability, orchestrator, projects, stt, system, workspaces.
+  (mirror's is inert — see circularity note below — but harmless; include it for uniformity.)
+
+**Step B — qits-ci, LAST (only after ALL of Step A is released).**
+In `ci/src/main/resources/META-INF/microprofile-config.properties`:
+  - `qits.mirror.maven-central.build-url` : from empty → `http://mirror.dev.localhost:8080/mirror/maven/central`
+  - `qits.mirror.maven-central.step-url`  : → `http://qits-platform-mirror:8080/mirror/maven/central`
+Update `CiDaemonLauncher` field default comments and `CiDaemonLauncherTest` (build plane now
+non-empty; assert the /mirror URLs). Keep `mavenCentralMirrorBuildUrl` as `Optional<String>`
+(empty-String property fails Quarkus boot — SRCFG00040; learned the hard way).
+
+**THE ORDERING BARRIER (do not violate):** the moment qits-ci ships the non-empty build-url,
+EVERY repo's docker build tries `mirror.dev.localhost/mirror/maven/central` through the edge.
+A repo without the `<server>` presents no creds → the edge 401s → its build FAILS. So ALL 18
+settings must be released before qits-ci flips. Same trap as the first campaign; respect it.
+
+**Circularity — the mirror is already self-protected.** qits-mirror's `.config/qits/ci-event-build.yml`
+hardcodes `--build-arg QITS_MAVEN_CENTRAL_URL=""` (NOT the fleet `${QITS_MAVEN_CENTRAL_MIRROR_URL:-}`),
+so the mirror's own build resolves Central DIRECTLY, never through itself (a concurrent session
+shipped this as "the mirror stops building through itself"). Do NOT change that. No other repo
+is circular (qits-artifacts ≠ mirror).
+
+### Verify after the fan-out
+Trigger a service's env/dev build; watch its docker-build maven resolve Central via
+`mirror.dev.localhost/mirror/maven` and go green; confirm the mirror's central cache grows
+(`GET http://qits-platform-mirror:8080/mirror/api/repositories/central/packages`). Use a COLD
+docker layer cache for at least one (a green build that resolved nothing is not proof — the
+2026-08-12 lesson). Edge acid test:
+`curl -H "Host: mirror.dev.localhost" -u "$QITS_COMMISSIONED_CLIENT_ID:$QITS_COMMISSIONED_CLIENT_SECRET" http://qits-platform-edge:8080/mirror/maven/central/io/quarkus/platform/quarkus-bom/3.34.6/quarkus-bom-3.34.6.pom`
+
+### PARKED / decided (do NOT silently do these)
+- **npm and OCI stay on `/artifacts` and `/v2`.** They do NOT need `/mirror`: npm runs in the
+  STEP container (not the docker build, so in-network `/artifacts/npm` is reachable), and OCI
+  `/v2` already routes through the edge. Moving them to `/mirror` is optional tidiness only.
+- **`/artifacts/maven` stays additive on the mirror** (both mounts serve). Removing it later is
+  optional cleanup once nothing dials it — not required.
+- **Anonymous edge reads: rejected** (user). Use the commissioned Basic creds, not an
+  anonymous-read carve-out. The idp basic-auth feature is unrelated to this work.
+
+### Conditions / gotchas for the clean session
+- **CONCURRENCY:** another session actively releases to registries/mirror (SBOM/CycloneDX,
+  dependency-updates epic). It contends the single-worker CI queue and re-released our keystone.
+  Start when it's quiet. Re-fetch before each repo op; expect door CONFLICT rejections
+  (merge main + re-arm).
+- **Deploy may not chain from a green build immediately.** Our mirror image sat un-pushed while
+  the build queued ~25 min behind the other train. If a deploy stalls: re-fire env/dev
+  (`git push origin +<sha>^:refs/heads/environment/dev -o qits.no-ci; git push origin <sha>:...`),
+  and confirm the image actually pushed (admin workspace `docker manifest inspect
+  registry.dev.localhost:8080/qits/<app>:<sha>`). The mirror is a NATIVE image.
+- **Door is merge-request-shaped:** PENDING → gate → RELEASED; re-arm by pushing to the branch.
+  A DEDUPED "FAILED" run is a superseded duplicate, not a real failure (check `supersededByRunId`).
+- **initdb-as-root:** registries gate needs `user: build` in `ci-post-receive.yml` (on main now).
+  A gate dying on `EmbeddedPgConfigSource could not be instantiated` with uid=0 is this.
+- **Admin workspace for docker access:** `POST /workspaces {admin:true}` mounts the host docker
+  socket (qits-workspace-oci ships docker-ce-cli). Run commands via a `.qits-config.yml`
+  `actions:` entry + `POST /workspaces/container/{numericId}/commands`, poll `/commands/{id}/log`;
+  recreate the container after each branch push (Content-Type required or 415). TEAR IT DOWN after
+  (`/discard?ignore-changes=true`) — it is root-equivalent on the host.
+
+### Quick reference
+- Release door: `POST http://dev-qits-workspaces:8080/workspaces/api/branches/release?projectId=$QITS_WORKSPACE_DAEMON_PROJECT_ID&repositoryName=<name>` (bearer aud `dev-qits-workspaces`), body `{"branch","summary"}`.
+- Poll request: `GET http://dev-qits-projects:8080/projects/api/repositories/<repoId>/release-requests` (bearer aud `dev-qits-projects`). Repo UUIDs: `GET .../projects/$QITS_WORKSPACE_DAEMON_PROJECT_ID/repositories`.
+- CI runs: `GET http://dev-qits-ci:8080/ci/api/runs/{active,finished?limit=N,<id>}` (bearer aud `dev-qits-ci`).
+- Deploy verdicts: qits-platform-deployments logs via `GET http://dev-qits-observability:8080/observability/api/telemetry/logs?source=_service/qits-platform-deployments&query=...&sinceMinutes=..` with `X-Qits-User`+`X-Qits-Roles: qits:admin`.
+
 ## Recently landed (2026-08-22, later)
 
 **Agent + workspace image versions are event-driven; workspace containers fixed;
