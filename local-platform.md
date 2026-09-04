@@ -36,10 +36,10 @@ The deployer-managed set has two shapes, and each repo's `.config/qits/deploymen
 it is:
 
 - **environment applications** — `qits-stt`, `qits-workspaces` and their siblings. One instance per
-  environment. They belong to the `dev` tier (branch `environment/dev`, network `qits-net`), deploy
-  from that branch, and run as `qits-pd-dev-qits-<name>-<id8>`.
+  environment. They belong to the `dev` tier (network `qits-net`), deploy at the released version
+  coordinate, and run as `qits-pd-dev-qits-<name>-<id8>`.
 - **platform services** — the other eight, `qits-platform-deployments` included. One instance for
-  the whole platform, no environment, deployed from `platform/main`, running as
+  the whole platform, no environment, deployed at their released version, running as
   `qits-pd-platform-qits-<name>-<id8>`. The word used to be *singleton*: it named a cardinality
   where what is meant is which plane a service lives on.
 
@@ -103,35 +103,36 @@ Every knob, mode and flag is the CLI's: see [components/qits-bootstrap/qits-boot
 
 ## Updating a pipeline-deployed service
 
-The everyday loop, and it has two doors into `main`.
+The everyday loop, and since 2026-09-04 it has one door into `main`: a **release request**.
 
-**Release is the normal one.** `POST /workspaces/api/workspaces/<id>/release` merges the
-workspace's branch into `main`, stamps the calendar version onto the merge commit itself
-(`release(2026.801.55529): …`) and pushes that commit to the git host — an ordinary push, so
-everything in the paragraph below happens exactly as it always did. It then fast-forwards
-`environment/dev` to the same commit, which is the push that deploys; a non-fast-forward is an
-error the release reports rather than forces. It also publishes an `SCMRelease` event on the bus.
+**A push builds nothing.** Per-push CI is gone — there is no `ci-post-receive.yml` in any repository
+and no `environment/*` branch to promote onto. Push your branch, then ask qits-projects for a
+release request naming it:
 
-Its sibling `POST /workspaces/api/workspaces/<id>/integrate` merges into the branch's **parent**
-branch instead — a `task/…` landing on its `epic/…` — with no version, no bump and no event. Aimed
-at a workspace whose parent is `main` it refuses with 409 `reason: RELEASE_REQUIRED`. Only release
-writes `main`.
+    curl -sS -X POST -H "Authorization: Bearer $PTOK" -H 'Content-Type: application/json' \
+        http://localhost:8080/projects/api/repositories/<repoId>/release-requests \
+        -d '{"branch":"<your branch>","summary":"<what this release is>"}'
 
-**A direct push is the escape hatch, and the deployment decides whether it exists.** What deploys
-is a push to `environment/dev` — pushing only `main` builds the image and stops there. `main` is a
-protected ref on the git host, so updating it needs a push option carrying this host's configured
-push token; `environment/dev` is not protected, but carry the token there too and one command
-shape covers both:
+qits-projects folds `main`, that branch and any released tags still in flight onto a backing branch
+`release/<id>`, and re-folds whenever one of them moves. `.config/qits/ci-event-release-request.yml`
+builds that fold; a **gating green verdict on it is the quality gate, with no exceptions**. Over a
+green one, Auto Release stamps the calendar version (`release(2026.801.55529): …`), bumps the
+manifests, tags, and publishes `SCMRelease`.
+
+`POST /workspaces/api/workspaces/<id>/integrate` still merges a workspace's branch into its
+**parent** branch — a `task/…` landing on its `epic/…` — with no version, no bump and no event.
+Aimed at a workspace whose parent is `main` it refuses with 409 `reason: RELEASE_REQUIRED`: only a
+release request writes `main`.
+
+**A direct push to `main` is the escape hatch, and it deploys nothing.** `main` is a protected ref
+on the git host, so updating it needs a push option carrying this host's configured push token:
 
     cd components/qits-observability/qits-observability-service
     git commit ...
-    git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability \
-        main HEAD:environment/dev
+    git push -o qits.token=local-dev http://localhost:8080/artifacts/git/qits-observability main
 
-For a platform service it is the `platform/main` push that deploys, and `environment/dev` that does
-nothing. Both refs in one push means two CI runs of the same commit —
-add `-o qits.no-ci` to a separate push of the ref that is not deploying if the second cold build
-is worth avoiding.
+It puts the commit on `main` and stops there — no build, no image, no deployment, and no version
+identity for the deployer to pull. It is a way to unstick a repository, not a way to ship.
 
 `local-dev` is what `qits-local-up.sh` configures; `QITS_PUSH_TOKEN` changes it. A deployment that
 configures **no** token has no escape hatch at all — unset matches nothing, and neither does empty,
@@ -141,12 +142,13 @@ protocol rather than in a header, so the same command works through the gateway 
 guarded, only updating or deleting the default one — which is why the bootstrap's first push of a
 fresh repo needs nothing.
 
-That push IS the deployment: post-receive → qits-ci runs the repo's
-`.config/qits/ci-post-receive.yml` (build `docker/Dockerfile`, push
-`localhost:8081/qits/<repo>:<sha>`) → green run announces the branch and sha to
-qits-platform-deployments → the deployer reads the repo's `deployments.yml` at that sha, registers
-the application if it is new, pulls, health-gates the fresh container on `qits-net`, and only then
-removes the old one. Watch it land:
+The RELEASE is the deployment: `SCMRelease` → qits-ci runs the repo's
+`.config/qits/ci-event-release.yml` (build `docker/Dockerfile`, push
+`localhost:8081/qits/<app>:<version>`) → the green run and the `SCMRelease` meet and qits-ci
+announces `SoftwareRelease` → qits-platform-deployments opens a Deployment Request for that version
+coordinate, reads the repo's `deployments.yml` at the released tag, registers the application if it
+is new, pulls, health-gates the fresh container on `qits-net`, and only then removes the old one.
+`main` is finalized once that deployment is live. Watch it land:
 
     docker ps                                                          # the step container, then the new deployment
     curl -s localhost:8080/platform-deployments/api/environments       # the environment id
@@ -225,15 +227,16 @@ it.
 
 ## Changing the environment's membership
 
-Membership is **derived**, so there is nothing to edit and nothing to recreate: the first green
-build on `environment/dev` registers the application from the repo's `.config/qits/deployments.yml`,
-and later builds update it. Registration is a row in the deployer's own database, written in the
+Membership is **derived**, so there is nothing to edit and nothing to recreate: the first release
+registers the application from the repo's `.config/qits/deployments.yml`, and later releases update
+it. Registration is a row in the deployer's own database, written in the
 same transaction that reads it. The bootstrap only ever reconciles the environment row itself, by
 `PATCH` — it never deletes it, because a `DELETE` tears down every container of the environment, the
 deployer-managed core included.
 
-To add a service: give the repo a `.config/qits/ci-post-receive.yml`, a `docker/Dockerfile` and a
-`deployments.yml` if it needs anything but the defaults, then push `environment/dev`. Add its name
+To add a service: give the repo a `.config/qits/ci-event-release-request.yml` and a
+`.config/qits/ci-event-release.yml`, a `docker/Dockerfile` and a `deployments.yml` if it needs
+anything but the defaults, then open a release request for it. Add its name
 to `DEPLOYABLES` in `components/qits-bootstrap/qits-bootstrap-cli`'s `PlatformModel` (plus run-args if it needs state) so
 the bootstrap carries it too.
 

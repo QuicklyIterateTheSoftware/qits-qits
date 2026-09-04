@@ -41,8 +41,8 @@ entry, not a schema change.
   vendors is a later decision. `FROM qits/*` IS in scope.
 - No `ng update` / tool-driven upgrades; groups carry only `name` + `deps`.
 - No workspace creation: pushing the branch is the whole "MR" — and a bump that
-  pushed one now asks the workspaces release door for the release itself.
-- No polling of the release request. The door answers a `requestId`, this
+  pushed one now opens the release request for itself.
+- No polling of the release request. qits-projects answers a request id, this
   service stores it and stops; what became of it comes back as `SCMRelease` on
   the bus, and two mechanisms watching one fact are two ways to disagree.
 - No automatic EXTERNAL bumps. `bump.external.auto` exists so the deployment
@@ -62,7 +62,7 @@ entry, not a schema change.
 | an internal release | qits-events `SoftwareRelease` off the durable bus | consumer `maintenance-internal-latest`; moves `mt_latest` FORWARD ONLY |
 | a branch's life | qits-events `SCMRelease`, `SCMDeleteBranch`, `SCMPublishCommit` | consumer `maintenance-branch-tracking`; the only writer of `RELEASED`, of a gitlink's latest, and of an `EVENT` rescan |
 | what a release CONTAINS | qits-artifacts `GET /artifacts/sboms/{type}/{name}/-/{version}` | one CycloneDX document per released artifact; `qits.maintenance.targets.artifacts-url`, a bare host because that path is qits-artifacts' own API rather than a mount |
-| releasing a bump's branch | qits-workspaces `POST /workspaces/api/branches/release` | `qits.maintenance.targets.workspaces-url`; the ask is made BY the bump, see "The release door" |
+| releasing a bump's branch | qits-projects `POST /projects/api/repositories/{repoId}/release-requests` | `qits.maintenance.targets.projects-url`, the same target the catalog is read from; the ask is made BY the bump, see "The release ask" |
 
 Internal vs external is a name rule, configured: maven groups
 (`eu.wohlben.qits`), npm scopes (`@qits`), image prefixes (`qits/`). A
@@ -263,8 +263,8 @@ Schedules and switches (`qits.maintenance.*`), all defaulted in the domain jar's
 | `bump.internal.cron` | `0 0 2 * * ?` | the nightly INTERNAL bump, 02:00 — after both scans, so the inventory it reads is today's |
 | `bump.internal.auto` | `true` | whether the clock asks for those bumps. **The live deployment holds it false until the pre-split branches are drained** |
 | `bump.external.auto` | `false` | **reserved.** External bumps are manual-only; setting it logs a WARN once and does nothing |
-| `bump.poll-interval` | `15s` | how often an unfinished bump is looked at; doubles as restart recovery and as the release-door retry tick |
-| `targets.workspaces-url` | `http://qits-workspaces:8080` | the release door |
+| `bump.poll-interval` | `15s` | how often an unfinished bump is looked at; doubles as restart recovery and as the release-ask retry tick |
+| `targets.projects-url` | `http://qits-projects:8080` | the catalog, and the release ask — one target for both |
 | `targets.artifacts-url` | `http://qits-artifacts:8080` | the SBOM documents — a bare host, no path |
 
 **`bump.auto` is RETIRED and `QITS_MAINTENANCE_BUMP_AUTO` is inert.** Nothing
@@ -275,9 +275,13 @@ schedule is set by how fast facts go stale; a bump is a WRITE into somebody else
 repository whose schedule is set by when a branch is welcome. Welded together, the
 01:00 external scan decided when the internal half got a branch.
 
-Outbound credentials are now SIX named oidc clients — `projects`, `githost`,
-`ci`, `artifacts`, `mirror` and `workspaces` — all `client-id=qits-platform-maintenance`,
-all shipped `client-enabled=false`, only the audience differing.
+Outbound credentials are FIVE named oidc clients — `projects`, `githost`, `ci`,
+`artifacts` and `mirror` — all `client-id=qits-platform-maintenance`, all shipped
+`client-enabled=false`, only the audience differing. **The release ask needs no
+client of its own**: it is a qits-projects route, so it rides the `projects`
+credential every catalog read already mints. There was a sixth once, audience
+`qits-workspaces` for the release door, and it went with the door; a deployment
+still setting `QUARKUS_OIDC_CLIENT_WORKSPACES_*` is setting keys nothing reads.
 
 ## The bump pipeline (qits-ci change)
 
@@ -334,7 +338,7 @@ exists, check it out and commit on top; if absent, start from `baseRef`. Commit
 `qits maintenance <maintenance@qits.local>`. `git push "$QITS_CI_REPOSITORY_URL"
 HEAD:refs/heads/<branch>` without `--force`; a non-ff rejection is a FAILED run
 and the service marks the branch STALE (someone rewrote it by hand — they own
-it now). A branch that was released is deleted by the release door's cleanup
+it now). A branch that was released is finalized into `main` by the release flow
 and the next bump starts fresh from main.
 
 The service polls `GET /ci/api/runs/{runId}` (run ids from the trigger
@@ -374,46 +378,60 @@ so five internal releases between two nights are ONE branch push, one CI build,
 one release request and one release — not five of each. That freeze is also what
 makes a 503 retry safe: the same payload goes out under the same event id.
 
-### The release door
+### The release ask
 
 **A bump that pushed a branch asks for it to be released, itself:**
 
 ```
-POST {workspaces-url}/workspaces/api/branches/release?projectId=<project>&repositoryName=<repo>
+POST {projects-url}/projects/api/repositories/<repoId>/release-requests
 { "branch": "maintenance/dependencies",
-  "summary": "bump(dependencies): 5 dependencies",
-  "expectedSha": "<the head this bump observed>" }      → {requestId, state, branch, commitSha, detail}
+  "summary": "bump(dependencies): 5 dependencies" }   → {"request": {id, state, backingBranch, mergedSha, …}}
 ```
 
 - Only `SUCCEEDED` asks. `NOTHING_TO_DO` pushed nothing; `STALE` is somebody's
   hand-written commit and releasing it on their behalf is the one thing this must
   never do; `FAILED` has nothing to release.
-- **Nothing merges at that call.** The door creates a release REQUEST in
-  qits-projects which the quality gates settle afterwards, so this service does
-  not poll it. That the branch was released comes back as `SCMRelease` on the bus.
-- **`expectedSha` pins the ask to what was built**; `projectId` is
-  `mt_repository.project` (the door resolves that segment by id first, then by
-  slug), so nothing had to be added to the catalog read.
+- **Nothing merges and nothing is released at that call.** A release REQUEST is
+  OPENED; qits-projects folds `main`, this branch and the repository's released
+  tags still in flight onto `release/<id>`, the quality gates settle that fold, and
+  Auto Release tags it once they pass. This service does not poll it. That the
+  branch was released comes back as `SCMRelease` on the bus.
+- **The repository is addressed by its CATALOG ID** — `mt_repository.catalog_id`,
+  the `id` qits-projects' own listing answers, copied onto the row by
+  `CatalogReader` since V5. That route resolves its path parameter against
+  qits-projects' repository table and nothing else, so the name and the project
+  cannot address it. A row with no catalog id records a refusal; the next scan
+  fills the column and the next bump asks with it.
+- **`summary` is the commit subject shape the bump's own commits carry**, word for
+  word from `.config/qits/ci-platform-event-maintenance-bump.yml`, and it doubles
+  as the fold's commit message. The `n` is what was ASKED FOR: one bump is up to
+  two commits and each counts only what its own step applied.
+- **No `expectedSha`, and that is a deliberate loss.** The retired door armed a
+  request at the instant it was asked, so a head that had moved in between had to
+  be a refusal. A release request is re-folded and re-gated on every push to any of
+  its named sources, so a commit landing after the ask is gated rather than
+  smuggled in — continuous re-gating replaces the pin.
+- **No `requester`.** The field states whom a machine peer acts for, and a bump has
+  no such person: a nightly one was asked for by a clock and a manual one records
+  no operator. Omitted, qits-projects attributes the request to this service's own
+  identity.
 - **`mt_bump.release_request_id` holds the answer and NULL means work is owed**:
-  a request id, or the sentinel `converged` (nothing to ask for — already
-  integrated, or the branch was released or deleted first), or `refused` (a 400 or
-  404 a retry cannot fix). **A door that will not answer NEVER flips the bump's
-  status** — the run was green and the branch moved, both facts about this
-  service's own work — so a 5xx or a 401/403 leaves the row `SUCCEEDED` with a
-  sentence on `message` and the poll sweep asks again. **The retry is bounded by
-  the BRANCH, not a counter**: it stops when the request exists, when `SCMRelease`
-  makes the branch RELEASED, or when `SCMDeleteBranch` makes it NONE.
-- **The ask is CONVERGENT, which is what makes the rollout safe.** Every
-  repository still carries `.config/qits/ci-event-maintenance-release.yml`, whose
-  step fires on the same push; the door answers the second ask with the request
-  the first made. Those triggers come out at the END of the epic and this becomes
-  the only caller.
-- **The door was WIDENED rather than the client promoted.** `POST /branches/release`
-  admits `qits:system` beside `qits:admin` — the pair its execute arm always
-  carried — since qits-workspaces `7c0733b`, so this machine's ordinary grant
-  opens it and no `qits:admin` lands on a service. Against an older qits-workspaces
-  the bearer authenticates and is refused 403, which `ReleaseDoorClient` classifies
-  as RETRYABLE on purpose so the ask heals the moment that release deploys.
+  a request id, or the sentinel `converged` (nothing to hold on to — a 2xx with no
+  id, or the branch was gone before the ask could be made), or `refused` (a 4xx
+  that is not an auth failure, which a retry cannot fix). **A qits-projects that
+  will not answer NEVER flips the bump's status** — the run was green and the
+  branch moved, both facts about this service's own work — so a 5xx or a 401/403
+  leaves the row `SUCCEEDED` with a sentence on `message` and the poll sweep asks
+  again. **The retry is bounded by the BRANCH, not a counter**: it stops when the
+  request exists, when `SCMRelease` makes the branch RELEASED, or when
+  `SCMDeleteBranch` makes it NONE.
+- **The ask is CONVERGENT**, which is what makes a retry of it free: a branch
+  already participating in an open release request answers that request rather
+  than opening a second one.
+- **No client was promoted for it.** The route admits `qits:system` beside
+  `qits:admin`, so this machine's ordinary grant opens it and no `qits:admin` lands
+  on a service. Against a qits-projects too old to serve the route the ask is a
+  404, recorded as a refusal; the next nightly bump of the group asks again.
 
 ## The event bus
 
@@ -425,7 +443,7 @@ be changed — a rename mints a new consumer that starts at the head of the log.
 | consumer | events | what it does |
 |---|---|---|
 | `maintenance-internal-latest` | `SoftwareRelease` (qits-ci) | moves `mt_latest` FORWARD ONLY, and writes an `mt_artifact` row PENDING — the SBOM outbox |
-| `maintenance-branch-tracking` | `SCMRelease` (qits-workspaces), `SCMDeleteBranch`, `SCMPublishCommit` (qits-githost) | writes a maintenance branch's state; records every release as a GITLINK's latest; re-reads one repository after a push to its main |
+| `maintenance-branch-tracking` | `SCMRelease` (qits-projects), `SCMDeleteBranch`, `SCMPublishCommit` (qits-githost) | writes a maintenance branch's state; records every release as a GITLINK's latest; re-reads one repository after a push to its main |
 
 - **Forward-only is the difference between an announcement and a poll.** A poll
   asks a registry what the newest version is and the answer replaces what was
@@ -477,6 +495,12 @@ across another service's HTTP call.
   pins them, so the row would join to nothing.
 
 ## Rollout (the orchestrator's recipe, twice)
+
+> **Executed; kept as the record of how it went.** Steps below that name
+> qits-workspaces' release door, its widened `POST /branches/release`, or a sixth
+> `workspaces` oidc client describe the world before the release-flow cutover of
+> 2026-09-04. The ask is a qits-projects release request now and it needs no client
+> of its own — see "The release ask". Do not follow those steps on a fresh platform.
 
 1. Seed both repos, add as submodules here (`--name`, `ignore = all`, `update = merge`).
 2. idp client `qits-platform-maintenance` (roles `qits:system`, `qits-platform:system`) in qits-configuration + `.qits-bootstrap.env`; extras block for the peer urls.
@@ -642,3 +666,18 @@ pins, guarded against partial and empty readings).
 Nightly bumps are LIVE (`bump.internal.auto=true` in the dev extras since 2026-09-02 evening;
 external stays manual). What the platform does now is the plan's first paragraph, verbatim, with
 nothing beside it.
+
+**2026-09-04 — the ask moves to qits-projects with the rest of the release flow.**
+The platform retired per-push CI and the qits-workspaces release door in one
+cutover, and this service's last outbound call to that door went with it. A
+SUCCEEDED bump now opens a release request —
+`POST /projects/api/repositories/<repoId>/release-requests {branch, summary}` — on
+the `projects` credential it already had, addressing the repository by
+`mt_repository.catalog_id` (`V5`). `expectedSha` is gone and not replaced: a
+release request is re-folded and re-gated on every push to any of its named
+sources, so continuous re-gating does what the pin did. `targets.workspaces-url`
+and the sixth oidc client are gone; five clients remain. Everything downstream of
+the ask is somebody else's now — qits-projects folds onto `release/<id>`,
+`ci-event-release-request.yml` gates the fold, Auto Release stamps the CalVer, and
+`main` is finalized after the deployment lands. This service still stores the
+request id and stops, and still learns the outcome as `SCMRelease` on the bus.
