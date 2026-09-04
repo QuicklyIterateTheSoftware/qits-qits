@@ -1,0 +1,6 @@
+version: 1
+actions:
+  - id: probe
+    name: probe
+    description: Inspect container env and host-netns mirror reachability
+    execute: bash probe.sh
