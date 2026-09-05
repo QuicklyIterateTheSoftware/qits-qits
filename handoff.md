@@ -4,6 +4,67 @@ What is still open. Everything shipped and closed is in git history; durable
 lessons are in the memory files
 (`~/.claude/projects/-home-wohlben-code-qits-qits/memory/`).
 
+## SHIPPED (2026-09-05): the ten-item cleanup batch, fanned out and landed
+
+All ten assigned residue items resolved (one subagent each; three turned out already fixed by
+sibling sessions and were verified instead of duplicated):
+
+- **DEDUPED ≠ FAILED** — classification was already CANCELLED/DEDUPED since `2026.904.174454`;
+  qits-ci `2026.905.54128` fixed the README's stale FAILED promise and added announce-silence
+  coverage on all three supersede writers. The `CiDaemonLauncher` mirror javadoc rewritten to the
+  /mirror reality in the same release.
+- **Deployments frontend newest-row** — the deployment-row half was already fixed
+  (`2026.904.151913`); the SAME bug lived on in the requests/outstanding cell and shipped as
+  `2026.905.53355`; deployed via a manual webui gitlink bump (`2026.905.71520`).
+- **bootstrap-cli QA gate** — interim unit-test pipeline hardened on main (primitive commit
+  `4d3b3d1`; a first cut had landed overnight), stated as interim until the far-future
+  cold-bootstrap IT; proven by release `2026.905.54204` (instant merge).
+- **Workspace containers get the mirror** — `qits.workspace.maven-central-url` ships
+  `http://qits-platform-mirror:8080/mirror/maven/central`, blank = off; qits-workspaces
+  `2026.905.65332`. One-time consequence: every workspace container is replaced on its next ensure
+  (volumes survive). This closes the mirror campaign's LAST unmirrored maven plane.
+- **musl toolchain hosted on-platform** — tarballs live in the maven registry under
+  `eu.wohlben.qits.toolchain` (GC-safe by released-version policy); qits-ci-daemon
+  `2026.905.65829`. Mechanism note: a docker-build RUN cannot reach edge vhosts (own netns,
+  `*.localhost`→own loopback) — the fetch is `ADD` in a `FROM scratch` stage (daemon-side network)
+  + bind mount, and pipeline-vs-Dockerfile read planes (main vs fold) forbid the --network-host fix.
+- **SBOM on qits-configuration releases** — already fixed (`2026.904.181427`), verified live: three
+  releases answer 200 with real CycloneDX documents.
+- **npm `main` dist-tags unfrozen** — the registry had NO dist-tag routes; qits-registries
+  `2026.905.60215` adds GET/PUT `-/package/<pkg>/dist-tags[/tag]` (proxy answers from upstream's
+  packument; PUT guards: version-must-exist 404, latest-never-backwards 403, non-hosted 405),
+  qits-artifacts `2026.905.75830` deploys it, both lib recipes add an unconditional
+  `npm dist-tag add <pkg>@$version main` + doc updates; verified: both `main` tags now track
+  `latest` (`2026.905.90159`/`.90241`). Semantics: `main` = the latest released main.
+- **edge deployments-events "arity break" DISSOLVES** — edge holds a private local record with
+  unknown-fields-ignored, and the four event records carried environmentId/Name since their first
+  commit (the epic changed population, not shape). Real exposure = `EventFrame` on an eventstream
+  bump (currently at arity). Shipped a full-frame decode contract test as `2026.905.60915`.
+- **Doc sweep** — wrapper docs released (`2026.905.55928`): README branching model on the new flow,
+  AGENTS gitlink prose (banked, not lagging), stale platform/main and door recipes fixed, banners
+  on the two historical records. Fleet inventory: 31/47 repos still state the old flow as current
+  truth (per-repo line list in the sweep agent's report; model docs to copy: ui-components +
+  integrations-angular READMEs; the 8 frontend repos are byte-duplicated into their services'
+  webui trees so each fix lands twice). Rides each repo's next touch.
+- **qits-system GitHub backup** — one non-ff ref (`maintenance/frontend`, force-moved by the
+  release train); ONE targeted forced update via the projects container's own credential;
+  SUCCEEDED with all 40 refs at parity. Ops note: poking the backup listener with a throwaway
+  branch mirrors that branch to GitHub, and backup pushes never delete — clean up both sides.
+
+**New findings from the batch (open):**
+- **The frontend-follow train is DEAD since 2026-09-02**: gitlink bumps authored by "qits release
+  train" stop there; every bump since is manual; two SPA releases on 2026-09-05 went unfollowed.
+  SPA fixes do not reach deployed services without a hand bump (branch moving
+  `service/src/main/webui` + release request). Needs its own fix (maintenance's frontend arm under
+  the new flow).
+- **qits-ci-service releases never get `mergedToMainAt` stamped** (3 examples; merges DO land on
+  main) — likely its own DeploymentActive lost across its self-redeploy cutover.
+- **CI queues phantom `POST_RECEIVE` runs** against `ci-post-receive.yml` no repo has; they end
+  CANCELLED (harmless, wasteful).
+- **Recipe-effect timing rule** (now in the lib docs): a `ci-event-release.yml` change takes effect
+  on the SAME release for instant-merge repos (finalization precedes the recipe run) and one
+  release LATER for deployment-gated repos.
+
 ## SHIPPED (2026-09-04): route Maven Central through the mirror for the BUILD plane
 
 **DONE AND CLOSED (2026-09-04 afternoon).** The fan-out below executed: all 18 `<server>` releases
