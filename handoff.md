@@ -52,11 +52,19 @@ sibling sessions and were verified instead of duplicated):
   branch mirrors that branch to GitHub, and backup pushes never delete — clean up both sides.
 
 **New findings from the batch (open):**
-- **The frontend-follow train is DEAD since 2026-09-02**: gitlink bumps authored by "qits release
-  train" stop there; every bump since is manual; two SPA releases on 2026-09-05 went unfollowed.
-  SPA fixes do not reach deployed services without a hand bump (branch moving
-  `service/src/main/webui` + release request). Needs its own fix (maintenance's frontend arm under
-  the new flow).
+- **The frontend-follow train — RETRACTED 2026-09-05, it is not dead, it moved.** The old
+  per-release "qits release train" bot (last bump 2026-09-02) was deliberately replaced by
+  qits-maintenance's bump train (cutover release 2026.904.115704, "deploy the repointed bump
+  train"): webui gitlinks are now GITLINK-ecosystem pins in the nightly 02:00 scheduled bump,
+  batched with dependency bumps on `maintenance/dependencies` and released via ordinary release
+  requests. Verified end-to-end for 2026-09-05 02:00: every service's webui gitlink bumped
+  fleet-wide, e.g. qits-workspaces-service RELEASED 2026.905.40732 (merged 05:48) and
+  qits-deployments-platform-service RELEASED 2026.905.23929 (merged 04:31), each carrying its
+  SPA gitlink. The "two unfollowed SPA releases" were released AFTER 02:00 — they ride the next
+  nightly train; the batch's manual webui bump (2026.905.71520) was unnecessary, merely early.
+  SPA-fix latency to production is now up to ~24h by design. Inspect the train at
+  `http://qits-platform-maintenance:8080/maintenance/api/bumps` (X-Qits-User/X-Qits-Roles
+  headers).
 - **qits-ci-service releases never get `mergedToMainAt` stamped** (3 examples; merges DO land on
   main) — likely its own DeploymentActive lost across its self-redeploy cutover.
 - **CI queues phantom `POST_RECEIVE` runs** against `ci-post-receive.yml` no repo has; they end
