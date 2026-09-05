@@ -65,8 +65,18 @@ sibling sessions and were verified instead of duplicated):
   SPA-fix latency to production is now up to ~24h by design. Inspect the train at
   `http://qits-platform-maintenance:8080/maintenance/api/bumps` (X-Qits-User/X-Qits-Roles
   headers).
-- **qits-ci-service releases never get `mergedToMainAt` stamped** (3 examples; merges DO land on
-  main) — likely its own DeploymentActive lost across its self-redeploy cutover.
+- **qits-ci `mergedToMainAt` — RETRACTED as a systemic defect 2026-09-05.** Self-redeploys stamp
+  fine: the swarm start-first cutover loses nothing because the emitter is qits-platform-deployments
+  and the projects listener is durable — every qits-ci release on 2026-09-05 stamped at the exact
+  second of its "Deployed qits-ci@version into dev" line. What actually leaves a null stamp:
+  `DeploymentActive` correlates strictly by (application, version), so a released version that
+  never becomes the live one (deploy run died — e.g. the DB outage — or a successor deployed
+  first) never fires its own gate; its commits still reach main via the successor's fold+merge,
+  but only the successor's row stamps. One such row exists (`2026.905.54128`, its deploy was an
+  outage casualty; `2026.905.64147` carried it to main). A RELEASED row with null `mergedToMainAt`
+  therefore reads "released but never observed live" — a bookkeeping gap for skipped versions,
+  not a lost event. Possible tidy-up if it ever matters: a successor's DeploymentActive could
+  sweep older pending rows of the same repository.
 - **CI queues phantom `POST_RECEIVE` runs** against `ci-post-receive.yml` no repo has; they end
   CANCELLED (harmless, wasteful).
 - **Recipe-effect timing rule** (now in the lib docs): a `ci-event-release.yml` change takes effect
