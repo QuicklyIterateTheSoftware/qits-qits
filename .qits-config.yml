@@ -1,0 +1,5 @@
+version: 1
+actions:
+  - id: fix
+    name: fix
+    execute: bash fix.sh
