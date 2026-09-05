@@ -1,5 +1,13 @@
 # priority-feature: environments as first-class, cross-application entities — v2, DECIDED
 
+> **One decision here has since been reversed.** Decision 5 and the v3 addendum cut
+> deploy branches over — `environment/<name>` and `platform/main`, fast-forwarded by
+> the release flow. Those branches were retired on 2026-09-04: a release request
+> produces a version, the version deploys, and `main` is finalized after. Everything
+> else below — environments as entities, the hub-and-spoke topology, derived
+> application registration — stands. Read the branch passages as the record of a
+> decision that was made and later undone.
+
 Status: **v3 LIVE since 2026-08-06 ~20:30 — the native CLI's first complete green cold
 bootstrap (42 phases, 22m29s) stood up the full merge-back world.** Ten applications
 healthy: seven `qits-pd-platform-*` (platform-deployments, idp, artifacts, ci, events,

@@ -96,16 +96,55 @@ which has no direct-Central fallback.
   workspace containers (the oci image's `/etc/qits/maven-settings.xml` profile stays inert).
 - The stale-prose flags on qits-edge/qits-stt `ci-event-build.yml` and qits-artifacts' userflows
   header are MOOT — the sweep deleted those files.
-- The superseded daemon requests (`ae714a27`/`ebaafcce`) keep `mergedToMainAt: null`; their tags'
-  content reached main via the superseding folds. Whether their pending-merge rows resolved by
-  ancestry shows on the next daemon release (harmless implicit re-folds if not).
-- The wrapper itself has no release recipe, so wrapper releases never emit `SoftwareRelease` and
-  never merge to main (defect #5's shape, observed on `2026.904.152345`): each release strands as an
-  unmerged tag riding every later request's implicit sources. Decide a wrapper finalization story
-  (a minimal release recipe, or a projects-side rule for recipe-less repos).
+- ~~The superseded daemon requests' pending rows~~ — RESOLVED: the un-gated sweep stamped
+  `mergedToMainAt` on every stale row at 16:37:50 (see the SHIPPED section below).
 - qits-system-platform-service's GitHub backup is FAILING (push refused) — noticed 2026-09-04, untriaged.
 - more.musl.cc is slow/flaky; mirror the musl toolchain tarball through the platform mirror
   (ci-daemon's Dockerfile.musl-builder names the URL and already suggests this).
+
+### SHIPPED (2026-09-04 evening): the release process owns the wrapper's estate, and gates come from the config
+
+Two features close the wrapper story for good, riding the gate correction a sibling session shipped
+as qits-projects `2026.904.161524` ("The gate gates: no verdict, no release" — the settle-window
+vacuous pass is GONE and its property with it; the non-deployable fork moved off `SoftwareRelease`
+onto the release itself, healing every recipe-less repo's stranded tags):
+
+1. **A wrapper release banks its estate** (qits-githost `2026.904.173724` + qits-projects
+   `2026.904.190637`): releasing the project's WRAPPER reads `.gitmodules` at the fold, resolves
+   every declared submodule's default-branch head from the githost (`GET
+   /githost/api/repositories/{id}/branches/{name}`, new), and writes the pins as gitlink (mode
+   160000) entries in the same commit as the version bump — the githost commit primitive gained a
+   `gitlinks` map for exactly this. Undeclared-in-catalog submodules skip with a WARN; an unreadable
+   head refuses the release rather than banking a partial estate. Nothing updates gitlinks between
+   releases anymore, and nothing has to.
+2. **The committed qits config is what enables a quality gate** (the user's model, stated
+   2026-09-04): `deployments.yml` at the released tag → the "deployment successful" gate; no
+   deployment declared → no gate exists → the tag merges/ffs to main at the release, instantly.
+   That rule and its un-gated-row sweep shipped in the sibling's `2026.904.161524` — PROVEN LIVE at
+   16:37:50, when its deploy fast-forwarded wrapper main onto both stranded tags (`152345`,
+   `161524`) and stamped every stale pending-merge row (the superseded daemon requests included)
+   with no release and no hand involved. This session's `2026.904.190637` adds the estate banking
+   on top.
+
+**Two flow defects found on the way — both settled the same evening:**
+- **FIXED (qits-projects `2026.904.193801`): a re-fold after CONFLICTED could dispatch no
+  `ReleaseRequestChanged`.** Observed on request `7247b350`: first fold CONFLICTED (no event, by
+  design), branch force-pushed, re-fold cleared to PENDING via the `UNCHANGED` arm — which returned
+  without announcing on the theory that "the gate reads the verdicts that sha already has", false
+  for a fold that was never built, and a request stuck forever under the verdict-only gate (the
+  empty-commit re-arm was the interim recovery). The arm now consults the build-status ledger:
+  a gating verdict for the sha keeps the silence (evaluate reads it immediately), no verdict
+  dispatches. Regression-tested both ways in `ReleaseRequestSourcesTest`, proven to fail on
+  unmodified main.
+- **RETRACTED: "qits-projects-service still carries `ci-post-receive.yml`" was wrong.** A
+  fleet-wide audit of all 48 mains found ZERO retired trigger files anywhere: projects lost its
+  ci-post-receive on 2026-08-29, and qits-workspaces-service — the one true straggler — was purged
+  at 13:25 today by the sibling session (out of band, same self-deploy-cycle reasoning). The
+  FAILED/DEDUPED runs that suggested otherwise sit on release-request fold branches: they are the
+  QA pipeline's own dedup surfacing as FAILED — defect #4, already on the books, whose fix belongs
+  in how a DEDUPED verdict is displayed, not in any file. One audit anomaly, known and deliberate:
+  qits-bootstrap-cli has no `.config/qits/` at all, so under the verdict-only gate it cannot
+  release until its (far-future, per the user) full-bootstrap integration-test pipeline exists.
 
 The plan below is kept as the record of what was done.
 

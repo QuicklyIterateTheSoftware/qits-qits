@@ -131,7 +131,7 @@ carrying a server at all.
    then has `qits-causation`; nothing consumes it yet — additive, safe.
 2. The train auto-bumps bus consumers to the new eventstream version; their builds stay green
    because the eventstream artifact still (transitively) carries the trio.
-3. Land the consumer commits (work package 2) repo by repo through the release door — each is
+3. Land the consumer commits (work package 2) repo by repo, a release request each — each is
    the dep swap plus the test-wiring deletion, provable by the module suite going green
    *without* the eventstream database.
 4. Phase 2 whenever wanted; it is invisible to consumers except as deleted test keys.

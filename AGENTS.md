@@ -42,8 +42,13 @@ Every submodule sits on its own `main` and follows it. Syncing is automated, so
 in normal work you never run a submodule command by hand.
 
 The gitlinks committed here are not version pins — they exist so
-`git submodule update --init` works on a fresh clone, and they are expected to
-lag behind the branches. Each entry in `.gitmodules` carries:
+`git submodule update --init` works on a fresh clone. They are *banked*: every
+wrapper release walks the submodules, moves each gitlink to the head of that
+submodule's `main`, and writes the result into the release commit, so a wrapper
+version names a whole estate rather than one repository. Between releases they
+lag the branches again, and that lag is expected — never chase it by hand, and
+never move one to follow a release you just made. Each entry in `.gitmodules`
+carries:
 
     url = ../<name>.git   # relative, never an absolute URL
     ignore = all          # keep the expected drift out of `git status` / `git diff`
