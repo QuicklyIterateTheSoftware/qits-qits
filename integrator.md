@@ -1,5 +1,13 @@
 # Integrator handoff — CI plane recovery and the unreleased work behind it
 
+> **Superseded as a recipe; kept as the record of that week.** The release-flow
+> cutover of 2026-09-04 retired the qits-workspaces release door this document
+> releases through (`POST /workspaces/api/branches/release`), the `environment/*`
+> deploy branches it promotes onto, and per-push CI. The commands in §4 and the
+> traps in §5 describe the world as it was on 2026-08-21 and will not work now;
+> releasing is a release request on qits-projects — see `WORKSPACE.md`. The
+> reasoning, the ordering argument and the diagnoses are why this file stays.
+
 Written 2026-08-21. Everything below is pushed and unreleased. **Nothing here can be built or
 released until step 0 is done, and step 0 needs a shell on the docker host** — it cannot be done
 from inside a workspace container, which has no docker.

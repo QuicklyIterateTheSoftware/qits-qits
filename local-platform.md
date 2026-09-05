@@ -44,10 +44,12 @@ it is:
   where what is meant is which plane a service lives on.
 
 `main` is the integration trunk on both planes — a push to it builds and deploys nothing. A release
-reaches the platform by fast-forwarding `platform/main` onto it.
+reaches either plane the same way: a release request, a version, a tag. The plane a repository lands
+on is a property of its `deployments.yml` (`deployment_target: platform` or not), not of a branch;
+the `platform/main` and `environment/*` deploy refs were retired on 2026-09-04.
 
-Nothing registers an application by hand: a green build on the branch that deploys a repo
-registers or updates it from that repo's spec.
+Nothing registers an application by hand: a release registers or updates the application from that
+repo's spec.
 
 **The deployer holds the topology itself** — the environments, the services and the links between
 them are rows in its own database, and `/platform-deployments/api/environments` is the door an
@@ -172,8 +174,8 @@ gate; the host port rebinds when the fresh one starts). A failed gate restarts t
 
 ## Updating qits-platform-deployments
 
-The same push as everything else — the deployer is a platform service, so `platform/main` is the
-ref that deploys it, and its deployment is not in the environment's listing. What differs is the
+The same release request as everything else — the deployer is a platform service, so its deployment
+is not in the environment's listing. What differs is the
 cutover: it cannot stop its own container in-process, so it hands over. The handoff does the rest.
 If the successor's gate fails, the referee restarts the old one and its sweep records the `FAILED`
 row; if the handoff dies in a way that leaves no deployer running (both crash-looping images, say),

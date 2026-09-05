@@ -137,12 +137,13 @@ first scan after the line is committed. **An unknown ecosystem name is
 the ecosystem the author meant to protect went on being bumped nightly.
 
 The case it was built for is **this wrapper**, whose forty-seven submodule
-gitlinks are deliberately lagging bank markers rather than version pins (see
-"Submodules" in `CLAUDE.md` — every entry carries `ignore = all` for the same
-reason). `.config/qits/maintenance.yml` here is that one line, `ignore:
+gitlinks are bank markers rather than version pins: the wrapper's own release
+banks them all at each submodule's `main` head, and between releases they lag
+again (see "Submodules" in `CLAUDE.md` — every entry carries `ignore = all` for
+the same reason). `.config/qits/maintenance.yml` here is that one line, `ignore:
 [gitlink]`. Without it this service would read those forty-seven lagging shas as
 forty-seven upgrades and open a nightly bump against a doctrine the repository
-states in writing.
+states in writing — and against a banking pass that already moves them.
 
 ## Model (PostgreSQL `qits_platform_maintenance`, Flyway)
 
