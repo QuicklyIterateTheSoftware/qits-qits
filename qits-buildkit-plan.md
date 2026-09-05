@@ -241,7 +241,11 @@ default. Storage: gc `keepstorage` 20 GB in buildkitd.toml, plus the orchestrato
    --resolve-image never` expect them, and the `QITS_SRC/.buildkit` scratch path being identical on
    both sides of the socket.
 2. qits-containers' first deployment re-ensuring the bootstrap's builder onto `qits-net` with the
-   cache volume intact, and a step container resolving `tcp://qits-buildkitd:1234`.
+   cache volume intact, and a step container resolving `tcp://qits-buildkitd:1234`. One known
+   ripple: the injected `BUILDKIT_HOST` enters the spec hash, so an existing long-lived
+   socket-holding workload (an admin workspace) reads as spec-changed on its first ensure after the
+   deploy — a one-time recreate where the caller asked for recreate-if-changed, a `KEEP` note where
+   it did not.
 3. A qits-workspace-daemon release request end to end: the buildkitd.toml rewrites serving the
    committed `FROM` vhosts, the Mandrel build's RUN reaching `$QITS_MAVEN_PROXY_URL` from the
    builder's namespace, `push=true` landing `qits/workspace:<sha>`/`:<version>` where
