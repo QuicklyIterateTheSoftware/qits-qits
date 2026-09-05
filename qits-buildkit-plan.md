@@ -1,7 +1,10 @@
 # Image builds through a platform-owned BuildKit, not the host docker
 
-Status: **implemented in refinement, unproven against a live platform** — see "Status as shipped"
-and "Handoff" below.
+Status: **implemented, released, and PROVEN LIVE end to end** — `qits/workspace:2026.905.181528`
+was built by the platform builder and sits in the registry with its SBOM. The fleet conversion
+(every image-building recipe onto `build: true` + buildctl) is committed everywhere and its release
+wave is draining two requests at a time. See "Status as shipped", "What the live platform taught"
+and "Handoff".
 
 Today every image build on the platform runs on the **host docker daemon**: a CI step declares
 `docker: true`, qits-containers mounts `/var/run/docker.sock`, and the step's `docker build`
@@ -182,6 +185,52 @@ default. Storage: gc `keepstorage` 20 GB in buildkitd.toml, plus the orchestrato
 - **Caller-wins deference** for `BUILDKIT_HOST` (empty suppresses) as the kill-switch reach
   across the qits-ci → qits-containers seam, instead of a wire field.
 
+## What the live platform taught (2026-09-05, in firing order)
+
+Every item below was found by a real failure or a real probe, fixed, re-released and re-proven —
+none is folklore:
+
+1. **The aliases were guessed wrong.** The registry on this platform is `dev-qits-artifacts:8080`
+   (a dev-tier app carries the tier alias) and the mirror `qits-platform-mirror:8080`; the guessed
+   `qits-platform-artifacts` resolves nowhere. First converted release run died on the DNS lookup.
+2. **The builder converges on a CONFIG STAMP now, not the image pin.** The toml is as load-bearing
+   as the pin — a builder with wrong rewrites was adopted as healthy — so image, toml, bounds,
+   network and the boot prelude are hashed into a label and any moved value replaces the container
+   (cache volume riding across). An unstamped predecessor (the bootstrap's host-net builder) reads
+   as "not the configured one", which is exactly the bootstrap→platform handover.
+3. **Execs need `networkMode = "host"`** (host relative to the builder container): the default
+   sandbox namespace has no DNS and no route, and a `RUN`'s mvnw died resolving the mirror.
+4. **…and `[dns] nameservers = ["127.0.0.11"]` besides**: BuildKit filters loopback nameservers
+   out of the resolv.conf it generates for execs, so even in the right namespace the embedded DNS
+   was invisible. Both are in the rendered toml now.
+5. **The builder listens on its default unix socket too**: the gc sweep's `docker exec buildctl`
+   knows no tcp address, and the first live dry-run answered "no such file or directory".
+6. **The three bare-upstream registry hosts are mapped onto the mirror's namespaces**
+   (`quay.io`, `registry.access.redhat.com`, `docker.io` → `qits-platform-mirror:8080/{quay,redhat,hub}`):
+   bare-upstream `FROM`s (qits-idp had two, qits-workspace-oci a bare `debian`) only ever worked
+   through the HOST daemon's registry-mirrors. qits-idp's Dockerfile also now spells the vhosts
+   like every sibling.
+7. **The QA fold is decided at `main`** — so a conversion release's own QA runs the OLD recipe, and
+   the converted one is first exercised by the release run (non-deployables) or the next release
+   (deployables). The green proof of the whole chain is the re-fired workspace-daemon release run.
+8. **A re-fired `SCMRelease` must carry the PEELED commit sha** — the tag object's own sha reads as
+   a commit nobody holds and the run is silently discarded (`ls-remote`'s `^{}` line is the one to
+   copy).
+9. **`set -u` vs an uncommissioned run**: the secret-file writes must use `${VAR-}` or a deployment
+   with no oidc client turns the old inert-secret arm into a failed step (caught by the conversion
+   agents; the reference pair follows its own advice now).
+
+## The end state landed: `build: true`
+
+`docker: true` is no longer the build declaration. A converted step declares `build: true` — the
+same per-step, diff-visible opt-in, keying the commissioned credential and the build environment —
+and **holds no socket**; qits-containers hands `BUILDKIT_HOST` to every `ci-step` container,
+socket or not (the address is discovery, not privilege). Declaring both flags is a parse error; an
+older qits-ci ignores the key and the `${BUILDKIT_HOST:?}` guard fails loudly. The whole fleet's
+image-building recipes (21 repos + the reference pair) are converted to it; the only remaining
+`docker: true` in the estate are qits-build-images-oci's two dind steps (see decisions) and
+qits-ci-daemon's binary smoke probe (a container run, not a build — honestly mixed and reported).
+
 ## Status as shipped
 
 - [x] qits-containers: buildkitd owned (`PlatformBuildkit`, boot-ensured, row-less like the shared
@@ -261,7 +310,28 @@ default. Storage: gc `keepstorage` 20 GB in buildkitd.toml, plus the orchestrato
    builder is off in that profile by design; the six stories should be byte-stable, which was not
    re-run here.
 
-**Not in this epic, recorded for the next:** a `build: true` step key granting `BUILDKIT_HOST`
-without the socket; converting the remaining ~46 docker-step recipes (mechanical, per the
-representative pair); dropping the socket mount from converted steps; rootless buildkitd; a
-`docker.io` mirror stanza if a bare Hub `FROM` ever becomes legitimate.
+**Decisions closed (resolved as decisions, not parked):**
+
+- **qits-build-images-oci stays on upstream `docker:28-dind` + the host socket.** Its pipelines are
+  the CI plane's bootstrap anchor: nothing it consumes may be something it publishes, and buildctl
+  reaches its steps only via images this platform builds — the exact circularity the 2026-08-20
+  prune incident closed. The two dind steps are the deliberate, documented exception.
+- **The builder stays `--privileged`, rootless is declined for now.** The rootless image runs
+  buildkitd under rootlesskit in its own user+network namespace, which re-breaks the exec
+  networking contract this migration just proved (execs must sit on qits-net with the embedded
+  DNS), and fuse-overlayfs changes build performance. Under the standing intra-network posture the
+  contained-root builder already strictly dominates the host-socket root-equivalence it replaced.
+  Revisit only as part of a platform-wide hardening campaign with a workstation to test on.
+- **`docker.io` IS mirrored** (stanza 6 above) rather than left to a spelling rule.
+
+**Remaining, with owners:**
+
+- The fleet wave's release requests drain two at a time (in flight); a failed fold is fixed on its
+  branch and the request re-arms itself.
+- `build/secret-file-mounts` branches exist in five repos doing half of this conversion; superseded
+  whole (their factual notes folded in). Deleting another author's branches was deliberately left
+  to a human.
+- **The one host-bound item: a fresh bootstrap run.** This seat holds no docker socket, so
+  `./qits-local-up.sh` on a workstation is what proves the bootstrap's builder path (tar-loads,
+  scratch dir, host-net buildkitd, and the handover where qits-containers restamps it onto
+  qits-net). Everything the bootstrap suite could prove without a daemon is green (599 tests).
