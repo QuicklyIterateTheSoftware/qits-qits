@@ -12,13 +12,16 @@
 #
 # The correction is one targeted forced update of that one ref. Nothing else is touched:
 # no blanket force, no deletions, no push to the platform githost.
+#
+# Everything is probed with `git` itself rather than find/ls/test, because the projects
+# container is a native-image image whose shell utilities cannot be relied on -- but it
+# shells git, so git is certainly there.
 set -uo pipefail
 
 REPO_ID="dc85aa7d-cf9c-440a-a375-f82c2400c449"
 REPO_URL="https://github.com/QuicklyIterateTheSoftware/qits-system-platform-service.git"
 BRANCH="maintenance/frontend"
 REFSPEC="+refs/heads/${BRANCH}:refs/heads/${BRANCH}"
-EXPECTED_GH="bac334c9df0d84c219c0df1b514f42cef602fc6c"
 EXPECTED_PLAT="fdb67a7f6c48c34474f1d9449ddaaa6198c2b845"
 
 echo "== locating dev-qits-projects container =="
@@ -30,33 +33,49 @@ if [ -z "${CID:-}" ]; then
 fi
 echo "container=$CID"
 
-echo "== locating the mirror =="
-MIRROR=""
-for CAND in "/data/mirrors/${REPO_ID}.git" "/data/projects/mirrors/${REPO_ID}.git"; do
-  if docker exec "$CID" test -f "$CAND/HEAD" 2>/dev/null; then MIRROR="$CAND"; break; fi
+echo "== container env (data-dir) =="
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CID" | grep -iE 'DATA|QITS_PROJECTS' || true
+echo "== container workingdir =="
+docker inspect --format '{{.Config.WorkingDir}}' "$CID"
+WORKDIR=$(docker inspect --format '{{.Config.WorkingDir}}' "$CID" | tr -d '\r')
+echo "== container mounts =="
+docker inspect --format '{{range .Mounts}}{{.Type}} {{.Source}} -> {{.Destination}}{{println}}{{end}}' "$CID" || true
+
+ENVDIR=$(docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$CID" \
+  | grep -E '^QITS_PROJECTS_DATA_DIR=' | head -1 | cut -d= -f2- | tr -d '\r')
+echo "env data-dir='${ENVDIR:-<unset>}'"
+
+MOUNTDESTS=$(docker inspect --format '{{range .Mounts}}{{println .Destination}}{{end}}' "$CID" | tr -d '\r')
+
+CANDIDATES=""
+[ -n "${ENVDIR:-}" ] && CANDIDATES="$CANDIDATES ${ENVDIR}/mirrors/${REPO_ID}.git"
+for d in $MOUNTDESTS; do
+  CANDIDATES="$CANDIDATES ${d}/mirrors/${REPO_ID}.git ${d}/projects/mirrors/${REPO_ID}.git"
 done
-if [ -z "$MIRROR" ]; then
-  echo "-- probing --"
-  docker exec "$CID" sh -c "find / -maxdepth 5 -type d -name 'mirrors' 2>/dev/null" || true
-  FOUND=$(docker exec "$CID" sh -c "find / -maxdepth 6 -type d -name '${REPO_ID}.git' 2>/dev/null | head -1" | tr -d '\r')
-  MIRROR="$FOUND"
-fi
+CANDIDATES="$CANDIDATES /data/mirrors/${REPO_ID}.git /data/projects/mirrors/${REPO_ID}.git"
+[ -n "${WORKDIR:-}" ] && CANDIDATES="$CANDIDATES ${WORKDIR}/data/projects/mirrors/${REPO_ID}.git"
+CANDIDATES="$CANDIDATES /work/data/projects/mirrors/${REPO_ID}.git /deployment/data/projects/mirrors/${REPO_ID}.git /app/data/projects/mirrors/${REPO_ID}.git"
+
+echo "== probing for the mirror =="
+MIRROR=""
+PLAT=""
+for CAND in $CANDIDATES; do
+  OUT=$(docker exec "$CID" git --git-dir="$CAND" rev-parse --verify "refs/heads/${BRANCH}" 2>&1 | tr -d '\r')
+  echo "  $CAND -> $OUT"
+  case "$OUT" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) MIRROR="$CAND"; PLAT="$OUT"; break ;;
+  esac
+done
+
 if [ -z "$MIRROR" ]; then
   echo "FATAL: could not locate the mirror for $REPO_ID inside the container"
   exit 1
 fi
 echo "mirror=$MIRROR"
-
-echo "== mirror's own ref =="
-PLAT=$(docker exec "$CID" git --git-dir="$MIRROR" rev-parse "refs/heads/${BRANCH}" | tr -d '\r')
-echo "mirror ${BRANCH} = $PLAT (expected $EXPECTED_PLAT)"
-if [ "$PLAT" != "$EXPECTED_PLAT" ]; then
-  echo "NOTE: the mirror has moved since diagnosis; pushing what the mirror holds, which is still"
-  echo "      exactly the platform's own tip for this one branch."
-fi
+echo "mirror ${BRANCH} = $PLAT (diagnosed $EXPECTED_PLAT)"
 
 echo "== GitHub ref state BEFORE =="
-docker exec "$CID" git ls-remote "$REPO_URL" "refs/heads/${BRANCH}"
+docker exec "$CID" git --git-dir="$MIRROR" ls-remote "$REPO_URL" "refs/heads/${BRANCH}"
 
 echo "== corrective push: $REFSPEC =="
 docker exec "$CID" git --git-dir="$MIRROR" \
@@ -66,6 +85,6 @@ PUSH_RC=$?
 echo "push rc=$PUSH_RC"
 
 echo "== GitHub ref state AFTER =="
-docker exec "$CID" git ls-remote "$REPO_URL" "refs/heads/${BRANCH}"
+docker exec "$CID" git --git-dir="$MIRROR" ls-remote "$REPO_URL" "refs/heads/${BRANCH}"
 
 exit $PUSH_RC
