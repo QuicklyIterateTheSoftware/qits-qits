@@ -1,0 +1,41 @@
+# THE WRAPPER'S QA PIPELINE. Since "The gate gates" (qits-projects 2026.904.161524) a release
+# request releases on exactly one thing: a gating BuildSuccessful for its current fold — no verdict
+# is not a pass, and a repository with no pipeline cannot release at all. The wrapper releases
+# routinely (maintenance bumps, estate banking, doc updates), so it needs a gate; this is it.
+#
+# WHAT A WRAPPER RELEASE IS is what this gates. The wrapper builds no artifact — its content is the
+# estate declaration: .gitmodules naming every component repository, and the platform pipeline and
+# maintenance files under .config/qits. So the gate checks that declaration is sound rather than
+# pretending there is something to compile: .gitmodules parses, every entry carries a path and a
+# RELATIVE url (an absolute url would silently build from the wrong host — the 2026-08-30 lesson),
+# and no two entries share a path. The gitlink pins themselves are written by the release AFTER
+# this gate (qits-projects banks the estate in the release commit), so they are deliberately not
+# checked here — this run sees the fold, not the release commit.
+#
+# DECIDE AT MAIN, BUILD AT THE FOLD, like every sibling's: the file is read at this repository's
+# main head; the run checks out the fold.
+event: ReleaseRequestChanged
+when:
+  - repoName: { exact: qits-qits }
+
+checkout:
+  branch: backingBranch
+  sha: mergedSha
+
+steps:
+  - image: qits/build-images/ci-base:latest
+    timeout-seconds: 300
+    script: |
+      # The daemon runs this with `bash -c` and no -e, so without this a failed check is swallowed
+      # and the run reports SUCCESS — a green verdict for a broken estate declaration.
+      set -eu
+      test -f .gitmodules || { echo "the wrapper declares no .gitmodules" >&2; exit 1; }
+      # git itself is the parser: a syntactically broken file fails here, not downstream.
+      paths=$(git config -f .gitmodules --get-regexp 'submodule\..*\.path' | awk '{print $2}')
+      test -n "$paths" || { echo ".gitmodules declares no submodules" >&2; exit 1; }
+      dupes=$(printf '%s\n' "$paths" | sort | uniq -d)
+      test -z "$dupes" || { echo "two entries share a path:" "$dupes" >&2; exit 1; }
+      bad=$(git config -f .gitmodules --get-regexp 'submodule\..*\.url' | awk '$2 !~ /^\.\.\// {print $2}')
+      test -z "$bad" || { echo "non-relative submodule url(s):" "$bad" >&2; exit 1; }
+      count=$(printf '%s\n' "$paths" | wc -l)
+      echo "the estate declares $count submodules, all paths unique, all urls relative"

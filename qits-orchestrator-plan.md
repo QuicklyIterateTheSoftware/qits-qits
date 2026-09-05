@@ -126,14 +126,33 @@ The **gc** process (kind `gc`), steps and edges:
 | id | target | call | dependsOn |
 |---|---|---|---|
 | `usage.before` | containers | `GET /containers/api/gc/usage` | — |
+| `artifacts.usage.before` | artifacts | `GET /artifacts/api/store/summary` | — |
 | `pins.deployments` | deployments | `GET /platform-deployments/api/pins` | — |
 | `pins.ci` | ci | `GET /ci/api/daemon` | — |
-| `artifacts.plan` | artifacts | `POST /artifacts/api/gc/plan {pins}` | pins.deployments, pins.ci |
-| `artifacts.sweep` | artifacts | `POST /artifacts/api/gc/sweep {pins}`; SKIPPED("dry run") when dryRun | artifacts.plan |
+| `pins.dependencies` | maintenance | `GET /maintenance/api/pins` | — |
+| `pins.images` | configuration | `GET /configuration/api/pins` | — |
+| `pins.workspaces` | workspaces | `GET /workspaces/api/pins` | — |
+| `pins.projects` | projects | `GET /projects/api/pins` | — |
+| `artifacts.plan` | artifacts | `POST /artifacts/api/gc/plan {pins}` | the six pins.* steps |
+| `artifacts.sweep` | artifacts | `POST /artifacts/api/gc/sweep {pins}`; SKIPPED("dry run") when dryRun | artifacts.plan + the six pins.* steps |
 | `containers.images` | containers | `POST /containers/api/gc/images` keep = deployments pins as `qits/<app>:<sha>` + config prefixes | pins.deployments |
 | `containers.volumes` | containers | `POST /containers/api/gc/volumes` | usage.before |
 | `containers.build-cache` | containers | `POST /containers/api/gc/build-cache` | usage.before (needs no pins; runs after images by declaration order) |
+| `repos.catalogue` | projects | `GET /projects/api/repositories` | — |
+| `branches.sweep` | workspaces | `POST /workspaces/api/gc/branches` | repos.catalogue |
+| `artifacts.usage.after` | artifacts | `GET /artifacts/api/store/summary` | artifacts.sweep |
 | `usage.after` | containers | `GET /containers/api/gc/usage` | artifacts.sweep, containers.images, containers.volumes, containers.build-cache |
+
+The pins body is `{"pins":{"deployments":…,"ciDaemon":…,"dependencies":…,"configuredImages":…,
+"workspaceLaunches":…,"projectLaunches":…}}`, each member the peer's answer verbatim, each absent
+when unread (fail-closed at qits-artifacts). The six sources differ by tense: deployments = what
+serves, ci = what a run launches, maintenance = what source still references (`pins.dependencies`,
+internal maven/npm/docker manifest pins), configuration = what the NEXT deploy will configure
+(`pins.images`), and workspaces/projects = what a container launch would pull TODAY
+(`pins.workspaces`/`pins.projects` — the effective values, which lag the configured ones until the
+service redeploys). The two `artifacts.usage.*` steps read the registry store's own bytes, which
+live in postgres and are invisible to the docker usage read — the 2026-09-04 storage incident was
+50 GB no receipt showed.
 
 Config (`qits.orchestrator.*`): `targets.{artifacts,containers,ci,deployments}-url`
 (defaults `http://qits-<name>:8080`; the live platform injects

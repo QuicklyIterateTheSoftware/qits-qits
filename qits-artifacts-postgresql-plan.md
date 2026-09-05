@@ -393,8 +393,9 @@ container name + image sha noted (rollback target).
   to the backup volume. `docker stop` artifacts (H2 unlocks). `PHASE=all`. GATE: exit 0 — on
   mismatch `docker start` artifacts and abort, nothing changed. `docker start` artifacts —
   old store serves again; confirm health.
-- **C — flip + release:** edit run-args (§11); `docker restart` deployer; release via quiet
-  branch push + `POST /workspaces/api/branches/release?repositoryId=qits-platform-artifacts`.
+- **C — flip + release:** edit run-args (§11); `docker restart` deployer; release via branch
+  push + a release request on qits-projects
+  (`POST /projects/api/repositories/<catalogId>/release-requests`).
   The pipeline builds/pushes into the OLD store (that's why B restarted it). Deployer pulls
   BEFORE stopping the predecessor (deliberate, for exactly this registry-self-replacement),
   stops old, starts new against PG; Flyway is a no-op (schema pre-applied at the exact

@@ -1,5 +1,17 @@
 # Releasing from inside a workspace container
 
+> **SUPERSEDED 2026-09-04 — kept as the record of the flow it verified.** The
+> qits-workspaces release door this file is built around
+> (`POST /workspaces/api/branches/release`, `execute-release`, the promotion onto
+> `environment/*`) no longer exists, and neither does per-push CI. Releasing is now
+> `POST /projects/api/repositories/{repoId}/release-requests {"branch","summary"}`:
+> qits-projects folds the branch onto `release/<id>`,
+> `.config/qits/ci-event-release-request.yml` gates that fold, Auto Release stamps
+> the CalVer, `ci-event-release.yml` builds the version coordinate, qits-deployments
+> deploys it, and `main` is finalized only afterwards. **`WORKSPACE.md` in this
+> repository is the current short form and the one to follow.** Everything below is
+> the 2026-08-20 world, unedited.
+
 How an agent working **inside a workspace container** gets a change from its checkout onto the
 running platform, with no help from outside the container. Verified end-to-end on wohlben.eu
 (2026-08-20), repeatedly: a qits-workspaces fix released as `2026.820.64615` and

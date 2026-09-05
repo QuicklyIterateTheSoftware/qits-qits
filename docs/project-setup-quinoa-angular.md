@@ -131,8 +131,8 @@ directory`. Three places assume the checkout, and each ships its own fix:
 2. **The image build** — `.dockerignore` must exclude `**/node_modules` and the client's `dist`
    (a host-built `node_modules` leaking into the context is a client built by the wrong toolchain,
    since Quinoa reuses one rather than reinstalling).
-3. **The repo's own CI** — the daemon's clone is shallow and does not recurse, so
-   `.config/qits/ci-post-receive.yml` runs
+3. **The repo's own CI** — the daemon's clone is shallow and does not recurse, so both
+   `.config/qits/ci-event-release-request.yml` and `.config/qits/ci-event-release.yml` run
    `git submodule update --init --depth 1 service/src/main/webui` before `docker build`.
 
 ### Testing

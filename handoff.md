@@ -4,6 +4,85 @@ What is still open. Everything shipped and closed is in git history; durable
 lessons are in the memory files
 (`~/.claude/projects/-home-wohlben-code-qits-qits/memory/`).
 
+## SHIPPED (2026-09-05): the ten-item cleanup batch, fanned out and landed
+
+All ten assigned residue items resolved (one subagent each; three turned out already fixed by
+sibling sessions and were verified instead of duplicated):
+
+- **DEDUPED ≠ FAILED** — classification was already CANCELLED/DEDUPED since `2026.904.174454`;
+  qits-ci `2026.905.54128` fixed the README's stale FAILED promise and added announce-silence
+  coverage on all three supersede writers. The `CiDaemonLauncher` mirror javadoc rewritten to the
+  /mirror reality in the same release.
+- **Deployments frontend newest-row** — the deployment-row half was already fixed
+  (`2026.904.151913`); the SAME bug lived on in the requests/outstanding cell and shipped as
+  `2026.905.53355`; deployed via a manual webui gitlink bump (`2026.905.71520`).
+- **bootstrap-cli QA gate** — interim unit-test pipeline hardened on main (primitive commit
+  `4d3b3d1`; a first cut had landed overnight), stated as interim until the far-future
+  cold-bootstrap IT; proven by release `2026.905.54204` (instant merge).
+- **Workspace containers get the mirror** — `qits.workspace.maven-central-url` ships
+  `http://qits-platform-mirror:8080/mirror/maven/central`, blank = off; qits-workspaces
+  `2026.905.65332`. One-time consequence: every workspace container is replaced on its next ensure
+  (volumes survive). This closes the mirror campaign's LAST unmirrored maven plane.
+- **musl toolchain hosted on-platform** — tarballs live in the maven registry under
+  `eu.wohlben.qits.toolchain` (GC-safe by released-version policy); qits-ci-daemon
+  `2026.905.65829`. Mechanism note: a docker-build RUN cannot reach edge vhosts (own netns,
+  `*.localhost`→own loopback) — the fetch is `ADD` in a `FROM scratch` stage (daemon-side network)
+  + bind mount, and pipeline-vs-Dockerfile read planes (main vs fold) forbid the --network-host fix.
+- **SBOM on qits-configuration releases** — already fixed (`2026.904.181427`), verified live: three
+  releases answer 200 with real CycloneDX documents.
+- **npm `main` dist-tags unfrozen** — the registry had NO dist-tag routes; qits-registries
+  `2026.905.60215` adds GET/PUT `-/package/<pkg>/dist-tags[/tag]` (proxy answers from upstream's
+  packument; PUT guards: version-must-exist 404, latest-never-backwards 403, non-hosted 405),
+  qits-artifacts `2026.905.75830` deploys it, both lib recipes add an unconditional
+  `npm dist-tag add <pkg>@$version main` + doc updates; verified: both `main` tags now track
+  `latest` (`2026.905.90159`/`.90241`). Semantics: `main` = the latest released main.
+- **edge deployments-events "arity break" DISSOLVES** — edge holds a private local record with
+  unknown-fields-ignored, and the four event records carried environmentId/Name since their first
+  commit (the epic changed population, not shape). Real exposure = `EventFrame` on an eventstream
+  bump (currently at arity). Shipped a full-frame decode contract test as `2026.905.60915`.
+- **Doc sweep** — wrapper docs released (`2026.905.55928`): README branching model on the new flow,
+  AGENTS gitlink prose (banked, not lagging), stale platform/main and door recipes fixed, banners
+  on the two historical records. Fleet inventory: 31/47 repos still state the old flow as current
+  truth (per-repo line list in the sweep agent's report; model docs to copy: ui-components +
+  integrations-angular READMEs; the 8 frontend repos are byte-duplicated into their services'
+  webui trees so each fix lands twice). Rides each repo's next touch.
+- **qits-system GitHub backup** — one non-ff ref (`maintenance/frontend`, force-moved by the
+  release train); ONE targeted forced update via the projects container's own credential;
+  SUCCEEDED with all 40 refs at parity. Ops note: poking the backup listener with a throwaway
+  branch mirrors that branch to GitHub, and backup pushes never delete — clean up both sides.
+
+**New findings from the batch (open):**
+- **The frontend-follow train — RETRACTED 2026-09-05, it is not dead, it moved.** The old
+  per-release "qits release train" bot (last bump 2026-09-02) was deliberately replaced by
+  qits-maintenance's bump train (cutover release 2026.904.115704, "deploy the repointed bump
+  train"): webui gitlinks are now GITLINK-ecosystem pins in the nightly 02:00 scheduled bump,
+  batched with dependency bumps on `maintenance/dependencies` and released via ordinary release
+  requests. Verified end-to-end for 2026-09-05 02:00: every service's webui gitlink bumped
+  fleet-wide, e.g. qits-workspaces-service RELEASED 2026.905.40732 (merged 05:48) and
+  qits-deployments-platform-service RELEASED 2026.905.23929 (merged 04:31), each carrying its
+  SPA gitlink. The "two unfollowed SPA releases" were released AFTER 02:00 — they ride the next
+  nightly train; the batch's manual webui bump (2026.905.71520) was unnecessary, merely early.
+  SPA-fix latency to production is now up to ~24h by design. Inspect the train at
+  `http://qits-platform-maintenance:8080/maintenance/api/bumps` (X-Qits-User/X-Qits-Roles
+  headers).
+- **qits-ci `mergedToMainAt` — RETRACTED as a systemic defect 2026-09-05.** Self-redeploys stamp
+  fine: the swarm start-first cutover loses nothing because the emitter is qits-platform-deployments
+  and the projects listener is durable — every qits-ci release on 2026-09-05 stamped at the exact
+  second of its "Deployed qits-ci@version into dev" line. What actually leaves a null stamp:
+  `DeploymentActive` correlates strictly by (application, version), so a released version that
+  never becomes the live one (deploy run died — e.g. the DB outage — or a successor deployed
+  first) never fires its own gate; its commits still reach main via the successor's fold+merge,
+  but only the successor's row stamps. One such row exists (`2026.905.54128`, its deploy was an
+  outage casualty; `2026.905.64147` carried it to main). A RELEASED row with null `mergedToMainAt`
+  therefore reads "released but never observed live" — a bookkeeping gap for skipped versions,
+  not a lost event. Possible tidy-up if it ever matters: a successor's DeploymentActive could
+  sweep older pending rows of the same repository.
+- **CI queues phantom `POST_RECEIVE` runs** against `ci-post-receive.yml` no repo has; they end
+  CANCELLED (harmless, wasteful).
+- **Recipe-effect timing rule** (now in the lib docs): a `ci-event-release.yml` change takes effect
+  on the SAME release for instant-merge repos (finalization precedes the recipe run) and one
+  release LATER for deployment-gated repos.
+
 ## SHIPPED (2026-09-04): route Maven Central through the mirror for the BUILD plane
 
 **DONE AND CLOSED (2026-09-04 afternoon).** The fan-out below executed: all 18 `<server>` releases
@@ -96,16 +175,55 @@ which has no direct-Central fallback.
   workspace containers (the oci image's `/etc/qits/maven-settings.xml` profile stays inert).
 - The stale-prose flags on qits-edge/qits-stt `ci-event-build.yml` and qits-artifacts' userflows
   header are MOOT — the sweep deleted those files.
-- The superseded daemon requests (`ae714a27`/`ebaafcce`) keep `mergedToMainAt: null`; their tags'
-  content reached main via the superseding folds. Whether their pending-merge rows resolved by
-  ancestry shows on the next daemon release (harmless implicit re-folds if not).
-- The wrapper itself has no release recipe, so wrapper releases never emit `SoftwareRelease` and
-  never merge to main (defect #5's shape, observed on `2026.904.152345`): each release strands as an
-  unmerged tag riding every later request's implicit sources. Decide a wrapper finalization story
-  (a minimal release recipe, or a projects-side rule for recipe-less repos).
+- ~~The superseded daemon requests' pending rows~~ — RESOLVED: the un-gated sweep stamped
+  `mergedToMainAt` on every stale row at 16:37:50 (see the SHIPPED section below).
 - qits-system-platform-service's GitHub backup is FAILING (push refused) — noticed 2026-09-04, untriaged.
 - more.musl.cc is slow/flaky; mirror the musl toolchain tarball through the platform mirror
   (ci-daemon's Dockerfile.musl-builder names the URL and already suggests this).
+
+### SHIPPED (2026-09-04 evening): the release process owns the wrapper's estate, and gates come from the config
+
+Two features close the wrapper story for good, riding the gate correction a sibling session shipped
+as qits-projects `2026.904.161524` ("The gate gates: no verdict, no release" — the settle-window
+vacuous pass is GONE and its property with it; the non-deployable fork moved off `SoftwareRelease`
+onto the release itself, healing every recipe-less repo's stranded tags):
+
+1. **A wrapper release banks its estate** (qits-githost `2026.904.173724` + qits-projects
+   `2026.904.190637`): releasing the project's WRAPPER reads `.gitmodules` at the fold, resolves
+   every declared submodule's default-branch head from the githost (`GET
+   /githost/api/repositories/{id}/branches/{name}`, new), and writes the pins as gitlink (mode
+   160000) entries in the same commit as the version bump — the githost commit primitive gained a
+   `gitlinks` map for exactly this. Undeclared-in-catalog submodules skip with a WARN; an unreadable
+   head refuses the release rather than banking a partial estate. Nothing updates gitlinks between
+   releases anymore, and nothing has to.
+2. **The committed qits config is what enables a quality gate** (the user's model, stated
+   2026-09-04): `deployments.yml` at the released tag → the "deployment successful" gate; no
+   deployment declared → no gate exists → the tag merges/ffs to main at the release, instantly.
+   That rule and its un-gated-row sweep shipped in the sibling's `2026.904.161524` — PROVEN LIVE at
+   16:37:50, when its deploy fast-forwarded wrapper main onto both stranded tags (`152345`,
+   `161524`) and stamped every stale pending-merge row (the superseded daemon requests included)
+   with no release and no hand involved. This session's `2026.904.190637` adds the estate banking
+   on top.
+
+**Two flow defects found on the way — both settled the same evening:**
+- **FIXED (qits-projects `2026.904.193801`): a re-fold after CONFLICTED could dispatch no
+  `ReleaseRequestChanged`.** Observed on request `7247b350`: first fold CONFLICTED (no event, by
+  design), branch force-pushed, re-fold cleared to PENDING via the `UNCHANGED` arm — which returned
+  without announcing on the theory that "the gate reads the verdicts that sha already has", false
+  for a fold that was never built, and a request stuck forever under the verdict-only gate (the
+  empty-commit re-arm was the interim recovery). The arm now consults the build-status ledger:
+  a gating verdict for the sha keeps the silence (evaluate reads it immediately), no verdict
+  dispatches. Regression-tested both ways in `ReleaseRequestSourcesTest`, proven to fail on
+  unmodified main.
+- **RETRACTED: "qits-projects-service still carries `ci-post-receive.yml`" was wrong.** A
+  fleet-wide audit of all 48 mains found ZERO retired trigger files anywhere: projects lost its
+  ci-post-receive on 2026-08-29, and qits-workspaces-service — the one true straggler — was purged
+  at 13:25 today by the sibling session (out of band, same self-deploy-cycle reasoning). The
+  FAILED/DEDUPED runs that suggested otherwise sit on release-request fold branches: they are the
+  QA pipeline's own dedup surfacing as FAILED — defect #4, already on the books, whose fix belongs
+  in how a DEDUPED verdict is displayed, not in any file. One audit anomaly, known and deliberate:
+  qits-bootstrap-cli has no `.config/qits/` at all, so under the verdict-only gate it cannot
+  release until its (far-future, per the user) full-bootstrap integration-test pipeline exists.
 
 The plan below is kept as the record of what was done.
 
