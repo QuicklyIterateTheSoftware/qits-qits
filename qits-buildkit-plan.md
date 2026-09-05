@@ -1,6 +1,7 @@
 # Image builds through a platform-owned BuildKit, not the host docker
 
-Status: **in refinement** — see "Status as shipped" below for what is implemented.
+Status: **implemented in refinement, unproven against a live platform** — see "Status as shipped"
+and "Handoff" below.
 
 Today every image build on the platform runs on the **host docker daemon**: a CI step declares
 `docker: true`, qits-containers mounts `/var/run/docker.sock`, and the step's `docker build`
@@ -183,9 +184,80 @@ default. Storage: gc `keepstorage` 20 GB in buildkitd.toml, plus the orchestrato
 
 ## Status as shipped
 
-- [ ] qits-containers: buildkitd owned, address injected, gc wired
-- [ ] qits-build-images: buildctl in ci-base and node-docker-base
-- [ ] qits-ci: kill switch + step environment
-- [ ] qits-workspace-daemon: recipes + Dockerfile converted
-- [ ] qits-bootstrap-cli: builds through the same buildkitd, buildx builder gone
-- [ ] docs
+- [x] qits-containers: buildkitd owned (`PlatformBuildkit`, boot-ensured, row-less like the shared
+      volumes), `BUILDKIT_HOST` injected into socket-holding specs (caller wins, empty included),
+      build-cache gc extended to the owned builder, `--privileged` rendered by a dedicated argv so
+      no spec can express it. Full suite green.
+- [x] qits-build-images: buildctl in ci-base and node-docker-base, copied from the pinned
+      `moby/buildkit:v0.33.0` stage (mirror-riding, SBOM-visible).
+- [x] qits-ci: `qits.ci.buildkit.enabled` (ON, `QITS_CI_BUILDKIT_ENABLED=false` is the lever) and
+      `qits.ci.buildkit.registry-host` → `$QITS_BUILD_REGISTRY` on docker steps; OFF sends both
+      keys empty, which also suppresses the containers-side injection. The auth document names the
+      build registry. Full suite green.
+- [x] qits-workspace-daemon: both pipeline files on buildctl with `push=true`, no `--network
+      host`, mirror by its in-network route, secrets in file form on both sides; Dockerfile mounts
+      converted to file form, base-pin line untouched.
+- [x] qits-bootstrap-cli: seed images, step images and the musl-builder image through the same
+      `qits-buildkitd` (created host-net before the first build, left standing for
+      qits-containers); `--load` replaced by `--output type=docker` + `docker load`; buildx
+      create/rm gone, legacy-builder sweep kept; suite green (599 tests). One recorded deviation:
+      the buildctl client's scratch dirs live under `QITS_SRC/.buildkit` rather than `/tmp`,
+      because the client is a container and its `-v` paths are the host daemon's to resolve.
+- [x] docs: qits-ci README (`docker: true` section) and step-execution-flow diagram note,
+      qits-containers README (the one owned container, argued), local-platform.md (the build-plane
+      row and the mirror note), this file.
+
+## Handoff
+
+**Implemented**, per repository, all on branch `refining/image-builds-through-a-platform-owned-bu`
+(committed, not pushed to GitHub):
+
+- qits-containers-service — the owned builder, the env injection, the gc extension.
+- qits-build-images-oci — buildctl in the two docker-step images.
+- qits-ci-service — the kill switch, `$QITS_BUILD_REGISTRY`, the widened auth document.
+- qits-workspace-daemon — the representative recipe pair + Dockerfile.
+- qits-bootstrap-cli — the whole bootstrap build path.
+- wrapper — this plan, local-platform.md.
+
+**Proven by tests:**
+
+- qits-containers `./mvnw verify`: the builder argv whole (privileged appears there and nowhere
+  else), the boot pass converging on the pin (create / adopt / start / replace, volume never
+  removed), the injection rules (socket-only, caller wins, empty wins, off = untouched), the gc
+  sweep including the platform builder at the host's keep-storage, the exec belt staying closed.
+- qits-ci `./mvnw verify`: the docker-step environment whole in both switch states (ON adds only
+  `QITS_BUILD_REGISTRY` and never an address; OFF sends the pair empty and changes nothing else),
+  the no-commission arm byte-identical plus the mode variables.
+- qits-bootstrap-cli `./mvnw verify`: every emitted argv whole (buildkitd run, buildctl-in-a-
+  container build, `docker load`), secrets masked and file-form, teardown leaving the builder and
+  its volume, the legacy buildx sweep.
+
+**Needs a running platform to prove** (in rough order of information value):
+
+1. A real bootstrap: `moby/buildkit:v0.33.0` resolving through the host daemon's registry-mirrors,
+   privileged host-net buildkitd answering on 127.0.0.1:1234, the musl toolchain `ADD
+   http://localhost:8081/…` resolving from the builder's namespace, `--output type=docker` +
+   `docker load` leaving tags exactly where `docker tag`/`docker create`/`stack deploy
+   --resolve-image never` expect them, and the `QITS_SRC/.buildkit` scratch path being identical on
+   both sides of the socket.
+2. qits-containers' first deployment re-ensuring the bootstrap's builder onto `qits-net` with the
+   cache volume intact, and a step container resolving `tcp://qits-buildkitd:1234`.
+3. A qits-workspace-daemon release request end to end: the buildkitd.toml rewrites serving the
+   committed `FROM` vhosts, the Mandrel build's RUN reaching `$QITS_MAVEN_PROXY_URL` from the
+   builder's namespace, `push=true` landing `qits/workspace:<sha>`/`:<version>` where
+   qits-deployments pulls them, the SBOM export as a cache hit, and the commissioned credential
+   flowing through the file-form secrets (including whether the in-network push is challenged at
+   all — the auth-document widening is precautionary).
+4. The kill switch flipped live: `QITS_CI_BUILDKIT_ENABLED=false` making the converted recipe fail
+   on its `:?` guard with the message naming the cause, unconverted recipes unaffected.
+5. The gc path: `POST /containers/api/gc/build-cache` pruning the owned builder (the orchestrator
+   needs no change — the builder rides the existing call), and buildkitd's own gckeepstorage
+   holding the volume near 20 GB.
+6. The qits-containers packaged story catalogue (`-DskipITs=false -Dit.test=…`) — the platform
+   builder is off in that profile by design; the six stories should be byte-stable, which was not
+   re-run here.
+
+**Not in this epic, recorded for the next:** a `build: true` step key granting `BUILDKIT_HOST`
+without the socket; converting the remaining ~46 docker-step recipes (mechanical, per the
+representative pair); dropping the socket mount from converted steps; rootless buildkitd; a
+`docker.io` mirror stanza if a bare Hub `FROM` ever becomes legitimate.

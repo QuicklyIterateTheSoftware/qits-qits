@@ -17,6 +17,7 @@ Two sets to keep straight:
 | **deployer-managed** | all eleven: observability, idp, stt, projects, workspaces, events, platform-docs, gateway, artifacts, ci, **and qits-platform-deployments itself** | qits-platform-deployments — sha-addressed registry images, `qits-pd-` container names | a git push |
 | **bootstrap-made** | the ci-daemon binary, the deployer's run-args file (the `qits-platform-deployments-config` volume — the git host's push token among them), and the seed postgres with its `qits_deployments` role and database | the bootstrap | a bootstrap rerun |
 | **built and published, like anything else** | the five `qits/build-images/*` step images | qits-build-images-oci, whose own pipelines run on upstream `docker:28-dind` through the mirror | a qits-build-images-oci release, and a re-pull on any host that lost them |
+| **the build plane** | the `qits-buildkitd` container (pinned `moby/buildkit`) and its `qits-buildkitd-state` cache volume | made by the bootstrap on the host network for the seed builds, then re-ensured onto `qits-net` by qits-containers from its first deployment on — one container, one cache, two phases of ownership | a pin bump in qits-containers (`qits.containers.buildkit.image`); `unwrap` removes it, a rebootstrap remakes it |
 
 The third row used to be part of the second, and 2026-08-20 is why it is not. Every recipe names a
 step image *unqualified*, so docker resolved it against Docker Hub and it only ever worked because
@@ -217,6 +218,14 @@ One host-side trap, measured while proving the fill: the docker daemon keeps bas
 long after `docker rmi` — dangling intermediate images and the buildkit cache both pin them —
 so "remove the tag and rebuild" does not force a re-pull until those go too. Nothing about the
 platform needs that; it only matters when deliberately testing the mirror's offline posture.
+
+**CI builds resolve those same committed spellings through the platform builder now, not the host
+daemon.** A `docker: true` step is handed `$BUILDKIT_HOST` (the `qits-buildkitd` container on
+`qits-net`) and `$QITS_BUILD_REGISTRY`; the builder's own registry config rewrites
+`registry.dev.localhost:8080` / `mirror.dev.localhost:8080` (and the two host-published ports) to
+the in-network aliases, so one committed `FROM` spelling serves both a developer's `docker build`
+and the platform's `buildctl`. `qits-buildkit-plan.md` is the whole migration; the kill switch is
+`QITS_CI_BUILDKIT_ENABLED=false` on qits-ci.
 
 ## Changing what a deployed application gets at runtime
 
