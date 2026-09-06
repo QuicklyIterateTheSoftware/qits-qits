@@ -39,3 +39,85 @@ steps:
       test -z "$bad" || { echo "non-relative submodule url(s):" "$bad" >&2; exit 1; }
       count=$(printf '%s\n' "$paths" | wc -l)
       echo "the estate declares $count submodules, all paths unique, all urls relative"
+
+  # THE BUMP STEP'S COMMIT GUARD MUST SEE A STAGED GITLINK. The wrapper's other content is
+  # the platform pipelines, and this gates the one property of them that a reader cannot
+  # check by looking: that the maintenance bump can still commit a submodule move.
+  #
+  # It is here because the arm it guards shipped dead. `ci-platform-event-maintenance-bump.yml`
+  # learned the gitlink change on 2026-09-01 and never once wrote one: every service sets
+  # `ignore = all` on its webui submodule, that makes `git diff --cached` blind to gitlink
+  # entries, and the step's `git diff --cached --quiet` guard therefore read a correctly
+  # staged 160000 entry as "nothing to commit" and exited 0. Green run, unmoved branch, and
+  # fifteen services' SPAs silently pinned to whatever they already had.
+  #
+  # So the check is in two halves, and both are needed. The BEHAVIOURAL half rebuilds the
+  # situation from scratch and proves which spelling survives it - it would fail on a git
+  # whose semantics changed under us, which no grep could tell us. The TEXTUAL half asserts
+  # the pipeline actually uses that spelling, which is what makes this a regression test
+  # rather than a demonstration: drop the flag and this goes red.
+  - image: qits/build-images/ci-base:latest
+    timeout-seconds: 300
+    script: |
+      set -eu
+      pipeline=.config/qits/ci-platform-event-maintenance-bump.yml
+      test -f "$pipeline" || { echo "the bump pipeline is missing: $pipeline" >&2; exit 1; }
+
+      # --- the behavioural half ----------------------------------------------------
+      # A sibling to point a submodule at, with two commits so there is a move to make.
+      work=$(mktemp -d)
+      git init -q "$work/sub"
+      git -C "$work/sub" -c user.name=t -c user.email=t@t commit -q --allow-empty -m one
+      old=$(git -C "$work/sub" rev-parse HEAD)
+      git -C "$work/sub" -c user.name=t -c user.email=t@t commit -q --allow-empty -m two
+      new=$(git -C "$work/sub" rev-parse HEAD)
+
+      # A superproject carrying the same `ignore = all` every service carries.
+      git init -q "$work/super"
+      printf '[submodule "sub"]\n\tpath = sub\n\turl = ../sub\n\tignore = all\n' > "$work/super/.gitmodules"
+      git -C "$work/super" add .gitmodules
+      git -C "$work/super" update-index --add --cacheinfo "160000,$old,sub"
+      git -C "$work/super" -c user.name=t -c user.email=t@t commit -q -m base
+
+      # Nothing staged yet: the guard must be quiet, or every bump would commit noise.
+      if ! git -C "$work/super" diff --cached --quiet --ignore-submodules=none; then
+        echo "the guard reports a change when nothing is staged" >&2; exit 1
+      fi
+
+      # The move the bump step makes, spelled exactly as it spells it.
+      git -C "$work/super" update-index --add --cacheinfo "160000,$new,sub"
+
+      # The bug, pinned: without the flag this is invisible. Asserting it keeps the reason
+      # for the flag true rather than merely remembered - if git ever stops suppressing
+      # here, this line is what tells us the flag has become unnecessary.
+      if ! git -C "$work/super" diff --cached --quiet; then
+        echo "NOTE: a bare 'git diff --cached --quiet' now sees a staged gitlink under" >&2
+        echo "ignore = all; the bump guard's --ignore-submodules=none may be redundant." >&2
+        exit 1
+      fi
+
+      # And the fix: with the flag, the staged move is seen.
+      if git -C "$work/super" diff --cached --quiet --ignore-submodules=none; then
+        echo "a staged gitlink move is invisible to the bump step's commit guard" >&2
+        exit 1
+      fi
+
+      # It has to survive being committed, too: an index write that no tree records
+      # would pass every check above and still lose the move.
+      git -C "$work/super" -c user.name=t -c user.email=t@t commit -q -m move
+      recorded=$(git -C "$work/super" ls-tree HEAD sub | awk '{print $3}')
+      test "$recorded" = "$new" || {
+        echo "the commit recorded $recorded rather than $new" >&2; exit 1; }
+      rm -rf "$work"
+
+      # --- the textual half --------------------------------------------------------
+      # Every commit guard in the bump pipeline carries the flag. Counted rather than
+      # grepped for once, so a guard ADDED later without it is caught too.
+      guards=$(grep -c 'git diff --cached --quiet' "$pipeline")
+      flagged=$(grep -c 'git diff --cached --quiet --ignore-submodules=none' "$pipeline")
+      test "$guards" -gt 0 || { echo "no commit guard found in $pipeline" >&2; exit 1; }
+      test "$guards" = "$flagged" || {
+        echo "$((guards - flagged)) of $guards commit guards in $pipeline lack" >&2
+        echo "--ignore-submodules=none; a staged gitlink move would be dropped silently." >&2
+        exit 1; }
+      echo "the bump step's $guards commit guard(s) can see a staged gitlink move"

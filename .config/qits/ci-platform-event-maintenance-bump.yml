@@ -203,7 +203,12 @@ steps:
       done 3< /tmp/bump-maven.tsv
 
       # --- commit and push ---------------------------------------------------------
-      if git diff --cached --quiet; then
+      # --ignore-submodules=none because `.gitmodules` sets `ignore = all` on the webui
+      # submodule of every service, and that setting makes `git diff` blind to gitlink
+      # entries - `--cached` included. No gitlink reaches this step today, so the flag
+      # changes nothing here; it is written the same way as the node step's so the two
+      # guards cannot drift, and so a gitlink arriving here later is not silently dropped.
+      if git diff --cached --quiet --ignore-submodules=none; then
         echo "every maven change in this bump is already the pin - nothing to commit"
         exit 0
       fi
@@ -446,7 +451,21 @@ steps:
       done 3< /tmp/bump-node.tsv
 
       # --- commit and push ---------------------------------------------------------
-      if git diff --cached --quiet; then
+      # --ignore-submodules=none IS LOAD-BEARING, and leaving it out is how the gitlink arm
+      # shipped dead on 2026-09-01 and stayed dead. Every service's `.gitmodules` carries
+      # `ignore = all` on its webui submodule so that the expected drift between a pin and
+      # the branch it follows stays out of `git status` and `git diff` - and that suppression
+      # reaches `git diff --cached` too. So this guard compared an index holding a freshly
+      # staged 160000 entry against HEAD, was told there was nothing there, and exited 0:
+      # the step reported success, the branch never moved, and this service read that as
+      # NOTHING_TO_DO. Fifteen services' SPAs stopped being picked up with no error anywhere.
+      #
+      # The flag re-enables submodule comparison FOR THIS ONE COMMAND and nothing else.
+      # Ordinary files are unaffected, and because the comparison is `--cached` - index
+      # against HEAD, never the working tree - a submodule checked out at some other commit
+      # still counts for nothing. Only a gitlink this step deliberately staged is seen,
+      # which is exactly the change it is trying not to lose.
+      if git diff --cached --quiet --ignore-submodules=none; then
         echo "every npm, docker and gitlink change in this bump is already the pin - nothing to commit"
         exit 0
       fi
