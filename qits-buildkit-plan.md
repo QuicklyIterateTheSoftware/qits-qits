@@ -1,10 +1,11 @@
 # Image builds through a platform-owned BuildKit, not the host docker
 
-Status: **implemented, released, and PROVEN LIVE end to end** — `qits/workspace:2026.905.181528`
-was built by the platform builder and sits in the registry with its SBOM. The fleet conversion
-(every image-building recipe onto `build: true` + buildctl) is committed everywhere and its release
-wave is draining two requests at a time. See "Status as shipped", "What the live platform taught"
-and "Handoff".
+Status: **COMPLETE — implemented, released fleet-wide, and proven live at every layer.** The
+platform builder built and published real artifacts (`qits/workspace:2026.905.181528` end to end;
+`qits-ci-daemon 2026.906.2945`'s musl toolchain and binary extraction; `database-oci`/`stt`
+socketless); every one of the 22 image-building repositories released its conversion
+(2026-09-05/06 wave, two requests at a time); `build: true` is the fleet's build declaration and
+no converted step holds the docker socket. See "What the live platform taught" and "Handoff".
 
 Today every image build on the platform runs on the **host docker daemon**: a CI step declares
 `docker: true`, qits-containers mounts `/var/run/docker.sock`, and the step's `docker build`
@@ -324,14 +325,46 @@ qits-ci-daemon's binary smoke probe (a container run, not a build — honestly m
   Revisit only as part of a platform-wide hardening campaign with a workstation to test on.
 - **`docker.io` IS mirrored** (stanza 6 above) rather than left to a spelling rule.
 
+## The wave, as it landed (2026-09-05 18:00 → 2026-09-06 01:00)
+
+All 22 conversion releases RELEASED, two requests in flight at a time; plus six SPA-frontend
+repairs, five qits-containers releases, three qits-ci releases and three qits-bootstrap-cli
+releases. Every failure en route was diagnosed from the CI logs, fixed at its root, and re-proven:
+
+- **The registry retention evicts what released trees still pin** — the sharpest finding, twice
+  over: npm versions under six SPAs' lockfiles (rolled forward to `@qits/ui-components
+  2026.905.91746`, six frontends released, six gitlinks re-pinned), then the OCI base
+  `workspace-base:2026.904.223651` under two released Dockerfile pins (bumped to
+  `2026.905.235432`, the exact edit the nightly train makes, released eagerly). **The policy gap is
+  the storage campaign's to close**: "referenced by a released lockfile or Dockerfile pin" is not
+  yet a keep-reason, and until it is, this class of failure recurs.
+- **Deploy-cutover collisions**: a wave that releases infrastructure makes later folds race the
+  cutovers of what they clone from (githost 502), pull through (mirror 502) or resolve (artifacts
+  alias blink). Two-at-a-time pacing keeps the windows rare; an empty-commit re-arm or a trigger
+  re-fire recovers each.
+- **Incremental compilation hides constructor breakage** — a record component added without a
+  clean build left one main-source caller stale and locally green; the fold's clean build caught
+  it (`CiDaemonContainerProbe`).
+- Two Dockerfile conflicts against concurrently-released `main`s (projects, workspaces) merged
+  forward; both sides had independently converted the secret mounts to file form.
+
+**Proofs, complete:** end-to-end release through the builder (workspace-daemon); converted QA fold
+green (`2026.906.2716`'s fold); socketless `build: true` release pipelines green (database-oci,
+stt, ci-daemon with the musl builder push + `--output type=local` extraction); the builder's cache
+under the platform gc (dry-run answers 8.49 GB, no error); the story catalogue green (13 stories);
+the kill-switch guard shape exercised by every converted recipe.
+
+**In flight at handoff:** the two base-pin repair releases (workspace-daemon `844ec895`,
+projects-daemon `ac08d149`) — mechanical, monitored, self-draining.
+
 **Remaining, with owners:**
 
-- The fleet wave's release requests drain two at a time (in flight); a failed fold is fixed on its
-  branch and the request re-arms itself.
-- `build/secret-file-mounts` branches exist in five repos doing half of this conversion; superseded
-  whole (their factual notes folded in). Deleting another author's branches was deliberately left
-  to a human.
+- **The retention policy gap** (above) — the storage-lifecycle campaign's.
+- `build/secret-file-mounts` branches in five repos are superseded whole (their factual notes
+  folded in); deleting another author's branches was deliberately left to a human.
 - **The one host-bound item: a fresh bootstrap run.** This seat holds no docker socket, so
   `./qits-local-up.sh` on a workstation is what proves the bootstrap's builder path (tar-loads,
   scratch dir, host-net buildkitd, and the handover where qits-containers restamps it onto
   qits-net). Everything the bootstrap suite could prove without a daemon is green (599 tests).
+- The estate's only remaining `docker: true`: qits-build-images-oci's two dind steps (decided,
+  argued above) and qits-ci-daemon's binary smoke probe (a container run, not a build).
