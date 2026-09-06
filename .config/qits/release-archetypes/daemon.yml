@@ -1,0 +1,189 @@
+# daemon — the release cycle of a statically-linked binary the platform downloads and runs.
+# Two repositories: qits-ci-daemon and qits-artifacts-cli.
+#
+# A daemon is not a package any third-party tool installs; qits-artifacts holds it under
+# `/artifacts/daemons/<name>/<version>` and the platform fetches it by URL. Before the type existed,
+# the one binary every CI run downloads and execs was the only artifact on this platform no release
+# train could announce — it arrived as a bootstrap script's blob upload, bytes with no row, no name
+# and no version.
+#
+# ---------------------------------------------------------------------------------------------
+# WHAT A REPOSITORY DECLARES
+#
+#     # .config/qits/release.yml
+#     archetype: daemon
+#     artifacts:
+#       - { type: daemon, name: qits-ci-daemon, sbom: out/sbom.json }
+#
+# The name is UNQUALIFIED for the reason a docker declaration's is: no repository states a
+# deployment's addresses, and the reader supplies its own host. `artifacts:` belongs in the
+# repository's own file — qits-projects reads it at the tag and qits-ci announces from it.
+#
+# THE BINARY'S FILENAME IS NOT THE ARTIFACT NAME and must not be assumed to be: qits-artifacts-cli
+# publishes `qits-artifacts-cli` from a file called `qits-publish`. So the step takes whatever the
+# `target=binary` export left in `out/` beside the document, and refuses anything but one file.
+#
+# ---------------------------------------------------------------------------------------------
+# THE BUILD, AND THE ONE CONDITIONAL HALF
+#
+# Both repositories compile a GraalVM native image inside a musl toolchain image as a build stage
+# and end on `FROM scratch` holding the one file, so both exports are
+# `--opt target=binary --output type=local,dest=out`, and a second `target=sbom` stage exports the
+# CycloneDX document from the SAME reactor resolve — which is why it is a cache hit rather than a
+# second native compile, and why the document describes the very resolve that produced the bytes
+# beside it. Build args must stay BYTE-IDENTICAL between the two invocations or the cache misses.
+#
+# THE TOOLCHAIN IMAGE IS BUILT AND PUSHED ONLY BY THE REPOSITORY THAT OWNS ITS DOCKERFILE.
+# `docker/Dockerfile.musl-builder` is qits-ci-daemon's; qits-artifacts-cli consumes the pushed
+# result. Guarding on the file's presence is what lets one recipe serve both with no override —
+# and the image is deliberately NOT one of the `artifacts:`: nothing declares it, nothing deploys
+# it, and it is a cache coordinate for one builder, overwritten in place at a fixed tag.
+#
+# THE TARBALL URLS ARE THE RUN'S, NOT THE DOCKERFILE'S DEFAULTS. BuildKit resolves an `ADD <url>` in
+# the BUILDER's network context, which is qits-net; the committed defaults name an edge vhost on the
+# host loopback. The in-network route is `$QITS_MAVEN_REGISTRY_URL`, and the maven COORDINATE is
+# read out of the Dockerfile rather than restated here, so a toolchain bump stays one file.
+#
+# ---------------------------------------------------------------------------------------------
+# WHAT THE PLATFORM ADDS, SO THAT THIS SCRIPT DOES NOT
+#
+# `set -eu`; the `$BUILDKIT_HOST`/`$QITS_BUILD_REGISTRY` guards and the commissioned pair as /tmp
+# files on a `build:` step; the `$QITS_VERSION` guard, the tag fetch, `git checkout --detach` and
+# `qits-publish` on `$PATH` on a release step; and `qits-publish sbom submit` afterwards for every
+# declared artifact carrying `sbom:`. So nothing below parses a version, fetches a tag, writes a
+# secret file or PUTs a document.
+#
+# THE 409 POLICY IS THE CLI'S NOW, AND IT CHANGED ON PURPOSE. The hand-written step treated an
+# occupied coordinate as a HARD FAILURE while the maven and npm steps beside it treated one as a
+# skip — two contradictory policies in one estate. `qits-publish daemon submit` runs the one policy:
+# occupied with identical bytes is success (a re-fired release run, a rebootstrap tag replay and a
+# retried step all go green), occupied with DIFFERENT bytes is a hard failure naming both digests,
+# which is the property the old 409 was reaching for and states correctly.
+#
+# ---------------------------------------------------------------------------------------------
+# WHEN TO OVERRIDE
+#
+# A repository whose QA half needs more than a compile — qits-ci-daemon's smoke probe really starts
+# a container on the built binary and therefore keeps `docker: true` — declares its own
+# `release-request:`. Declaring a slot replaces it entirely.
+
+release-request:
+
+  - image: qits/build-images/ci-base:latest
+    build: true
+    timeout-seconds: 3600
+    script: |
+      builder="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/graalvmce-musl-builder:jdk-25"
+
+      # The toolchain image, when this repository owns it. See the header.
+      if [ -f docker/Dockerfile.musl-builder ]; then
+        maven_root="${QITS_MAVEN_REGISTRY_URL%/}"
+        musl_url=$(sed -n 's/^ARG MUSL_URL=//p' docker/Dockerfile.musl-builder)
+        zlib_url=$(sed -n 's/^ARG ZLIB_URL=//p' docker/Dockerfile.musl-builder)
+        : "${musl_url:?docker/Dockerfile.musl-builder declares no ARG MUSL_URL}"
+        : "${zlib_url:?docker/Dockerfile.musl-builder declares no ARG ZLIB_URL}"
+        musl_url="$maven_root${musl_url#*/artifacts/maven/maven}"
+        zlib_url="$maven_root${zlib_url#*/artifacts/maven/maven}"
+        buildctl build --frontend dockerfile.v0 \
+          --local context=docker --local dockerfile=docker \
+          --opt filename=Dockerfile.musl-builder \
+          --opt build-arg:MUSL_URL="$musl_url" \
+          --opt build-arg:ZLIB_URL="$zlib_url" \
+          --output "type=image,name=$builder,push=true"
+      fi
+
+      # No `--network host` and nothing replaces it: the `RUN` executes in the builder's namespace
+      # on qits-net, so Maven Central goes through the mirror's IN-NETWORK route and an empty value
+      # deactivates the settings profile so the resolve goes to Central directly. No credential
+      # rides along — platform reads are anonymous.
+      buildctl build --frontend dockerfile.v0 \
+        --local context=. --local dockerfile=docker \
+        --opt target=binary \
+        --opt build-arg:BUILDER_IMAGE="$builder" \
+        --opt build-arg:QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+        --output type=local,dest=out
+
+      # A static binary that cannot be executed is a green build that publishes nothing runnable.
+      # The export loses the mode bit, so the chmod is not optional.
+      binary=$(find out -maxdepth 1 -type f ! -name 'sbom.json')
+      count=$(printf '%s' "$binary" | grep -c . || true)
+      if [ "$count" != 1 ]; then
+        echo "the binary export left $count files in out/ besides sbom.json" >&2
+        exit 1
+      fi
+      chmod +x "$binary"
+      echo "built $binary: $(sha256sum "$binary" | cut -d' ' -f1)"
+
+release:
+
+  - image: qits/build-images/ci-base:latest
+    build: true
+    timeout-seconds: 3600
+    script: |
+      # THE COORDINATE, OUT OF THE DECLARATION THAT ANNOUNCES IT — the same reading java-service and
+      # oci make, and for the same reason: the name published and the name announced are one string.
+      declared=$(sed -n \
+        's/^[[:space:]]*-[[:space:]]*{[[:space:]]*type:[[:space:]]*daemon[[:space:]]*,[[:space:]]*name:[[:space:]]*\([^,}[:space:]]*\).*/\1/p' \
+        .config/qits/release.yml)
+      count=$(printf '%s' "$declared" | grep -c . || true)
+      if [ "$count" != 1 ]; then
+        echo "release.yml declares $count daemon artifacts and this archetype publishes exactly one." >&2
+        echo "Spell it as one flow line — '- { type: daemon, name: qits-ci-daemon, sbom: out/sbom.json }'" >&2
+        exit 1
+      fi
+      echo "releasing $declared $QITS_VERSION"
+
+      builder="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/graalvmce-musl-builder:jdk-25"
+
+      if [ -f docker/Dockerfile.musl-builder ]; then
+        maven_root="${QITS_MAVEN_REGISTRY_URL%/}"
+        musl_url=$(sed -n 's/^ARG MUSL_URL=//p' docker/Dockerfile.musl-builder)
+        zlib_url=$(sed -n 's/^ARG ZLIB_URL=//p' docker/Dockerfile.musl-builder)
+        : "${musl_url:?docker/Dockerfile.musl-builder declares no ARG MUSL_URL}"
+        : "${zlib_url:?docker/Dockerfile.musl-builder declares no ARG ZLIB_URL}"
+        musl_url="$maven_root${musl_url#*/artifacts/maven/maven}"
+        zlib_url="$maven_root${zlib_url#*/artifacts/maven/maven}"
+        buildctl build --frontend dockerfile.v0 \
+          --local context=docker --local dockerfile=docker \
+          --opt filename=Dockerfile.musl-builder \
+          --opt build-arg:MUSL_URL="$musl_url" \
+          --opt build-arg:ZLIB_URL="$zlib_url" \
+          --output "type=image,name=$builder,push=true"
+      fi
+
+      # The QA pipeline's build, byte for byte.
+      buildctl build --frontend dockerfile.v0 \
+        --local context=. --local dockerfile=docker \
+        --opt target=binary \
+        --opt build-arg:BUILDER_IMAGE="$builder" \
+        --opt build-arg:QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+        --output type=local,dest=out
+
+      # THE DOCUMENT COMES OUT OF THE SAME BUILD AS THE BINARY, and it has to: the reactor and its
+      # resolved dependency tree exist only in there — this step's container carries no maven at
+      # all. Build args are byte-identical to the export above, which is what makes every layer a
+      # cache hit and this seconds rather than a second native compile.
+      #
+      # GENERATED, NEVER SUBMITTED: the composed postlude PUTs `out/sbom.json` for the artifact that
+      # declares it, after this script and before the step's exit code.
+      buildctl build --frontend dockerfile.v0 \
+        --local context=. --local dockerfile=docker \
+        --opt target=sbom \
+        --opt build-arg:BUILDER_IMAGE="$builder" \
+        --opt build-arg:QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+        --output type=local,dest=out
+
+      binary=$(find out -maxdepth 1 -type f ! -name 'sbom.json')
+      count=$(printf '%s' "$binary" | grep -c . || true)
+      if [ "$count" != 1 ]; then
+        echo "the binary export left $count files in out/ besides sbom.json" >&2
+        exit 1
+      fi
+      chmod +x "$binary"
+
+      # ONE REQUEST STAGES THE BYTES, PROMOTES THEM AND INSERTS THE ROW, so publishing without an
+      # identity is not expressible. The idempotency policy — and the digest comparison an occupied
+      # coordinate gets — is qits-publish's, once, rather than a `case "$status"` block per
+      # repository. See the header for what that changed.
+      qits-publish daemon submit \
+        --name "$declared" --version "$QITS_VERSION" --file "$binary"

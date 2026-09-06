@@ -1,0 +1,114 @@
+# maven-library — the release cycle of a jar (or a reactor of jars) published to the platform's own
+# Maven repository. Four repositories: qits-eventstream-javalib, qits-userflows-javalib,
+# qits-registries-javalib and qits-integrations-quarkus-javalib.
+#
+# ---------------------------------------------------------------------------------------------
+# WHAT A REPOSITORY DECLARES
+#
+#     # .config/qits/release.yml — single module
+#     archetype: maven-library
+#     artifacts:
+#       - { type: maven, name: "eu.wohlben.qits:qits-eventstream", sbom: target/sbom.json }
+#
+#     # .config/qits/release.yml — a reactor, one entry per DEPLOYED module
+#     archetype: maven-library
+#     artifacts:
+#       - { type: maven, name: "eu.wohlben.qits:qits-blobstore", sbom: blobstore/target/sbom.json }
+#       - { type: maven, name: "eu.wohlben.qits:qits-registries-npm", sbom: npm/target/sbom.json }
+#
+# The GAV is quoted because `:` after a space is a YAML mapping indicator. The `sbom:` path is
+# `<module>/target/sbom.json`, which is where the release step's reactor-wide `makeBom` writes it —
+# so a reactor needs no module list here: the paths ARE the list, and the composed postlude submits
+# one document per entry. `artifacts:` must be in the repository's own file, never defaulted here:
+# qits-projects reads it at the tag and an archetype default is invisible to it.
+#
+# ---------------------------------------------------------------------------------------------
+# WHAT THE PLATFORM ADDS, SO THAT THESE SCRIPTS DO NOT
+#
+# CiReleaseComposer wraps every step with `set -eu`, and every RELEASE step with the `$QITS_VERSION`
+# guard, the tag fetch, `git checkout --detach` and `qits-publish` on `$PATH`. It then submits one
+# `qits-publish sbom submit` per declared artifact carrying `sbom:`, after this script and before
+# the step's exit code — so "SBOM before green" holds by construction. Nothing below parses a
+# version, fetches a tag or PUTs a document.
+#
+# ---------------------------------------------------------------------------------------------
+# THE ONE THING THIS RECIPE GAVE UP, SAID OUT LOUD
+#
+# The fleet's release steps probed the registry for each artifact's `.pom` and skipped the deploy
+# when every one was already there — a replay guard for the rebootstrap case. It is NOT reproduced
+# here, and the reason is that it cannot be: the probe needs the GAV→path mapping of every declared
+# coordinate, and `qits-publish exists` answers for `daemon`, `docs`, `npm` and `sbom` and has no
+# maven arm (measured against the shipped surface, not assumed). So the deploy is unguarded, and
+# what a republish of an existing version means is the Maven registry's answer rather than this
+# recipe's.
+#
+# The SBOM half is strictly better than before: `makeBom` and the submission run even on a run whose
+# deploy was a no-op, because the old `exit 0` skipped both. A repository that must be replay-proof
+# declares its own `release:` steps with its own probe — and the day `qits-publish` grows a maven
+# arm, that probe belongs here, once.
+#
+# ---------------------------------------------------------------------------------------------
+# WHEN TO OVERRIDE
+#
+# - `user: build` on the QA step is not optional where the suite starts zonky's embedded postgres:
+#   initdb refuses to run as root and calls getpwuid, so the step needs a passwd-backed non-root
+#   user, and a step container starts `--cap-drop=ALL` so `su` cannot switch from inside. maven-base
+#   carries uid 1001. A repository whose suite needs root does not exist today; one that needs
+#   different flags overrides `release-request:` entirely.
+# - A repository publishing something besides jars (qits-containers-service publishes two jars AND
+#   an image) is not a maven-library — it declares its own slots, or uses java-service and adds the
+#   deploy to its own `release:`.
+
+release-request:
+
+  - image: qits/build-images/maven-base:latest
+    user: build
+    timeout-seconds: 1800
+    script: |
+      # The platform registry: the poms' default names a host-published address that is unreachable
+      # from inside a step container, and the derived non-localhost address then needs the exact-id
+      # mirror in .qits-maven-settings.xml to get past Maven's HTTP blocker.
+      export QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"
+      # Maven Central through the platform mirror's in-network alias. EMPTY IS THE OFF SWITCH — an
+      # older qits-ci that injects nothing, or a deployment with the mirror plane off, leaves this
+      # empty, which deactivates the settings profile so Central is resolved directly.
+      export QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}"
+      ./mvnw -B -ntp -s .qits-maven-settings.xml verify \
+        -Dqits.maven.repository.url="$QITS_MAVEN_REPOSITORY_URL"
+
+release:
+
+  - image: qits/build-images/maven-base:latest
+    timeout-seconds: 1800
+    script: |
+      export QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"
+      export QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}"
+
+      # THIS SCRIPT IS READ AT MAIN AND RUNS AGAINST THE TAG, which may predate a file it names. The
+      # settings file arrived on 2026-08-11 and a bootstrap replaying an older tag measured the
+      # miss. Guard on presence: a tree old enough to lack the mirror also predates the dependency
+      # that needed it.
+      settings=""
+      if [ -f .qits-maven-settings.xml ]; then
+        settings="-s .qits-maven-settings.xml"
+      fi
+
+      # `altDeploymentRepository` rather than a `distributionManagement` block, so no repository
+      # spells a deployment address in its pom. `-DskipTests`: the fold that gated this release
+      # already ran them, and re-running a suite is not what a publish is for.
+      ./mvnw -B -ntp $settings deploy -DskipTests \
+        -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL" \
+        -DaltDeploymentRepository="qits::default::$QITS_MAVEN_REGISTRY_URL"
+
+      # THE SBOM IS THE ARTIFACT'S RESOLVED DEPENDENCY TREE, and it is GENERATED here and submitted
+      # by the composed postlude. Run at the reactor root with no `-pl`, so every module writes its
+      # own `<module>/target/sbom.json` — which is why a reactor needs no module list in this file
+      # and a single-module repository lands on plain `target/sbom.json`.
+      #
+      # The plugin is resolved through the repositories mvnw already resolves through, so it needs
+      # the same `$settings` mirror and the same repository property the deploy above needed. There
+      # is no second channel and no address spelled here.
+      ./mvnw -B -ntp $settings -DskipTests \
+        org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom \
+        -DoutputFormat=json -DoutputName=sbom -DschemaVersion=1.6 \
+        -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL"
