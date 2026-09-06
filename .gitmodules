@@ -280,3 +280,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-artifacts-cli"]
+	path = components/qits-artifacts/qits-artifacts-cli
+	url = ../qits-artifacts-cli.git
+	ignore = all
+	update = merge
+	branch = main
