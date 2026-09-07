@@ -6,6 +6,17 @@ semantics, loop footguns) and qits-workspaces-service's AGENTS.md (/branches/rel
 bump/maintenance conventions lived in qits-spa-home's README, which went with that repository when
 it was archived. This is the record of the road not taken.
 
+**This file is about the CI hop chain, not about qits-maintenance's `mt_train` tables, and the two
+share only a name.** The second "release train" — qits-maintenance persisting, at each release, who
+was expected to adopt it — was **retired on 2026-09-07** (`V8__retire_release_trains.sql`): its
+membership was derived once by a single one-hop pass, so a library's journey named the frontend that
+pins it and never the service behind that frontend. It is replaced by two ad-hoc routes that derive
+the same answers on every read and trace them to the end —
+`GET /maintenance/api/repositories/{name}/downstream` and
+`GET /maintenance/api/adoption/by-release?repository=&version=`. See `qits-maintenance-plan.md` for
+their shapes and the argument. Nothing below is affected by that; it is kept as the historical record
+it always was.
+
 ## Why branch filtering is a STEP key, not a pipeline key
 
 The first draft scoped whole pipelines: a top-level `branches:` key plus a `ci-post-receive-*.yml`

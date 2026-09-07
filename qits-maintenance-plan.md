@@ -215,6 +215,15 @@ GET  /dependencies/dependents?ecosystem=&name=[&all=true]
                                                 → {ecosystem, name, latest, dependents:[{artifactEcosystem, artifactName,
                                                      artifactVersion, repository, embeddedVersion, direct, occurredAt, sbomStatus}]}
 GET  /repositories/{name}/dependents            → {repository, artifacts:[{ecosystem, name, dependents:[…as above]}]}
+GET  /repositories/{name}/downstream            → {repository, catalogId,
+                                                    downstream:[{repository, catalogId, archetype, depth, via:[…]}]}
+                                                  # everything downstream, TRACED TO THE END, ordered depth asc then name
+                                                  # ({name} takes a catalog name OR a catalog id; unknown -> 200 with [])
+GET  /adoption/by-release?repository=&version=  → {repository, catalogId, version, packages:[{ecosystem, name}],
+                                                    adopters:[{repository, catalogId, repositoryStatus, archetype,
+                                                               depth, via:[…], state: ADOPTED|PENDING,
+                                                               adoptedVersion, adoptedAt}]}
+                                                  # 400 on half a key. NO 404 on either route — see below
 GET  /artifacts                                 → [{ecosystem, name, repository, latest, version, occurredAt, sbomStatus,
                                                     dependentCount, behindCount}]
 POST /artifacts/ingest {ecosystem,name,version} → 202 {id}        # the manual backfill; 400 unknown ecosystem
@@ -251,6 +260,40 @@ Every error body is `{"message": "…"}`. Wire names are camelCase; `group`, not
 - **`scope` on a pin is always `DIRECT`, and it is a constant on purpose**: the
   detail now serves two lists whose rows look alike, and a client rendering them
   in one table needs the distinction on the row.
+- **`/repositories/{name}/downstream` IS A CROSS-SERVICE CONTRACT** and the
+  reason these two routes are pinned here rather than only in the service's own
+  README. qits-projects reads it on its release-request announce path and folds
+  the names into `ReleaseRequestChanged.downstreamTechnicalComponents`; qits-ci
+  orders its build queue by what comes out. **The ORDER is the information** —
+  depth ascending then name, so reading it top to bottom reads "upstream first".
+  Pure DB reads; no outbound call is made to answer it.
+- **The closure is TRACED TO THE END and is a query rather than a table.** Two
+  sides are unioned: every INTERNAL `mt_pin` on a coordinate the repository
+  publishes (DECLARED) and every artifact whose bill of materials names one
+  (EVIDENCE). **A repository's own NAME is a coordinate in the `gitlink`
+  ecosystem**, which is the hop that matters: a frontend is a service's
+  `service/src/main/webui` submodule, so "who submodules this" is what carries a
+  library release past the frontend and into the service. Cycles terminate on a
+  visited set; two bounds truncate rather than throw (depth 10, 500
+  repositories). **The wrapper is excluded by its `PROJECT` archetype** — it
+  gitlink-pins every submodule on the platform, so it would otherwise be on every
+  answer and would then expand into the whole estate.
+- **Neither route 404s, and on the closure that is load-bearing.** The caller is
+  an announce path: an unknown repository must cost it an empty list, never a
+  refusal it has to classify. An unknown release is empty `packages` with a real,
+  wholly PENDING closure — an ad hoc answer always exists.
+- **`state` is `ADOPTED` or `PENDING` and there is no third.** ADOPTED means the
+  repository's own release contains the coordinate at or above the required
+  version, compared inclusively in that ecosystem's own order — skipping straight
+  past the version counts. `adoptedVersion` is **the adopter's OWN released
+  version**, never the dependency version it took: it is half of
+  `release-requests/by-release/<catalogId>/<adoptedVersion>`. The earliest
+  matching release wins. A PENDING hop leaves everything behind it PENDING,
+  because there is no version of it to require yet.
+- **Both routes take a catalog NAME or a catalog id**, because the caller usually
+  holds the latter — qits-projects addresses repositories by its own row id,
+  which IS this inventory's `catalog_id`. The answer is always spelled as the
+  catalog names it.
 
 Scan and bump requests are queued on ONE worker thread (the orchestrator's
 executor pattern: a sequence, not an interleaving). A scheduled run is the
@@ -688,3 +731,29 @@ the ask is somebody else's now — qits-projects folds onto `release/<id>`,
 `ci-event-release-request.yml` gates the fold, Auto Release stamps the CalVer, and
 `main` is finalized after the deployment lands. This service still stores the
 request id and stops, and still learns the outcome as `SCMRelease` on the bus.
+
+**2026-09-07 — the persisted release trains are retired; downstream is a QUERY.**
+A release train (`mt_train` / `mt_train_node`, `V7`) wrote down at the moment of a
+release who was expected to adopt it, and the argument for freezing that set was
+sound about a log and wrong about the thing being built: the membership came from a
+single ONE-HOP pass over "who pins the released coordinate right now", so a
+library's journey named the frontend that pins it and could never name the service
+behind that frontend. Every journey on this platform cut off at the frontend.
+`V8__retire_release_trains.sql` drops both tables, and the two routes added above
+answer the same questions ad hoc, traced to the end: the closure unions declared
+pins with SBOM evidence and — the hop that was missing — **treats a repository's own
+name as a `gitlink` coordinate**, which is how a frontend reaches the service it is
+the `webui` submodule of. The wrapper is excluded by its `PROJECT` archetype rather
+than by excluding gitlinks, which is what cost the trains the hop in the first
+place. Nothing is stored: every input is already refreshed by the scan and the bus,
+so the re-derivation is both cheaper to keep honest and strictly better than what
+was written down. Two POLLED train ends went with the tables — an image becoming a
+runtime pin in qits-configuration, a daemon climbing qits-ci's adoption ladder —
+because each is the owning service's own fact one click away and re-reading two
+peers inside a human GET bought failure modes for them; `targets.configuration-url`,
+`train.sweep-cron` and the `configuration` oidc client are gone with them. The
+second durable consumer of `SoftwareRelease` is gone too and
+`maintenance-release-trains` is now an ABANDONED consumer id: its `consumed_event`
+rows and watermark stay where they are and the string is never reused. **Consumed by
+the release-ordering campaign**: qits-projects carries the closure on
+`ReleaseRequestChanged` and qits-ci orders its build queue by it.
