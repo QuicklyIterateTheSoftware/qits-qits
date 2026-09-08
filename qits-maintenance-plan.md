@@ -163,6 +163,11 @@ mt_artifact          id, ecosystem, name, version, repository, occurred_at,
 mt_artifact_component  id, artifact_id → mt_artifact, bom_ref, purl (verbatim), ecosystem (null = a purl type we do not map),
                      name, version, direct
 mt_artifact_edge     id, artifact_id → mt_artifact, parent_component_id (null = the ROOT), child_component_id
+mt_release           id, repository, version, sha, occurred_at — the release LEDGER: one row per released
+                     (repository, version), written by the SCMRelease listener off the tag it already resolves,
+                     backfilled at boot from mt_latest's GITLINK rows (latest release per repository only)
+mt_release_pin       id, release_id (plain uuid), ecosystem, name, version — the INTERNAL pins of the RELEASED tree,
+                     read at refs/tags/<version>; a GITLINK pin's version is the embedded commit sha
 ```
 
 Landed additions (service, 2026-08-21): `mt_scan` (scan rows behind
@@ -200,6 +205,15 @@ container started without it dies at Flyway rather than opening a fallback store
 grouped by `mt_group`. "Who pins X" is a query over `mt_pin`; "who SHIPS a copy
 of X" is a query over `mt_artifact_component`, and the two never merge — an SBOM
 cannot name a pom property, a pin cannot see a transitive.
+
+Adoption reads TWO evidence kinds (2026-09-08, `V9__release_pins.sql`): what a
+consumer's release CONTAINS (`mt_artifact_component`, transitives included) and
+what its released TREE declared (`mt_release_pin`, read at the immutable tag —
+release-grade, unlike a branch pin). The second is what makes the npm and
+gitlink hops provable at all on this estate: frontends publish no registry
+artifact, and service image SBOMs carry no npm components. The frontend→service
+hop resolves a gitlink pin's sha through the upstream's `mt_release` ledger to a
+version; a sha the ledger does not hold is honestly PENDING.
 
 ## API — `/maintenance/api`, roles `qits:admin` (people) or `qits:system` (machines)
 
@@ -283,8 +297,10 @@ Every error body is `{"message": "…"}`. Wire names are camelCase; `group`, not
   refusal it has to classify. An unknown release is empty `packages` with a real,
   wholly PENDING closure — an ad hoc answer always exists.
 - **`state` is `ADOPTED` or `PENDING` and there is no third.** ADOPTED means the
-  repository's own release contains the coordinate at or above the required
-  version, compared inclusively in that ecosystem's own order — skipping straight
+  repository's own release carries the coordinate at or above the required
+  version — its SBOM contains it, or its released tree's pins declare it, or its
+  gitlink sha resolves through the upstream's release ledger to it — compared
+  inclusively in that ecosystem's own order; skipping straight
   past the version counts. `adoptedVersion` is **the adopter's OWN released
   version**, never the dependency version it took: it is half of
   `release-requests/by-release/<catalogId>/<adoptedVersion>`. The earliest
