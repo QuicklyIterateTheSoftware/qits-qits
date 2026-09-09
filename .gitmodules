@@ -286,3 +286,9 @@
 	ignore = all
 	update = merge
 	branch = main
+[submodule "qits-coding-agents"]
+	path = components/qits-agents/qits-coding-agents
+	url = ../qits-coding-agents.git
+	branch = main
+	ignore = all
+	update = merge
