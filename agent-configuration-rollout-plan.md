@@ -48,14 +48,24 @@ containers before you believe what you see.**
 | --- | --- | --- | --- |
 | 1 | `qits-coding-agents` | the shared harness library | — |
 | 2 | `qits-projects-daemon`, `qits-workspace-daemon` | pinned library bump, `surface` on the wire, capability probe, document reader | 1 (the pin is a released coordinate) |
-| 3 | `qits-workspace-oci` | image rebuild carrying the new workspace daemon binary | 2 |
+| 3 | — | *no separate image rebuild:* the workspace daemon's own release builds `qits/workspace` | — |
 | 4 | `qits-projects-service` | the store, the seeded surfaces, the editor doors, the document door, the capability cache | 2 (the daemons report capabilities into it) |
 | 5 | `qits-workspaces-service` | fetch the document at provision and mount it | 4 (there is nothing to fetch before the door exists) |
 | 6 | `qits-projects-frontend`, `qits-workspaces-frontend` | send `surface` on every launch, render the sign-in refusal | 2 (the daemons must accept the field first) |
 | 7 | `qits-docs-service` | the contract page | 4 |
 | 8 | `qits-qits` | the wrapper release, banking the estate | everything |
 
-Two of those edges are worth spelling out because they look reversible and are not.
+**There is no image-rebuild step, and the row that used to say there was one was wrong.** The
+workspace daemon's own `ci-event-release.yml` pushes `$QITS_IMAGE_REPOSITORY/workspace:$version` —
+its Dockerfile compiles the daemon and layers it onto `qits/workspace-base` in one build from one
+reactor — and the `SoftwareRelease` listener then moves `env.QITS_WORKSPACE_IMAGE_VERSION` to that
+same CalVer. Measured on 2026-09-09: releasing the daemon as `2026.909.125238` left the pin reading
+`2026.909.125238` with no other action. `qits-workspace-oci` builds the *base* image underneath —
+the tooling layer with the harness binaries in it — and it is only in a rollout's path when the
+harnesses themselves change, which this epic does not do. Releasing it here would rebuild an
+unrelated 3.4 GB image to no effect.
+
+Two of the remaining edges are worth spelling out because they look reversible and are not.
 
 **The library before the daemons** is fact 1 above. A daemon cannot be released against a library
 version that does not exist yet, and there is no snapshot channel to lean on — the coordinate is a
