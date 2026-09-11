@@ -41,14 +41,21 @@ maven artifactIds, npm packages, image coordinates, wire names and databases.
 Every submodule sits on its own `main` and follows it. Syncing is automated, so
 in normal work you never run a submodule command by hand.
 
-The gitlinks committed here are not version pins — they exist so
-`git submodule update --init` works on a fresh clone. They are *banked*: every
-wrapper release walks the submodules, moves each gitlink to the head of that
-submodule's `main`, and writes the result into the release commit, so a wrapper
-version names a whole estate rather than one repository. Between releases they
-lag the branches again, and that lag is expected — never chase it by hand, and
-never move one to follow a release you just made. Each entry in `.gitmodules`
-carries:
+The gitlinks committed here make `git submodule update --init` work on a fresh
+clone, and they name the estate. A gitlink moves the way everything else here
+moves: by an ordinary commit on a branch. qits-maintenance writes it — when a
+sibling releases, the bump resolves that repository's `refs/tags/<version>` into
+a `160000` entry and pushes it onto a `maintenance/*` branch — so a pin never
+names a passing branch head, only a version somebody released. From there it is
+content like any other: it is folded into a release request, gated by CI (which
+checks that every submodule `.gitmodules` declares has a pin, and that every pin
+resolves in the sibling), and approved by a person against the fold that ships.
+A wrapper version therefore names the estate that was reviewed, and a component
+whose work is not released yet is simply absent from it rather than pinned
+mid-flight. Never chase a gitlink by hand, and never move one to follow a
+release you just made: a hand-written pin asserts an estate nobody gated and
+nobody approved, and the next bump overwrites it regardless. Each entry in
+`.gitmodules` carries:
 
     url = ../<name>.git   # relative, never an absolute URL
     ignore = all          # keep the expected drift out of `git status` / `git diff`
