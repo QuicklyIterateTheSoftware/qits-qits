@@ -432,11 +432,35 @@ writes `mt_branch`/`mt_bump`. No callback, no new token.
 ## Who asks for a bump, and who asks for its release
 
 **Two callers, and no scan is one of them.** The button is
-`POST /repositories/{name}/groups/{group}/bumps`, on any group. The clock is
-`schedule/BumpSchedule` at 02:00, and it asks for the INTERNAL group
-(`dependencies`) of every OK repository with something pending there and no bump
-already going — the external half and a repository's own configured groups are
-manual-only.
+`POST /repositories/{name}/groups/{group}/bumps`, on any group. The other is the
+DISPATCHER, which asks for the INTERNAL group (`dependencies`) of every OK
+repository with something pending there and no bump already going — the external
+half and a repository's own configured groups are manual-only.
+
+**And the dispatcher is armed by DEBT, not by an hour** (2026-09-11). It was
+`schedule/BumpSchedule` at 02:00 opening a dispatch window, which made the hour
+the only thing that could start the path the design is built around: something
+becomes owed, qits-ci goes idle, the bump goes. Live, a release cut at 10:44 left
+fifteen repositories owed at 17:20 with an idle CI queue in front of them, and no
+window could have drained them anyway — one `@qits/ui-components` release is
+roughly twenty-eight dispatches, because every frontend ships inside its service
+as a gitlink and the service's hop cannot begin until the frontend's release has
+landed and been rescanned. So `bump/BumpDispatcher`'s 15s tick asks the same
+gates with or without a window row and opens one itself the moment something
+dispatchable is owed; in gated mode `bump.internal.cron` opens nothing.
+
+- `qits.maintenance.bump.dispatch.quiet-hours` is what is left of the clock, and
+  it is stated rather than implied: `HH:MM-HH:MM[,…]` in
+  `qits.maintenance.time-zone`, end exclusive, midnight-wrapping allowed, EMPTY
+  by default. It suppresses the debt-driven opening only — `POST /bumps/window`
+  is the override, and an unparseable entry is dropped with a WARN rather than
+  obeyed.
+- The window's expiry is a safety valve: it closes the row saying what it cut
+  short, and the same tick opens a fresh one if the work is still owed.
+- `GET /bumps/window` is **200 in every state**, never 404. With no window the
+  two timestamps are null, and it carries `queue` — the whole owed set in
+  dispatch order, each entry READY / BLOCKED (on whom) / HELD / STALLED /
+  REFUSED — beside the outcome, the counts and the stalled list.
 
 **One nightly bump coalesces every release since the last one.** The changes are
 frozen onto the `mt_bump` row at REQUEST time rather than recomputed at dispatch,
