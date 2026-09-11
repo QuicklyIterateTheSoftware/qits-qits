@@ -1,0 +1,18 @@
+# THE WRAPPER'S RELEASE-REQUEST SETTINGS.
+#
+# A release request is gated by every quality gate the repository configures, and a gate exists
+# because a file here says so:
+#
+#     ci-event-release-request.yml present  ->  the CI gate
+#     deployments.yml present               ->  the deployment gate
+#     manual-review: true (this file)       ->  the approval gate
+#
+# The wrapper requires a person's yes because its release is the whole platform's version moving:
+# a green build alone shipping one would make the most consequential release the least deliberate.
+# It used to require it because of what this repository IS -- archetype PROJECT -- which was always
+# a placeholder for the day the gates were configured rather than derived. This file is that day.
+#
+# The set is read from MAIN, never from the fold, so a change cannot alter the rules it is judged
+# by: deleting the line below is reviewed under the line below. The same trade in the other
+# direction is that turning manual review on applies from the next request, not the current one.
+manual-review: true
