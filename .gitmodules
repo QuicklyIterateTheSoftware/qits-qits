@@ -292,3 +292,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-platform-access-cli"]
+	path = components/qits-platform-access/qits-platform-access-cli
+	url = ../qits-platform-access-cli.git
+	branch = main
+	ignore = all
+	update = merge
