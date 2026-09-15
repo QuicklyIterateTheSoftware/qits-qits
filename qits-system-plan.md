@@ -109,10 +109,10 @@ and gets the replay.
 
 - cli-bootstrap `PlatformModel`: `DEPLOYABLES` + `PLATFORM_SERVICES` + `IDP_CLIENT_APPS` gain
   `platform-system`; `SEEDED_REPOS` gains `platform-spa-system`. `ComposeTemplate`: idp client
-  `qits-platform-system` (roles `qits:system,qits-platform:system`, audiences `${IDP_AUDIENCES}`);
+  `qits-platform-system` (roles `qits:system`, audiences `${IDP_AUDIENCES}`);
   extras block `qits-platform-system`: socket bind + `groups[0]=${DOCKER_GID}`,
   `mounts[1]=volume:qits-platform-system-config:/work/config`, `env.DOCKER_CONFIG=/work/config`,
-  `QITS_AUTH_MACHINE_REQUIRED/AUDIENCE`, `QUARKUS_OIDC_AUTH_SERVER_URL`,
+  `QITS_AUTH_MACHINE_REQUIRED`, `QUARKUS_OIDC_AUTH_SERVER_URL`,
   `QITS_SYSTEM_GLANCES_IMAGE_REPO/_VERSION`, `QITS_OBSERVABILITY_URL`. `SeedPhases.dockerConfig`
   writes this service's `config.json` with BOTH the registry and the mirror vhost (the edge grants
   no anonymous reads; the mirror pull needs the credential).
