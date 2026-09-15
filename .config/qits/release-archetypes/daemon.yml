@@ -1,5 +1,5 @@
 # daemon — the release cycle of a statically-linked binary the platform downloads and runs.
-# Two repositories: qits-ci-daemon and qits-artifacts-cli.
+# One repository today: qits-ci-daemon.
 #
 # A daemon is not a package any third-party tool installs; qits-artifacts holds it under
 # `/artifacts/daemons/<name>/<version>` and the platform fetches it by URL. Before the type existed,
@@ -19,25 +19,30 @@
 # deployment's addresses, and the reader supplies its own host. `artifacts:` belongs in the
 # repository's own file — qits-projects reads it at the tag and qits-ci announces from it.
 #
-# THE BINARY'S FILENAME IS NOT THE ARTIFACT NAME and must not be assumed to be: qits-artifacts-cli
-# publishes `qits-artifacts-cli` from a file called `qits-publish`. So the step takes whatever the
-# `target=binary` export left in `out/` beside the document, and refuses anything but one file.
+# THE BINARY'S FILENAME IS NOT THE ARTIFACT NAME and must not be assumed to be:
+# qits-platform-access-cli publishes `qits-platform-access-cli` from a file called `qits`. It rides
+# its own hand-written recipes rather than this archetype, but it publishes into the same store under
+# the same `daemon` type, and the mismatch there is the ordinary case rather than a slip. So the step
+# takes whatever the `target=binary` export left in `out/` beside the document, and refuses anything
+# but one file.
 #
 # ---------------------------------------------------------------------------------------------
 # THE BUILD, AND THE ONE CONDITIONAL HALF
 #
-# Both repositories compile a GraalVM native image inside a musl toolchain image as a build stage
-# and end on `FROM scratch` holding the one file, so both exports are
+# A daemon repository compiles a GraalVM native image inside a musl toolchain image as a build stage
+# and ends on `FROM scratch` holding the one file, so the export is
 # `--opt target=binary --output type=local,dest=out`, and a second `target=sbom` stage exports the
 # CycloneDX document from the SAME reactor resolve — which is why it is a cache hit rather than a
 # second native compile, and why the document describes the very resolve that produced the bytes
 # beside it. Build args must stay BYTE-IDENTICAL between the two invocations or the cache misses.
 #
 # THE TOOLCHAIN IMAGE IS BUILT AND PUSHED ONLY BY THE REPOSITORY THAT OWNS ITS DOCKERFILE.
-# `docker/Dockerfile.musl-builder` is qits-ci-daemon's; qits-artifacts-cli consumes the pushed
-# result. Guarding on the file's presence is what lets one recipe serve both with no override —
-# and the image is deliberately NOT one of the `artifacts:`: nothing declares it, nothing deploys
-# it, and it is a cache coordinate for one builder, overwritten in place at a fixed tag.
+# `docker/Dockerfile.musl-builder` is qits-ci-daemon's, and with one repository here nothing else
+# consumes the pushed result today. The guard on the file's presence stays anyway: it is what lets a
+# repository that does not own the Dockerfile ride this recipe with no override, which is the whole
+# reason the toolchain is a pushed image rather than a per-repository build. And the image is
+# deliberately NOT one of the `artifacts:`: nothing declares it, nothing deploys it, and it is a cache
+# coordinate for one builder, overwritten in place at a fixed tag.
 #
 # THE TARBALL URLS ARE THE RUN'S, NOT THE DOCKERFILE'S DEFAULTS. BuildKit resolves an `ADD <url>` in
 # the BUILDER's network context, which is qits-net; the committed defaults name an edge vhost on the
