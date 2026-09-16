@@ -593,7 +593,7 @@ across another service's HTTP call.
 > of its own — see "The release ask". Do not follow those steps on a fresh platform.
 
 1. Seed both repos, add as submodules here (`--name`, `ignore = all`, `update = merge`).
-2. idp client `qits-platform-maintenance` (roles `qits:system`, `qits-platform:system`) in qits-configuration + `.qits-bootstrap.env`; extras block for the peer urls.
+2. idp client `qits-platform-maintenance` (roles `qits:system`) in qits-configuration + `.qits-bootstrap.env`; extras block for the peer urls.
 3. `PUT /git/<name>` on the githost → seed main → release via the door → wrapper release → projects reconcile → SPA release → bump webui gitlink → service release.
 4. qits-ci release with platform pipelines; wrapper gains `ci-platform-event-maintenance-bump.yml`.
 5. First scheduled bump green → delete the 71 hop files across the repos (one sweep, one wrapper release).

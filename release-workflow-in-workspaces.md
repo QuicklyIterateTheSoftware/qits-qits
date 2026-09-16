@@ -46,18 +46,21 @@ three credentials/knobs that make the flow work:
   does this for every command it starts) so the profile applies.
 - **Platform APIs — your own identity**: the container carries a commissioned idp client
   (`QITS_COMMISSIONED_CLIENT_ID` / `QITS_COMMISSIONED_CLIENT_SECRET`, the token endpoint in
-  `QITS_GIT_AUTH_TOKEN_URL`). A token is cut for **one** service — the `audience` is that service's
-  alias on the platform network (`dev-qits-workspaces`, `dev-qits-ci`, …; the tier prefix is the one
-  `QITS_WORKSPACE_DAEMON_AUTH_AUDIENCE` carries). Mint per call:
+  `QITS_GIT_AUTH_TOKEN_URL`). There is **one** platform audience, `qits-platform` — the value
+  `QITS_WORKSPACE_DAEMON_AUTH_AUDIENCE` carries — and the token it cuts is accepted by every
+  service you dial by its alias on the platform network (`dev-qits-workspaces`, `dev-qits-ci`, …;
+  the tier is `dev` unless you were told otherwise). Mint per call:
 
   ```sh
   token() { curl -fsS -u "$QITS_COMMISSIONED_CLIENT_ID:$QITS_COMMISSIONED_CLIENT_SECRET" \
-              -d "grant_type=client_credentials&audience=$1" "$QITS_GIT_AUTH_TOKEN_URL" | jq -r .access_token; }
-  curl -H "Authorization: Bearer $(token dev-qits-workspaces)" http://dev-qits-workspaces:8080/workspaces/api/…
+              -d "grant_type=client_credentials&audience=${QITS_WORKSPACE_DAEMON_AUTH_AUDIENCE:-qits-platform}" \
+              "$QITS_GIT_AUTH_TOKEN_URL" | jq -r .access_token; }
+  curl -H "Authorization: Bearer $(token)" http://dev-qits-workspaces:8080/workspaces/api/…
   ```
 
-  Workspace images from `qits/workspace-base` 2026.820.131511 on ship this as `qits-token <audience>`.
-  The token's `groups` claim carries the roles the door checks (`qits:system`, `qits-platform:system`,
+  Workspace images from `qits/workspace-base` 2026.820.131511 on ship this as `qits-token
+  <audience>` — pass `qits-platform`.
+  The token's `groups` claim carries the roles the door checks (`qits:system`,
   `qits:admin` — the idp issues a commissioned client its owner's roles, and since 2026-08-20 the
   workspaces client carries `qits:admin` like the ci client). **The public edge is not a door for
   this bearer** — `https://wohlben.eu/...` wants a browser session; talk to the services by their

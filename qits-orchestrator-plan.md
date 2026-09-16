@@ -186,8 +186,8 @@ response JSON and error. Polls `GET /runs/{id}` every 2 s while RUNNING.
 - cli-bootstrap `PlatformModel`: `DEPLOYABLES` (+ `PLATFORM_SERVICES`),
   `SEEDED_REPOS` += `platform-orchestrator`, `platform-spa-orchestrator`;
   `IDP_CLIENT_APPS` += `platform-orchestrator` with roles
-  `qits:system,qits-platform:system`; `ComposeTemplate` extras block for
-  the orchestrator (machine audience, four oidc-client env groups, target
+  `qits:system`; `ComposeTemplate` extras block for
+  the orchestrator (four oidc-client env groups, target
   URLs, observability URL).
 - `deployments.yml`: `deployment_target: platform`, `routes: /orchestrator`,
   `navigation: Orchestrator:12`, `resources: postgresql:db`,
