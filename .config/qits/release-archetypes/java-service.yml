@@ -5,6 +5,30 @@
 # whole acceptance criterion of the release-slots work.
 #
 # ---------------------------------------------------------------------------------------------
+# THE PHASES, AND WHAT GATES BETWEEN THEM
+#
+# A phase is a unit of work with a state and a rerun — QA, publish, deploy. Nothing else is one: a
+# step is not, and a `gating: false` half of a phase is not either. A gate is the condition between
+# two phases, and it DELAYS rather than fails: an unmet gate holds the pipeline where it sits, and
+# when the gate opens the next phase starts. This file's `release-request:` below is phase one and
+# `release:` is phase two:
+#
+#     P1 · QA          a qits-ci run at release/<id>@mergedSha     (trigger: ReleaseRequestChanged)
+#       ⟂ gates        the CI verdict, and a person's approval where policy asks for one
+#     P2 · Publish     a qits-ci run at <version>@commitSha        (trigger: SCMRelease)
+#       ⟂ gate         the publish run green
+#     P3 · Deploy      a qits-deployments deployment request for (repoId, version)
+#       ⟂ gate         DeploymentActive for the released version
+#     → FINALIZED
+#
+# Phase three is in no slot file: it is qits-deployments' own deployment request, reached because a
+# green phase two announces `SoftwareRelease`. This archetype declares steps for phases one and two
+# and for nothing else. Nothing below names a phase either — qits-ci records which phase a run
+# belongs to from the TRIGGERING EVENT, `ReleaseRequestChanged` versus `SCMRelease`, never from
+# which config file produced the run, which is why a repository still on a hand-written
+# `ci-event-release-request.yml`/`ci-event-release.yml` pair gets phases with no edit to its files.
+#
+# ---------------------------------------------------------------------------------------------
 # WHAT A REPOSITORY DECLARES
 #
 #     # .config/qits/release.yml
@@ -86,8 +110,8 @@
 # ---------------------------------------------------------------------------------------------
 # WHEN TO OVERRIDE
 #
-# A repository declaring `release-request:` or `release:` replaces THAT slot entirely — there is no
-# per-step merging. Override when:
+# A repository declaring `release-request:` (phase one) or `release:` (phase two) replaces THAT slot
+# entirely — there is no per-step merging. Override when:
 #
 # - the release publishes more than one image, or something other than an image (qits-ci-service
 #   also PUTs `@apidocs/qits-ci`; qits-projects-daemon pushes two; qits-build-images-oci five);
@@ -101,7 +125,7 @@
 
 release-request:
 
-  # --- the GATING half: build the fold, publish nothing ------------------------------------------
+  # --- the GATING half of phase one: build the fold, publish nothing -----------------------------
   # node-docker-base carries node, npm, git and buildctl. `build: true` is the diff-visible
   # declaration that gets this step the platform builder and the run's commissioned credential —
   # and, unlike the `docker: true` it replaced, no docker socket at all.
@@ -198,11 +222,12 @@ release-request:
         --secret id=qits-client-id,src=/tmp/qits-client-id \
         --secret id=qits-client-secret,src=/tmp/qits-client-secret
 
-  # --- the NON-GATING half: verify, and publish what the run observed ----------------------------
+  # --- the NON-GATING half of phase one: verify, and publish what the run observed ---------------
   # `gating: false` still fails the run and shows red; it does not hold the fold for qits-projects'
-  # build gate. IT MUST STAY LAST — everything after a failing step is SKIPPED, and "a red verify
-  # must not cost the image" is bought here by ORDERING plus classification rather than by two files
-  # that cannot share a verdict.
+  # phase-one gate. This step is still part of phase one, not a phase of its own — the phase is the
+  # whole QA run, and only this run's OTHER step decides whether the gate opens. IT MUST STAY LAST —
+  # everything after a failing step is SKIPPED, and "a red verify must not cost the image" is bought
+  # here by ORDERING plus classification rather than by two files that cannot share a verdict.
   #
   # `user: build`, and NOT a switch inside the script: a story IT hands the launched artifact an
   # embedded postgres, initdb refuses to run as root and calls getpwuid, so the step needs a

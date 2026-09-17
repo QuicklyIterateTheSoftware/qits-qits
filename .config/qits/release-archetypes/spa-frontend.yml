@@ -6,11 +6,14 @@
 #     archetype: spa-frontend
 #
 # No `artifacts:`, no `userflows:`, and no `release:` slot anywhere — which is the point rather than
-# an omission. A frontend repository publishes nothing: the consuming service carries it as a Quinoa
-# submodule at `service/src/main/webui` and builds the bundle into its own image, so a release of
-# this repository is a TAG and what acts on the tag is the service's own maintenance pipeline. A
-# phase nobody declares steps for gets no trigger document and therefore no run, which is exactly
-# what a missing `ci-event-release.yml` meant before.
+# an omission. Publish is a phase this repository does not have, not an empty phase: a frontend
+# repository publishes nothing, the consuming service carries it as a Quinoa submodule at
+# `service/src/main/webui` and builds the bundle into its own image, so a release of this repository
+# is a TAG and what acts on the tag is the service's own maintenance pipeline. A phase nobody
+# declares steps for gets no trigger document and therefore no run, which is exactly what a missing
+# `ci-event-release.yml` meant before — this file declares phase one (QA) alone, and with no phase
+# two (Publish) there is no `SoftwareRelease` for a phase three (Deploy) to gate on either. See
+# java-service.yml's header for the full three-phase model.
 #
 # ---------------------------------------------------------------------------------------------
 # WHAT THIS STEP IS FOR
@@ -31,9 +34,10 @@
 # script, several siblings do not, and a missing script must not be a red gate for a repository that
 # never had one. ADDING the script is what turns the check on — no pipeline edit.
 #
-# Override `release-request:` when the repository needs a step this does not have (a second target,
-# a browser-mode test run against an image that ships a browser, a bundle-size assertion). Declaring
-# the slot replaces this list entirely; there is no per-step merging.
+# Override `release-request:` (phase one, QA — the only phase this archetype has) when the
+# repository needs a step this does not have (a second target, a browser-mode test run against an
+# image that ships a browser, a bundle-size assertion). Declaring the slot replaces this list
+# entirely; there is no per-step merging.
 
 release-request:
 

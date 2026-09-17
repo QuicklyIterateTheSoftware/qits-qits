@@ -1,6 +1,11 @@
 # npm-library — the release cycle of an Angular library published to the platform's @qits scope.
 # Two repositories: qits-ui-components-jslib and qits-integrations-angular-jslib.
 #
+# `release-request:` below is phase one (QA, on ReleaseRequestChanged) and `release:` is phase two
+# (Publish, on SCMRelease). See java-service.yml's header for the full three-phase model; phase
+# three (Deploy) is a consumer's own deployment request off the `SoftwareRelease` a green phase two
+# announces, and appears in no slot file, this one included.
+#
 # ---------------------------------------------------------------------------------------------
 # WHAT A REPOSITORY DECLARES
 #
@@ -53,7 +58,7 @@
 # WHEN TO OVERRIDE
 #
 # A repository that publishes more than one package from one tree, or that builds with npm rather
-# than pnpm, declares its own `release:`. Declaring a slot replaces it entirely.
+# than pnpm, declares its own `release:` (phase two). Declaring a slot replaces it entirely.
 
 release-request:
 

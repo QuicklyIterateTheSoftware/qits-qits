@@ -7,6 +7,11 @@
 # train could announce — it arrived as a bootstrap script's blob upload, bytes with no row, no name
 # and no version.
 #
+# `release-request:` below is phase one (QA, on ReleaseRequestChanged) and `release:` is phase two
+# (Publish, on SCMRelease). See java-service.yml's header for the full three-phase model, including
+# the phase three (Deploy) that lives in no slot file at all — reached, if this daemon's consumer
+# has one, off the `SoftwareRelease` a green phase two announces.
+#
 # ---------------------------------------------------------------------------------------------
 # WHAT A REPOSITORY DECLARES
 #
@@ -70,7 +75,7 @@
 #
 # A repository whose QA half needs more than a compile — qits-ci-daemon's smoke probe really starts
 # a container on the built binary and therefore keeps `docker: true` — declares its own
-# `release-request:`. Declaring a slot replaces it entirely.
+# `release-request:` (phase one). Declaring a slot replaces it entirely.
 
 release-request:
 
