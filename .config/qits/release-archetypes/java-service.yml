@@ -8,7 +8,7 @@
 # THE PHASES, AND WHAT GATES BETWEEN THEM
 #
 # A phase is a unit of work with a state and a rerun — QA, publish, deploy. Nothing else is one: a
-# step is not, and a `gating: false` half of a phase is not either. A gate is the condition between
+# step is not, and neither is half of one. A gate is the condition between
 # two phases, and it DELAYS rather than fails: an unmet gate holds the pipeline where it sits, and
 # when the gate opens the next phase starts. This file's `release-request:` below is phase one and
 # `release:` is phase two:
@@ -27,6 +27,37 @@
 # belongs to from the TRIGGERING EVENT, `ReleaseRequestChanged` versus `SCMRelease`, never from
 # which config file produced the run, which is why a repository still on a hand-written
 # `ci-event-release-request.yml`/`ci-event-release.yml` pair gets phases with no edit to its files.
+#
+# ---------------------------------------------------------------------------------------------
+# EVERY STEP OF PHASE ONE GATES, AND THAT IS THE RULE THIS WHOLE FEATURE IS HELD TO
+#
+# The composed document must do what the hand-written pair did, and the pair GATES. A repository
+# migrating to this archetype hands its release request's only verdict to the text below; if that
+# text can announce something the fleet's own files could not, the migration is a regression
+# wearing a refactor's clothes.
+#
+# So there is no `gating: false` anywhere in this file, and none may be added. The mechanism is one
+# verdict PER RUN, never per step: qits-ci computes `run.gating && (failedStepGating == null ||
+# failedStepGating)` (`CiRunService.runSteps`) and announces exactly that. A run whose gating step
+# went green and whose later non-gating step went red therefore announces NO `BuildSuccessful` at
+# all — only a `BuildFailed` carrying `gating: false` — and the gating step's pass is transmitted
+# nowhere. qits-projects' gate (`ReleaseRequests.evaluate`) rejects on `v.gating() && !SUCCESS` and
+# passes on `v.gating() && SUCCESS`, so that lone verdict matches neither arm and the request parks
+# on "Waiting for a gating CI verdict" until a person withdraws it.
+#
+# ALL EIGHTEEN SERVICES DELETED THE FLAG FROM THEIR HAND-WRITTEN FILES ON 2026-09-06, and the
+# comment that replaced it records the incident: a port-bind flake in one story stalled a
+# qits-workspaces request for FOURTEEN HOURS, "where a plain red settles it in seconds". Read it in
+# full at qits-ci-service's `.config/qits/ci-event-release-request.yml`. That is a deliberate trade
+# and it is this file's trade too: a red verify costs the RELEASE, and a stall nobody can see is the
+# worse of the two.
+#
+# WHAT THE ORDERING BUYS, AND IT IS NOT THE RELEASE. The verify step is LAST and everything after a
+# failing step is SKIPPED, so by the time a story can fail, the build step has already run to the
+# end and published whatever it publishes — nothing in phase one, and in phase two the image. That
+# is the whole of what "a red verify must not cost the image" can mean here. It never meant the
+# fold survives a red verify: nothing could buy that inside one run, because one run has one
+# verdict.
 #
 # ---------------------------------------------------------------------------------------------
 # WHAT A REPOSITORY DECLARES
@@ -125,7 +156,7 @@
 
 release-request:
 
-  # --- the GATING half of phase one: build the fold, publish nothing -----------------------------
+  # --- the first half of phase one: build the fold, publish nothing -----------------------------
   # node-docker-base carries node, npm, git and buildctl. `build: true` is the diff-visible
   # declaration that gets this step the platform builder and the run's commissioned credential —
   # and, unlike the `docker: true` it replaced, no docker socket at all.
@@ -222,12 +253,16 @@ release-request:
         --secret id=qits-client-id,src=/tmp/qits-client-id \
         --secret id=qits-client-secret,src=/tmp/qits-client-secret
 
-  # --- the NON-GATING half of phase one: verify, and publish what the run observed ---------------
-  # `gating: false` still fails the run and shows red; it does not hold the fold for qits-projects'
-  # phase-one gate. This step is still part of phase one, not a phase of its own — the phase is the
-  # whole QA run, and only this run's OTHER step decides whether the gate opens. IT MUST STAY LAST —
-  # everything after a failing step is SKIPPED, and "a red verify must not cost the image" is bought
-  # here by ORDERING plus classification rather than by two files that cannot share a verdict.
+  # --- the second half of phase one: verify, and publish what the run observed -------------------
+  # THIS STEP GATES, like every other step here, and it carries no `gating: false` — see the
+  # header's "EVERY STEP OF PHASE ONE GATES". A red here is a red verdict for the whole fold, which
+  # is the fleet's deliberate 2026-09-06 trade: the flag would not have saved the fold, it would
+  # have erased the gating step's pass and left the release request waiting on a verdict nobody
+  # would ever publish.
+  #
+  # It is still part of phase one, not a phase of its own — the phase is the whole QA run, and the
+  # run announces one verdict for both steps. IT MUST STAY LAST anyway: everything after a failing
+  # step is SKIPPED, so a red verify costs the release and never the work the step before it did.
   #
   # `user: build`, and NOT a switch inside the script: a story IT hands the launched artifact an
   # embedded postgres, initdb refuses to run as root and calls getpwuid, so the step needs a
@@ -235,7 +270,6 @@ release-request:
   # `--cap-drop=ALL`, so `su` could not have switched user from inside at all.
   - image: qits/build-images/maven-base:latest
     user: build
-    gating: false
     timeout-seconds: 2400
     script: |
       # The platform registry: the poms' default names a host-published address unreachable from a
@@ -256,7 +290,7 @@ release-request:
         it_selection="-Dit.test=$stories"
       fi
 
-      # Quinoa off: the client is the gating step's business, and the stories assert nothing about
+      # Quinoa off: the client is the build step's business, and the stories assert nothing about
       # the SPA. It is also what keeps this step from needing the submodule at all — the daemon's
       # clone does not recurse, so the webui directory is empty here, which is the one state Quinoa
       # calls a misconfiguration.
