@@ -247,11 +247,14 @@ POST /repositories/{name}/groups/{group}/bumps                      → 202 {id}
 GET  /bumps?repository=&limit=20                → [bump]
 GET  /bumps/{id}                                → bump
 GET  /pins                                      → {generatedAt, repositories:[{name, status, lastScanAt, headSha}],
-                                                    pins:[{ecosystem, name, version, repository, manifestPath}]}
+                                                    pins:[{ecosystem, name, version, repository, manifestPath, via}]}
                                                   # the artifact GC's dependency keep-set: INTERNAL maven/npm/docker rows
                                                   # only (gitlink excluded — its version is a commit sha); rows as stored,
                                                   # total order; 503 when the inventory has never been filled, because an
-                                                  # empty answer would read as "nothing is referenced" to a collector
+                                                  # empty answer would read as "nothing is referenced" to a collector.
+                                                  # `via` marks a docker row RESOLVED out of a maven/npm pin whose release
+                                                  # stamped an image with the same version — see the note below; null on a
+                                                  # row a manifest wrote out
 bump = {id, repository, group, branch, environment, trigger, ciEventId, ciRunId, ciRunIds, configPath,
         status, ciRunStatus, changes:[…], startedAt, finishedAt, message}
 ```
@@ -274,6 +277,20 @@ Every error body is `{"message": "…"}`. Wire names are camelCase; `group`, not
 - **`scope` on a pin is always `DIRECT`, and it is a constant on purpose**: the
   detail now serves two lists whose rows look alike, and a client rendering them
   in one table needs the distinction on the row.
+- **`/pins` RESOLVES THE IMAGE A POM PIN NAMES, and `via` is what marks the
+  resolution.** Container image versions are maven pins now — qits-workspaces at
+  `qits-workspace-daemon-protocol` and `qits-workspace-editor-image`,
+  qits-projects at `qits-projects-daemon-protocol` — so a repository that pins one
+  of those has, by that line, named an image of the same calver, and the
+  qits-configuration source that used to hold that version answers `{"pins": []}`
+  now that the last entry retired. `control/CarriedImages` closes it: for every
+  internal maven/npm pin, the repository that RELEASED that coordinate, and every
+  docker artifact **that same repository released at that same version**. The
+  mapping is the release's own assertion (`.config/qits/release.yml` → the
+  `SoftwareRelease` frame → `mt_artifact`), never a table; a version with no
+  artifact row yields no keep, which is honest rather than defensive. Without it
+  the image of a bump that is on main but not yet deployed is named by no pin
+  source at all, on a `P0D` OCI window.
 - **`/repositories/{name}/downstream` IS A CROSS-SERVICE CONTRACT** and the
   reason these two routes are pinned here rather than only in the service's own
   README. qits-projects reads it on its release-request announce path and folds
