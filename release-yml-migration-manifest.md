@@ -13,8 +13,27 @@ overrides a slot and why, and the trap.
 - **`artifacts:` is never defaulted in an archetype.** qits-projects reads it out of the repository
   at the tag, so every publishing repository spells its own block, on ONE flow-style line per entry
   — the extractors in `java-service`, `oci` and `daemon` are a `sed` over one line.
-- **The `sbom:` path is where the step WRITES.** The composed postlude PUTs it per declared artifact.
+- **The `sbom:` path is where the BUILDING step writes.** The composed postlude PUTs it per declared
+  artifact, and it runs inside one single step — so the path has to exist in THAT step's container.
   Never re-add a `curl -X PUT .../artifacts/sboms/...` to a script.
+- **THE WHOLE POSTLUDE LANDS ON ONE STEP, AND STEPS SHARE NOTHING.** `CiReleaseComposer.postludeStep`
+  appends the entire SBOM postlude to the LAST step that declares `build:` or `docker:`, and a CI
+  step has no working directory in common with any other: each is an ephemeral container that does
+  its own `git clone` (`CiRunService.runSteps`, `CiDaemonLauncher.buildWorkloadSpec` mounts no
+  volume, `Workspace.prepare()` re-clones, and `CiDaemonGateIT` asserts that no state crosses
+  steps). So **declaring `sbom:` on an artifact whose document is written by a LATER, non-building
+  step emits a submit for a file that does not exist in the postlude's container, and FAILS THE
+  RELEASE.** The pattern instead — the one the three daemons now use for their protocol jars —
+  is to declare that artifact WITHOUT `sbom:` and submit it inline at the end of the step that
+  generates it:
+
+      qits artifacts publish sbom submit \
+        --type maven --name "<groupId:artifactId>" \
+        --version "$QITS_VERSION" --file <path>
+
+  The `qits` CLI is on PATH in every composed release step, and its submit runs the same policy the
+  postlude runs, identical-bytes-is-success included. This is NOT a return to the hand-written
+  `curl -X PUT`: same CLI, same policy, merely on the step that holds the file.
 - **`-Dit.test` does not live in `release.yml`** — the document's vocabulary is five keys
   (`archetype`, `release-request`, `release`, `artifacts`, `userflows`) and refuses a sixth. The
   fourteen services carrying a story list must also commit `.config/qits/userflow-stories`, one class
@@ -198,18 +217,32 @@ what turns the check on, with no pipeline edit.
 
 # Batch 3 — daemons, OCI, CLIs (8)
 
-## qits-ci-daemon — `daemon`, **overrides `release-request:`**
+## qits-ci-daemon — `daemon`, **overrides BOTH slots**
 
 ```yaml
 archetype: daemon
 artifacts:
   - { type: daemon, name: qits-ci-daemon, sbom: out/sbom.json }
+  # THE PIN AND THE PROTOCOL, IN ONE JAR — the same artifact qits-workspace-daemon settled on, for
+  # the same reason. `ci-daemon-protocol` was already the wire contract both sides speak; what it
+  # gained is `CiDaemonBinary.VERSION`, filtered from `${project.version}` at build time, so the
+  # jar's version IS the version of the binary published beside it and cannot drift from it by an
+  # edit somebody forgot. qits-ci pins this coordinate in its pom and takes the daemon version from
+  # the constant.
+  #
+  # AND IT CARRIES NO `sbom:`, WHICH IS NOT THE DOCUMENT GOING MISSING. The postlude runs in ONE
+  # step — the last one that builds — and a step container shares nothing with the next: the jar's
+  # document is written by `makeBom` in the maven step below, whose files the builder step has never
+  # seen. So the jar submits its own document, through the same `qits` CLI and the same policy the
+  # postlude would have used. An `sbom:` here would make the builder step submit a path that does
+  # not exist in it.
+  - { type: maven, name: "eu.wohlben.qits:qits-ci-daemon-protocol" }
 
 # THE QA HALF IS THIS REPOSITORY'S, AND THE ARCHETYPE'S HEADER SAYS SO. Two things live here that
 # a compile does not: the JVM suite, and a smoke probe that really STARTS A CONTAINER on the built
 # binary and asserts it refuses to run with no environment (exit 2). That probe needs a docker
 # socket, which is why this step keeps `docker: true` — the archetype's `build: true` gives a
-# builder and no socket. The release slot is the archetype's, unchanged.
+# builder and no socket.
 release-request:
   - image: qits/build-images/maven-base:latest
     timeout-seconds: 1800
@@ -251,12 +284,109 @@ release-request:
       docker rm "$probe" >/dev/null
       [ "$code" = 2 ] || { echo "a daemon run with no environment exited $code, expected 2" >&2; exit 1; }
       echo "qits-ci-daemon built: $(sha256sum out/qits-ci-daemon | cut -d' ' -f1)"
+
+# THE RELEASE HALF IS THIS REPOSITORY'S TOO, FOR ONE REASON THE ARCHETYPE DOES NOT COVER: two
+# artifacts of two kinds leave this tree, and `daemon` publishes the binary and nothing else. The
+# first step below IS the archetype's, verbatim apart from spelling the one name it would have read
+# back out of `artifacts:`; the second is the pin-and-protocol jar, which needs maven and therefore
+# a second image. It is deliberately AFTER the binary publish: the jar is what tells qits-ci which
+# binary to fetch, so a jar that resolves before its binary is in the store is a pin pointing at
+# nothing. The reverse ordering is the safe one — a binary nobody has been told about yet is just
+# bytes.
+release:
+  - image: qits/build-images/ci-base:latest
+    build: true
+    timeout-seconds: 3600
+    script: |
+      maven_root="${QITS_MAVEN_REGISTRY_URL%/}"
+      musl_url=$(sed -n 's/^ARG MUSL_URL=//p' docker/Dockerfile.musl-builder)
+      zlib_url=$(sed -n 's/^ARG ZLIB_URL=//p' docker/Dockerfile.musl-builder)
+      : "${musl_url:?docker/Dockerfile.musl-builder declares no ARG MUSL_URL}"
+      : "${zlib_url:?docker/Dockerfile.musl-builder declares no ARG ZLIB_URL}"
+      musl_url="$maven_root${musl_url#*/artifacts/maven/maven}"
+      zlib_url="$maven_root${zlib_url#*/artifacts/maven/maven}"
+      builder="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/graalvmce-musl-builder:jdk-25"
+      buildctl build --frontend dockerfile.v0 \
+        --local context=docker --local dockerfile=docker \
+        --opt filename=Dockerfile.musl-builder \
+        --opt build-arg:MUSL_URL="$musl_url" \
+        --opt build-arg:ZLIB_URL="$zlib_url" \
+        --output "type=image,name=$builder,push=true"
+      # THE QA PIPELINE'S BUILD, BYTE FOR BYTE.
+      buildctl build --frontend dockerfile.v0 \
+        --local context=. --local dockerfile=docker \
+        --opt target=binary \
+        --opt build-arg:BUILDER_IMAGE="$builder" \
+        --opt build-arg:QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+        --output type=local,dest=out
+      # GENERATED, NEVER SUBMITTED — the postlude PUTs it for the artifact that declares it. It has
+      # to come out of the same build as the binary: the reactor and its resolved dependency tree
+      # exist only in there, and this step's container carries no maven at all.
+      buildctl build --frontend dockerfile.v0 \
+        --local context=. --local dockerfile=docker \
+        --opt target=sbom \
+        --opt build-arg:BUILDER_IMAGE="$builder" \
+        --opt build-arg:QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+        --output type=local,dest=out
+      # The export loses the mode bit, so the chmod is not optional: a static binary that cannot be
+      # executed is a green build that publishes nothing runnable.
+      chmod +x out/qits-ci-daemon
+      qits-publish daemon submit \
+        --name qits-ci-daemon --version "$QITS_VERSION" --file out/qits-ci-daemon
+
+  - image: qits/build-images/maven-base:latest
+    timeout-seconds: 1800
+    script: |
+      # ALREADY PUBLISHED IS A SKIP, NOT A FAILURE, and the parent is checked beside the child: a
+      # `-am` deploy writes both, and a run that resolved only one of them has published half a
+      # coordinate. Re-running a maven deploy is a no-op; re-running it against an occupied
+      # coordinate is not, so the guard stays.
+      if curl -fsS -o /dev/null \
+        "$QITS_MAVEN_REGISTRY_URL/eu/wohlben/qits/qits-ci-daemon-protocol/$QITS_VERSION/qits-ci-daemon-protocol-$QITS_VERSION.pom" \
+        && curl -fsS -o /dev/null \
+          "$QITS_MAVEN_REGISTRY_URL/eu/wohlben/qits/$QITS_VERSION/qits-$QITS_VERSION.pom"; then
+        echo "qits-ci-daemon-protocol $QITS_VERSION and its parent are already published — skipping"
+        exit 0
+      fi
+      # THE REACTOR ROOT RIDES ALONG ON `-am` AND IS DELIBERATELY NOT DECLARED: a `pom` parent
+      # carries no bytes worth an SBOM, and it has to be deployed or the child coordinate resolves
+      # to nothing.
+      QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+      QITS_MAVEN_AUTH_USR="${QITS_COMMISSIONED_CLIENT_ID-}" \
+      QITS_MAVEN_AUTH_PSW="${QITS_COMMISSIONED_CLIENT_SECRET-}" \
+      ./mvnw -B -ntp -s .qits-maven-settings.xml -pl ci-daemon-protocol -am deploy -DskipTests \
+        -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL" \
+        -DaltDeploymentRepository="qits::default::$QITS_MAVEN_REGISTRY_URL"
+      QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+      ./mvnw -B -ntp -s .qits-maven-settings.xml -pl ci-daemon-protocol -DskipTests \
+        -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL" \
+        org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom \
+        -DoutputFormat=json -DoutputName=sbom -DschemaVersion=1.6
+      # SUBMITTED HERE BECAUSE THE POSTLUDE CANNOT REACH IT — see the artifact's comment above. The
+      # CLI is on this step's PATH like any release step's, and its idempotency policy is the one
+      # the postlude runs, so a re-fired release resubmitting identical bytes is still green.
+      qits artifacts publish sbom submit \
+        --type maven --name "eu.wohlben.qits:qits-ci-daemon-protocol" \
+        --version "$QITS_VERSION" --file ci-daemon-protocol/target/sbom.json
 ```
+
+**Trap — the release slot is NOT the archetype's any more.** An earlier draft of this manifest said
+it was, and it was right until `ci-daemon-protocol` became a PUBLISHED coordinate. Two artifacts of
+two kinds now leave this tree and `daemon` publishes the binary and nothing else, so the whole slot
+is spelled here: the archetype's build step with the binary publish, then a maven step on a second
+image for the jar. The two steps cannot swap: the jar is what tells qits-ci which binary to fetch.
+
+**Trap — the protocol entry must not declare `sbom:`.** `ci-daemon-protocol/target/sbom.json` is
+written by `makeBom` in the maven step, which builds nothing, so the postlude lands on the buildctl
+step above it and would submit a path that step has never seen. The maven step submits it itself,
+through the same CLI and the same policy.
 
 **Trap — the 409 policy changes on purpose.** The hand-written release treats an occupied coordinate
 as a HARD FAILURE. `qits-publish daemon submit` runs the one policy: occupied with identical bytes is
 success (re-fired release, rebootstrap replay, retried step all go green), occupied with DIFFERENT
-bytes is a hard failure naming both digests.
+bytes is a hard failure naming both digests. The maven deploy has no such policy of its own, which
+is what the already-published guard in front of it is for — drop it and a re-fired release is a hard
+failure on an occupied coordinate.
 
 **Trap — the toolchain image.** `docker/Dockerfile.musl-builder` is this repository's, and the
 archetype's presence guard is what lets a sibling ride the recipe without owning it. Do not delete
@@ -269,12 +399,32 @@ archetype: java-service
 artifacts:
   - { type: docker, name: qits/projects-daemon, sbom: .sbom/sbom.json }
   - { type: docker, name: qits/project-agent, sbom: sbom-project-agent.json }
+  # THE RUNNABLE DAEMON, as a plain file. Not a third image and not a regression to anything
+  # retired: it is a `--opt target=binary` export OF THE SAME BUILD the first entry pushes, so the
+  # two coordinates cannot name different bytes and there is still one native compile and one
+  # reactor. What asks for it is qits-projects' pin test: it starts THIS daemon, at exactly the
+  # version its pom pins, against localhost and round-trips the real control socket before any agent
+  # container does. A container would need docker, and a CI step container has none.
+  - { type: daemon, name: qits-projects-daemon, sbom: .sbom/sbom.json }
+  # THE PIN AND THE PROTOCOL, IN ONE JAR. qits-projects-service used to read the agent image version
+  # out of `env.QITS_PROJECTS_AGENT_IMAGE_VERSION`, a qits-configuration entry its release listener
+  # rewrote on every release of this repository — so a new agent image reached a real refinement run
+  # without the pair ever having been built together. Now the version travels as the version of the
+  # artifact that also carries the wire contract.
+  #
+  # IT CARRIES NO `sbom:`, AND THE DOCUMENT IS NOT LOST. The postlude runs in ONE step — the last
+  # one that builds — and a step container shares nothing with the next: the jar's document is
+  # written by `makeBom` in the maven step below, whose files the builder step has never seen. So
+  # that step submits its own document through the same `qits` CLI the postlude would have used. An
+  # `sbom:` here would make the builder step submit a path that does not exist in it.
+  - { type: maven, name: "eu.wohlben.qits:qits-projects-daemon-protocol" }
 
 # TWO IMAGES FROM ONE TREE, WHICH NO ARCHETYPE PUSHES. java-service's extractor refuses anything but
 # exactly one docker entry, and the second image is a different Dockerfile (`Dockerfile.projects`)
 # with two build-args the recipe does not pass — BASE, pinned to a CalVer of qits/workspace-base and
-# read out of that Dockerfile, and DAEMON_IMAGE, the ref the first build just pushed. The archetype
-# is named for the family only; it contributes no step.
+# read out of that Dockerfile, and DAEMON_IMAGE, the ref the first build just pushed. A jar and a
+# runnable daemon leave the same tree besides. The archetype is named for the family only; it
+# contributes no step.
 release-request:
   - image: qits/build-images/maven-base:latest
     timeout-seconds: 1800
@@ -335,28 +485,105 @@ release:
         --secret id=qits-client-secret,src=/tmp/qits-client-secret \
         --output type=local,dest=.sbom
 
-      # The agent image layers the daemon onto workspace-base and declares no manifest, so its whole
-      # bill of materials is those two refs. `qits-publish sbom from-dockerfile` is the generator
-      # that replaces the hand-written printf block, with --build-arg resolving ${BASE}.
+      # THE AGENT IMAGE LAYERS THE DAEMON ONTO workspace-base AND DECLARES NO MANIFEST, so its whole
+      # bill of materials is those two refs — which is what `from-dockerfile` reads out of the FROM
+      # lines. BOTH BUILD-ARGS ARE PASSED, and neither is optional: without them the tool resolves
+      # the file's own ARG defaults and would write `qits/projects-daemon:latest` for an image this
+      # release never built, and an unqualified base the build never pulled. With them it names the
+      # two references the builds above really resolved, registry host and all, which is the
+      # hand-written document this replaces.
       qits-publish sbom from-dockerfile \
         --root-name qits/project-agent --root-version "$QITS_VERSION" \
         --dockerfile docker/Dockerfile.projects \
+        --build-arg BASE="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/workspace-base:$base_version" \
+        --build-arg DAEMON_IMAGE="$repository:$QITS_VERSION" \
         -o sbom-project-agent.json
+
+      # THE RUNNABLE JAR, out of the same build again: qits-projects' pin test starts this file
+      # rather than a container, and a CI step container has no docker to run one in.
+      buildctl build --frontend dockerfile.v0 \
+        --local context=. --local dockerfile=docker \
+        --opt target=binary \
+        --opt build-arg:QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL" \
+        --opt build-arg:QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+        --secret id=qits-client-id,src=/tmp/qits-client-id \
+        --secret id=qits-client-secret,src=/tmp/qits-client-secret \
+        --output type=local,dest=.binary
+
+      # THE FILENAME IS NOT THE ARTIFACT NAME: `qits-projects-daemon` is published from a file
+      # called `qits-projects-daemon.jar`.
+      qits-publish daemon submit \
+        --name qits-projects-daemon --version "$QITS_VERSION" \
+        --file .binary/qits-projects-daemon.jar
+
+    # A SECOND STEP ON A SECOND IMAGE, because this one needs maven and the one above needs
+    # buildctl. It is deliberately AFTER the image and daemon publishes: the jar is what tells
+    # qits-projects which agent image to run, so a jar that resolves before its images are in the
+    # registry is a pin pointing at nothing.
+  - image: qits/build-images/maven-base:latest
+    timeout-seconds: 1800
+    script: |
+      # ALREADY PUBLISHED IS A SKIP, NOT A FAILURE, and the parent is checked beside the child: a
+      # `-am` deploy writes both, and a run that resolved only one of them published half a
+      # coordinate.
+      if curl -fsS -o /dev/null \
+        "$QITS_MAVEN_REGISTRY_URL/eu/wohlben/qits/qits-projects-daemon-protocol/$QITS_VERSION/qits-projects-daemon-protocol-$QITS_VERSION.pom" \
+        && curl -fsS -o /dev/null \
+          "$QITS_MAVEN_REGISTRY_URL/eu/wohlben/qits/$QITS_VERSION/qits-$QITS_VERSION.pom"; then
+        echo "qits-projects-daemon-protocol $QITS_VERSION and its parent are already published — skipping"
+        exit 0
+      fi
+      # THE REACTOR ROOT RIDES ALONG ON `-am` AND IS DELIBERATELY NOT DECLARED: a `pom` parent
+      # carries no bytes worth an SBOM, and it has to be deployed or the child resolves to nothing.
+      QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+      QITS_MAVEN_AUTH_USR="${QITS_COMMISSIONED_CLIENT_ID-}" \
+      QITS_MAVEN_AUTH_PSW="${QITS_COMMISSIONED_CLIENT_SECRET-}" \
+      ./mvnw -B -ntp -s .qits-maven-settings.xml -pl projects-daemon-protocol -am deploy -DskipTests \
+        -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL" \
+        -DaltDeploymentRepository="qits::default::$QITS_MAVEN_REGISTRY_URL"
+      QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
+      ./mvnw -B -ntp -s .qits-maven-settings.xml -pl projects-daemon-protocol -DskipTests \
+        -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL" \
+        org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom \
+        -DoutputFormat=json -DoutputName=sbom -DschemaVersion=1.6
+      # SUBMITTED HERE BECAUSE THE POSTLUDE CANNOT REACH IT — see the artifact's comment above. The
+      # CLI is on this step's PATH like any release step's, and its idempotency policy is the one
+      # the postlude runs.
+      qits artifacts publish sbom submit \
+        --type maven --name "eu.wohlben.qits:qits-projects-daemon-protocol" \
+        --version "$QITS_VERSION" --file projects-daemon-protocol/target/sbom.json
 ```
 
-**Trap.** The two images are ordered — `DAEMON_IMAGE` names the ref the first build pushed, so the
-second build cannot move above the first. **Verify `from-dockerfile` reproduces the hand-written
-agent document before deleting the pair**; if it cannot resolve `${BASE}`/`${DAEMON_IMAGE}` to the
-same two purls, keep the printf block in this slot rather than shipping a thinner SBOM.
+**Trap — the ordering, and the two build-args.** The two images are ordered: `DAEMON_IMAGE` names
+the ref the first build pushed, so the second build cannot move above the first. The same two values
+have to reach `from-dockerfile`, and an earlier draft of this manifest omitted them, which would
+have shipped a WRONG document rather than a thinner one — `DockerfileSbom.java` in
+qits-platform-access-cli resolves `${VAR}` from `--build-arg` FIRST and the file's own ARG defaults
+second, so with the flags missing `${DAEMON_IMAGE}` resolves through `${DAEMON_VERSION}` to
+`qits/projects-daemon:latest`, an image this release never built, and `BASE` to an unqualified ref
+nothing ever pulled. **Both flags are mandatory.** What was verified beyond that: the tool emits the
+same shape as the hand-written printf block it replaces — one root component, one component per
+`FROM` base, and the `dependsOn` edges between them — and it REFUSES an unresolved variable rather
+than guessing at one, which is the check that would have caught the omission at the wrong end of a
+release.
 
 ## qits-workspace-daemon — `java-service` (nominal), **overrides BOTH slots**
 
 ```yaml
 archetype: java-service
 artifacts:
+  # THE IMAGE ENTRY AND THE DAEMON ENTRY NAME THE SAME DOCUMENT ON PURPOSE, which is what the
+  # hand-written file PUT twice: one build produces both, so one bill of materials describes both.
   - { type: docker, name: qits/workspace, sbom: .sbom/sbom.json }
   - { type: daemon, name: qits-workspace-daemon, sbom: .sbom/sbom.json }
-  - { type: maven, name: "eu.wohlben.qits:qits-workspace-daemon-protocol", sbom: workspace-daemon-protocol/target/sbom.json }
+  # THE PROTOCOL MODULE, published from the maven step below.
+  #
+  # IT CARRIES NO `sbom:`, AND THE DOCUMENT IS NOT LOST. The postlude runs in ONE step — the last
+  # one that builds — and a step container shares nothing with the next: this jar's document is
+  # written by `makeBom` in the maven step, whose files the builder step has never seen. So that
+  # step submits its own document through the same `qits` CLI the postlude would have used. An
+  # `sbom:` here would make the builder step submit a path that does not exist in it.
+  - { type: maven, name: "eu.wohlben.qits:qits-workspace-daemon-protocol" }
 
 # THREE ARTIFACTS OF THREE DIFFERENT TYPES OUT OF ONE TREE — an image, a daemon jar and a published
 # protocol module. No archetype publishes more than one kind, so both slots are this repository's.
@@ -424,6 +651,18 @@ release:
   - image: qits/build-images/maven-base:latest
     timeout-seconds: 1800
     script: |
+      # ALREADY PUBLISHED IS A SKIP, NOT A FAILURE, and the parent is checked beside the child: a
+      # `-am` deploy writes both, and a run that resolved only one of them published half a
+      # coordinate.
+      if curl -fsS -o /dev/null \
+        "$QITS_MAVEN_REGISTRY_URL/eu/wohlben/qits/qits-workspace-daemon-protocol/$QITS_VERSION/qits-workspace-daemon-protocol-$QITS_VERSION.pom" \
+        && curl -fsS -o /dev/null \
+          "$QITS_MAVEN_REGISTRY_URL/eu/wohlben/qits/$QITS_VERSION/qits-$QITS_VERSION.pom"; then
+        echo "qits-workspace-daemon-protocol $QITS_VERSION and its parent are already published — skipping"
+        exit 0
+      fi
+      # THE REACTOR ROOT RIDES ALONG ON `-am` AND IS DELIBERATELY NOT DECLARED: a `pom` parent
+      # carries no bytes worth an SBOM, and it has to be deployed or the child resolves to nothing.
       QITS_MAVEN_CENTRAL_URL="${QITS_MAVEN_PROXY_URL:-}" \
       QITS_MAVEN_AUTH_USR="${QITS_COMMISSIONED_CLIENT_ID-}" \
       QITS_MAVEN_AUTH_PSW="${QITS_COMMISSIONED_CLIENT_SECRET-}" \
@@ -435,14 +674,26 @@ release:
         -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL" \
         org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom \
         -DoutputFormat=json -DoutputName=sbom -DschemaVersion=1.6
+      # SUBMITTED HERE BECAUSE THE POSTLUDE CANNOT REACH IT — see the artifact's comment above. The
+      # CLI is on this step's PATH like any release step's, and its idempotency policy is the one
+      # the postlude runs.
+      qits artifacts publish sbom submit \
+        --type maven --name "eu.wohlben.qits:qits-workspace-daemon-protocol" \
+        --version "$QITS_VERSION" --file workspace-daemon-protocol/target/sbom.json
 ```
 
 **Traps.** (1) The image entry and the daemon entry deliberately name the SAME `.sbom/sbom.json`,
 which is what the hand-written file PUT twice — the postlude will submit it once per entry, under
-two artifact identities, as before. (2) The maven half deploys `-pl … -am`, so the reactor ROOT pom
-is deployed too and is deliberately not declared: a `pom` parent carries no bytes worth an SBOM. (3)
-The daemon publish's 409 policy softens from hard-fail to identical-bytes-is-success, as with
-qits-ci-daemon.
+two artifact identities, as before. (2) **THE PROTOCOL ENTRY MUST NOT DECLARE `sbom:`, and an
+earlier draft of this manifest got that wrong.** `workspace-daemon-protocol/target/sbom.json` is
+written by `makeBom` in the LAST step, which builds nothing — so the postlude lands on the buildctl
+step above it, where that file has never existed, and the release fails on a submit for a missing
+path. The maven step submits the document itself, through the same CLI and the same policy. (3) The
+maven half deploys `-pl … -am`, so the reactor ROOT pom is deployed too and is deliberately not
+declared: a `pom` parent carries no bytes worth an SBOM. It is also why the skip guard checks the
+parent coordinate beside the child — a re-fired release must find both, or half a coordinate is
+published. (4) The daemon publish's 409 policy softens from hard-fail to identical-bytes-is-success,
+as with qits-ci-daemon.
 
 ## qits-build-images-oci — `oci` (nominal), **overrides BOTH slots**
 
