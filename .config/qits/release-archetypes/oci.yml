@@ -3,6 +3,11 @@
 # qits-workspace-oci and qits-workspace-editor-oci. (qits-build-images-oci publishes five and
 # declares its own `release:` — see "when to override".)
 #
+# `release-request:` below is phase one (QA, on ReleaseRequestChanged) and `release:` is phase two
+# (Publish, on SCMRelease). See java-service.yml's header for the full three-phase model; phase
+# three (Deploy) is a consumer's own deployment request off the `SoftwareRelease` a green phase two
+# announces, and appears in no slot file, this one included.
+#
 # ---------------------------------------------------------------------------------------------
 # WHAT A REPOSITORY DECLARES
 #
@@ -54,8 +59,8 @@
 # WHEN TO OVERRIDE
 #
 # - More than one image from one tree (qits-build-images-oci builds five step images from five
-#   directories): declare `release:`, and keep the `from-dockerfile` call per image rather than the
-#   old shell.
+#   directories): declare `release:` (phase two), and keep the `from-dockerfile` call per image
+#   rather than the old shell.
 # - A build needing `--opt build-arg:` or a target. This recipe passes none, because none of the
 #   three single-image repositories does — a Dockerfile that needs an argument is a repository that
 #   declares its own steps.

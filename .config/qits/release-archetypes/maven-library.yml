@@ -2,6 +2,11 @@
 # Maven repository. Four repositories: qits-eventstream-javalib, qits-userflows-javalib,
 # qits-registries-javalib and qits-integrations-quarkus-javalib.
 #
+# `release-request:` below is phase one (QA, on ReleaseRequestChanged) and `release:` is phase two
+# (Publish, on SCMRelease). See java-service.yml's header for the full three-phase model — phase
+# three (Deploy) is a consumer's deployment request off the `SoftwareRelease` a green phase two
+# announces, and lives in no slot file, this one included.
+#
 # ---------------------------------------------------------------------------------------------
 # WHAT A REPOSITORY DECLARES
 #
@@ -54,7 +59,7 @@
 #   initdb refuses to run as root and calls getpwuid, so the step needs a passwd-backed non-root
 #   user, and a step container starts `--cap-drop=ALL` so `su` cannot switch from inside. maven-base
 #   carries uid 1001. A repository whose suite needs root does not exist today; one that needs
-#   different flags overrides `release-request:` entirely.
+#   different flags overrides `release-request:` (phase one) entirely.
 # - A repository publishing something besides jars (qits-containers-service publishes two jars AND
 #   an image) is not a maven-library — it declares its own slots, or uses java-service and adds the
 #   deploy to its own `release:`.

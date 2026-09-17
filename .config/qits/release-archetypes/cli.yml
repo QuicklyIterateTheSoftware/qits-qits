@@ -10,16 +10,20 @@
 # One line. No `artifacts:`, no `userflows:`, and NO `release:` SLOT ANYWHERE — which is the
 # statement rather than an omission. This repository publishes nothing: it ships a program a person
 # runs, it declares no `deployments.yml` because there is no application for a deployer to move, and
-# the release has no publish half to wait on. The released tag merges to main at the release and the
-# request is done the moment the step below is green. A phase nobody declares steps for gets no
-# trigger document and therefore no run.
+# there is no phase two (Publish) to wait on. Publish is a phase this repository does not have, not
+# an empty phase — see java-service.yml's header for the full three-phase model. The released tag
+# merges to main at the release and the request is done the moment the step below, the one step of
+# phase one (QA), is green. A phase nobody declares steps for gets no trigger document and therefore
+# no run.
 #
 # ---------------------------------------------------------------------------------------------
 # WHY THERE IS A GATE AT ALL
 #
-# A release request releases on exactly one thing: a gating `BuildSuccessful` for its current fold.
-# NO VERDICT IS NOT A PASS. Without this recipe the repository cannot release at all — qits-bootstrap-cli
-# was the last of the 48 with no `.config/qits` of any kind, for exactly that reason.
+# A release request releases on exactly one thing: a gating `BuildSuccessful` for its current fold —
+# the phase-one gate, which delays rather than fails: it holds the release where it is until a
+# verdict lands. NO VERDICT IS NOT A PASS. Without this recipe the repository cannot release at all —
+# qits-bootstrap-cli was the last of the 48 with no `.config/qits` of any kind, for exactly that
+# reason.
 #
 # THIS IS AN INTERIM GATE AND THE FILE SAYS SO. It is unit tests only. The real proof of a bootstrap
 # CLI is a cold bootstrap on a fresh node, and the phases that shell docker are deliberately not
