@@ -39,6 +39,10 @@ overrides a slot and why, and the trap.
   fourteen services carrying a story list must also commit `.config/qits/userflow-stories`, one class
   name per line; the archetype turns it into `-Dit.test=<list>`. **The list file and `release.yml`
   land in the same commit**, or those repositories silently run their whole IT catalogue.
+- **No step opts out of the gate.** Every step of phase one gates. The quoted slots below carried a
+  per-step `gating: false` on their story steps when this manifest was written; ticket 9441bc6e
+  removed the flag estate-wide and qits-ci now REFUSES the key at parse time, so the blocks here are
+  quoted without it and a slot that re-adds it will not compile.
 - **A declared slot replaces the archetype's slot ENTIRELY.** There is no per-step merging.
 - **The QA build and the release build must stay byte-identical buildctl invocations.** Where a
   repository overrides one of them, it overrides the other in the same commit.
@@ -1223,7 +1227,6 @@ release-request:
   # `su` cannot switch user at all. userflows-base carries a passwd-backed non-root user.
   - image: qits/build-images/userflows-base:latest
     user: pwuser
-    gating: false
     timeout-seconds: 3600
     script: |
       export QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"
@@ -1247,9 +1250,12 @@ release-request:
       esac
 ```
 
-**Traps.** (1) **`gating: false` must stay on the story step and the story step must stay LAST** —
-"a red verify must not cost the image" is bought by ordering plus classification, and everything
-after a failing step is SKIPPED. (2) `userflows: qits-artifacts` is still declared even though this
+**Traps.** (1) **The story step must stay LAST** — everything after a failing step is SKIPPED, so
+the ordering is the whole of what "a red verify must not cost the image" can mean: by the time a
+story can fail, the step before it has already published. Ordering buys the image and nothing more.
+The step itself gates like every other, and a red verify therefore costs the RELEASE — deliberately
+(see `.config/qits/release-archetypes/java-service.yml`'s header, and the 2026-09-06 fourteen-hour
+stall it records). (2) `userflows: qits-artifacts` is still declared even though this
 slot does its own bundle: the key is what qits-projects reads, and it replaced a substring grep for
 `@userflows/<site>` in the QA script — a grep that stops working the moment the script is composed.
 (3) The release slot is the archetype's and pushes `qits/qits-artifacts`; this repository's store IS
@@ -1401,7 +1407,6 @@ release-request:
 
   - image: qits/build-images/maven-base:latest
     user: build
-    gating: false
     timeout-seconds: 2400
     script: |
       export QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"
@@ -1489,7 +1494,6 @@ release-request:
 
   - image: qits/build-images/maven-base:latest
     user: build
-    gating: false
     timeout-seconds: 2400
     script: |
       export QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"
@@ -1579,7 +1583,6 @@ release-request:
 
   - image: qits/build-images/maven-base:latest
     user: build
-    gating: false
     timeout-seconds: 3600
     script: |
       export QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"
@@ -1707,7 +1710,6 @@ release-request:
 
   - image: qits/build-images/maven-base:latest
     user: build
-    gating: false
     timeout-seconds: 2400
     script: |
       export QITS_MAVEN_REPOSITORY_URL="$QITS_MAVEN_REGISTRY_URL"

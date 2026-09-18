@@ -19,7 +19,7 @@
 # ---------------------------------------------------------------------------------------------
 # WHY THERE IS A GATE AT ALL
 #
-# A release request releases on exactly one thing: a gating `BuildSuccessful` for its current fold —
+# A release request releases on exactly one thing: a `BuildSuccessful` for its current fold —
 # the phase-one gate, which delays rather than fails: it holds the release where it is until a
 # verdict lands. NO VERDICT IS NOT A PASS. Without this recipe the repository cannot release at all —
 # qits-bootstrap-cli was the last of the 48 with no `.config/qits` of any kind, for exactly that

@@ -36,21 +36,14 @@
 # text can announce something the fleet's own files could not, the migration is a regression
 # wearing a refactor's clothes.
 #
-# So there is no `gating: false` anywhere in this file, and none may be added. The mechanism is one
-# verdict PER RUN, never per step: qits-ci computes `run.gating && (failedStepGating == null ||
-# failedStepGating)` (`CiRunService.runSteps`) and announces exactly that. A run whose gating step
-# went green and whose later non-gating step went red therefore announces NO `BuildSuccessful` at
-# all — only a `BuildFailed` carrying `gating: false` — and the gating step's pass is transmitted
-# nowhere. qits-projects' gate (`ReleaseRequests.evaluate`) rejects on `v.gating() && !SUCCESS` and
-# passes on `v.gating() && SUCCESS`, so that lone verdict matches neither arm and the request parks
-# on "Waiting for a gating CI verdict" until a person withdraws it.
+# A step cannot opt out. There is no per-step exemption to declare: qits-ci REFUSES the key at parse
+# time, so a recipe that tries to spell one does not compile. The verdict is one PER RUN, and every
+# step of phase one contributes to it.
 #
-# ALL EIGHTEEN SERVICES DELETED THE FLAG FROM THEIR HAND-WRITTEN FILES ON 2026-09-06, and the
-# comment that replaced it records the incident: a port-bind flake in one story stalled a
-# qits-workspaces request for FOURTEEN HOURS, "where a plain red settles it in seconds". Read it in
-# full at qits-ci-service's `.config/qits/ci-event-release-request.yml`. That is a deliberate trade
-# and it is this file's trade too: a red verify costs the RELEASE, and a stall nobody can see is the
-# worse of the two.
+# THE INCIDENT THAT SETTLED IT, 2026-09-06: a port-bind flake in one story stalled a qits-workspaces
+# release request for FOURTEEN HOURS, where a plain red settles it in seconds. That is a deliberate
+# trade and it is this file's trade too: a red verify costs the RELEASE, and a stall nobody can see
+# is the worse of the two.
 #
 # WHAT THE ORDERING BUYS, AND IT IS NOT THE RELEASE. The verify step is LAST and everything after a
 # failing step is SKIPPED, so by the time a story can fail, the build step has already run to the
@@ -254,11 +247,9 @@ release-request:
         --secret id=qits-client-secret,src=/tmp/qits-client-secret
 
   # --- the second half of phase one: verify, and publish what the run observed -------------------
-  # THIS STEP GATES, like every other step here, and it carries no `gating: false` — see the
-  # header's "EVERY STEP OF PHASE ONE GATES". A red here is a red verdict for the whole fold, which
-  # is the fleet's deliberate 2026-09-06 trade: the flag would not have saved the fold, it would
-  # have erased the gating step's pass and left the release request waiting on a verdict nobody
-  # would ever publish.
+  # THIS STEP GATES, like every other step here — see the header's "EVERY STEP OF PHASE ONE GATES".
+  # A red here is a red verdict for the whole fold, which is the fleet's deliberate 2026-09-06
+  # trade. There is no exemption to reach for: qits-ci refuses a per-step gating key at parse time.
   #
   # It is still part of phase one, not a phase of its own — the phase is the whole QA run, and the
   # run announces one verdict for both steps. IT MUST STAY LAST anyway: everything after a failing

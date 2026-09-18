@@ -18,11 +18,11 @@
 # ---------------------------------------------------------------------------------------------
 # WHAT THIS STEP IS FOR
 #
-# One gating step: install, lint, test, build. The verdict returns on the ordinary
-# `BuildSuccessful`/`BuildFailed` with `commitSha` = the merged sha, which is what qits-projects'
-# gate matches on together with `repoId`. There is no trailing verify-and-publish half, because
-# there is nothing to publish from a fold — and had there been one it would gate like this one,
-# since a run announces ONE verdict for all of its steps. See java-service.yml's header.
+# One step, and like every step it gates: install, lint, test, build. The verdict returns on the
+# ordinary `BuildSuccessful`/`BuildFailed` with `commitSha` = the merged sha, which is what
+# qits-projects' gate matches on together with `repoId`. There is no trailing verify-and-publish
+# half, because there is nothing to publish from a fold — and had there been one it would gate like
+# this one, since a run announces ONE verdict for all of its steps. See java-service.yml's header.
 #
 # NO `docker:` AND NO `build:`. Nothing here needs a builder, a socket or a credential, so this step
 # keeps the ordinary sandbox that a publishing step has to give up.

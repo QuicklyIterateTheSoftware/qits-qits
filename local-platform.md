@@ -117,10 +117,10 @@ release request naming it:
         -d '{"branch":"<your branch>","summary":"<what this release is>"}'
 
 qits-projects folds `main`, that branch and any released tags still in flight onto a backing branch
-`release/<id>`, and re-folds whenever one of them moves. `.config/qits/ci-event-release-request.yml`
-builds that fold; a **gating green verdict on it is the quality gate, with no exceptions**. Over a
-green one, Auto Release stamps the calendar version (`release(2026.801.55529): …`), bumps the
-manifests, tags, and publishes `SCMRelease`.
+`release/<id>`, and re-folds whenever one of them moves. `.config/qits/release.yml`'s request phase
+builds that fold; a **green verdict on it is the quality gate, with no exceptions** — every step of
+that pipeline gates, and no step may opt out. Over a green one, Auto Release stamps the calendar
+version (`release(2026.801.55529): …`), bumps the manifests, tags, and publishes `SCMRelease`.
 
 `POST /workspaces/api/workspaces/<id>/integrate` still merges a workspace's branch into its
 **parent** branch — a `task/…` landing on its `epic/…` — with no version, no bump and no event.

@@ -48,11 +48,12 @@ qits-projects, and a version — not a branch — is what deploys. The
 You push a working branch and ask qits-projects to release it. It folds
 `main`, that branch and any released tags still in flight onto a backing
 branch `release/<id>`, and re-folds whenever one of those moves. The
-repository's `.config/qits/ci-event-release-request.yml` builds that fold
-and returns a verdict; **a green gating verdict is the whole quality gate,
-and there are no exceptions**. Over a green one the platform stamps the
-calendar version, bumps the manifests, tags, and publishes an SCMRelease
-event. `.config/qits/ci-event-release.yml` then builds the image at
+repository's `.config/qits/release.yml` builds that fold and returns a
+verdict; **a green verdict is the whole quality gate, and there are no
+exceptions** — every step of that pipeline gates, and no step may opt
+out. Over a green one the platform stamps the calendar version, bumps
+the manifests, tags, and publishes an SCMRelease event. The same
+document's release phase then builds the image at
 `qits/<app>:<version>` and announces SoftwareRelease, which is what
 qits-deployments deploys.
 
