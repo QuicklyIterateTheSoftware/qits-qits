@@ -1,18 +1,27 @@
-# THE WRAPPER'S QA PIPELINE. Since "The gate gates" (qits-projects 2026.904.161524) a release
-# request releases on exactly one thing: a gating BuildSuccessful for its current fold — no verdict
-# is not a pass, and a repository with no pipeline cannot release at all. The wrapper releases
-# routinely (maintenance bumps, gitlink moves, doc updates), so it needs a gate; this is it.
+# THE WRAPPER'S RELEASE CYCLE, IN ONE FILE, AND IT IS ONE PHASE LONG. This is the last repository
+# of the estate to move onto `.config/qits/release.yml`, and it is the one that fits the grammar
+# least comfortably: it declares a `release-request:` slot and NO ARCHETYPE, because no archetype
+# describes a repository whose build is an estate declaration. The slot parser says so itself — a
+# slot file "declares at least one of 'archetype', 'release-request', 'release', 'artifacts' or
+# 'userflows'" — so a bespoke QA slot standing alone is a shape the format was written to admit,
+# not one it is being bent into.
 #
-# WHAT A WRAPPER RELEASE IS is what this gates. The wrapper builds no artifact — its content is the
-# estate declaration: .gitmodules naming every component repository, and the platform pipeline and
+# NO `release:` SLOT, AND THEREFORE NO PHASE TWO OR THREE. The wrapper publishes nothing: there is
+# no jar, no image, no bundle, no SBOM, so there is nothing for a publish phase to do and no
+# `artifacts:` to declare. That is the same shape every spa-frontend and cli repository has, and
+# the composer reads it the honest way — a phase nothing declares steps for gets no trigger
+# document and no run at all, rather than an empty run that goes green.
+#
+# WHAT A WRAPPER RELEASE IS is what the steps below gate. The wrapper's content is the estate
+# declaration: .gitmodules naming every component repository, and the platform pipeline and
 # maintenance files under .config/qits. So the gate checks that declaration is sound rather than
 # pretending there is something to compile: .gitmodules parses, every entry carries a path and a
 # RELATIVE url (an absolute url would silently build from the wrong host — the 2026-08-30 lesson),
 # and no two entries share a path.
 #
-# AND THE PINS THEMSELVES, WHICH THIS RUN CAN NOW SEE. The estate is no longer banked: a release
-# commit carries the version bump and nothing else, and a gitlink moves the way everything else
-# here moves — an ordinary commit that qits-maintenance pushes onto the branch, resolved from the
+# AND THE PINS THEMSELVES, WHICH THIS RUN CAN SEE. The estate is not banked: a release commit
+# carries the version bump and nothing else, and a gitlink moves the way everything else here
+# moves — an ordinary commit that qits-maintenance pushes onto the branch, resolved from the
 # sibling's released tag. So the pins are IN THE FOLD, and a fold is exactly what this run has.
 # The second step reads every 160000 entry out of the fold's own tree and resolves it in the
 # repository it names. That is what makes a wrapper version mean something: a green verdict here
@@ -20,22 +29,19 @@
 # person who approves the fold approves that same estate. Nothing downstream repairs a bad pin —
 # the release refuses it — so a red here is the cheap end of the same refusal.
 #
-# DECIDE AT MAIN, BUILD AT THE FOLD, like every sibling's: the file is read at this repository's
-# main head; the run checks out the fold.
-event: ReleaseRequestChanged
-when:
-  - repoName: { exact: qits-qits }
+# EVENT, SELECTION AND CHECKOUT ARE THE COMPOSER'S NOW, and they come out identical to what this
+# repository used to spell by hand: ReleaseRequestChanged, `repoName: { exact: qits-qits }`, and a
+# checkout of backingBranch at mergedSha. Decide at main, build at the fold, like every sibling's —
+# the slot file is read at this repository's main head; the run checks out the fold.
 
-checkout:
-  branch: backingBranch
-  sha: mergedSha
-
-steps:
+release-request:
   - image: qits/build-images/ci-base:latest
     timeout-seconds: 300
     script: |
-      # The daemon runs this with `bash -c` and no -e, so without this a failed check is swallowed
-      # and the run reports SUCCESS — a green verdict for a broken estate declaration.
+      # Kept rather than leaned on: the composer already runs a declared script under `-eu`, but
+      # the line costs nothing and is what made this check fail rather than pass back when the
+      # daemon ran it with `bash -c` and no -e — a swallowed check is a green verdict for a broken
+      # estate declaration.
       set -eu
       test -f .gitmodules || { echo "the wrapper declares no .gitmodules" >&2; exit 1; }
       # git itself is the parser: a syntactically broken file fails here, not downstream.
