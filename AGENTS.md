@@ -148,6 +148,18 @@ directly at `/workspace` — not into a subdirectory beneath it. The clone lives
 on the volume `qits_project_<projectId>`, which outlives the container, so
 recreating the container does not re-clone.
 
+Everything in this section applies to that container and not to a workspace
+container, where the whole point is to write, so establish which one you are in
+before acting on any of it:
+
+    git -C /workspace status -sb   # `## HEAD (no branch)` → a project agent container
+    pgrep -a -x qits               # `qits checkout-daemon --path /workspace` → the same
+
+A workspace container answers with a branch name and no follower, and the
+`## Submodules` section above is the one that applies there. Match the process
+name exactly, as above: `pgrep -af 'qits checkout-daemon'` also matches the
+shell you typed it in, which reads as a running follower when there is none.
+
 That checkout is detached at the wrapper's newest released version — a
 `YYYY.MMDD.HHMMSS` tag — and every submodule is detached at the gitlink that
 release recorded. It is not on `main`, and no submodule is on `main`. That is
