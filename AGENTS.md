@@ -43,7 +43,7 @@ container — where the point of the checkout is to write. There, every submodul
 sits on its own `main` and follows it, and syncing is automated, so in normal
 work you never run a submodule command by hand. A project agent container is the
 other case entirely: its `/workspace` is detached at a released version, nothing
-in it is on `main`, and none of the commands below belong there. See "The
+in it is on a branch, and none of the commands below belong there. See "The
 checkout in a project agent container" before running anything from here.
 
 The gitlinks committed here make `git submodule update --init` work on a fresh
@@ -162,9 +162,15 @@ shell you typed it in, which reads as a running follower when there is none.
 
 That checkout is detached at the wrapper's newest released version — a
 `YYYY.MMDD.HHMMSS` tag — and every submodule is detached at the gitlink that
-release recorded. It is not on `main`, and no submodule is on `main`. That is
-the point: the container reads the estate a person approved, not whatever
-happens to be at the head of a branch.
+release recorded. What is invariant is that nothing there is on a *branch* —
+HEAD is detached at a released tag, and so is every submodule's. That is the
+point: the container reads the estate a person approved, not whatever happens
+to be at the head of a branch.
+
+Detached is not the same as behind: right after a release the tag *is* main's
+head (measured, `git rev-parse HEAD` equalling `git rev-parse origin/main` at
+`2026.919.120127`), and the lag grows from zero as main moves on until the next
+release collapses it again.
 
 It is kept current by a supervised child process, `qits checkout-daemon --path
 /workspace`, which the projects daemon spawns and restarts (`CheckoutFollower`).
@@ -177,11 +183,15 @@ Three lags stack on top of one another, and all three bite quietly. The root
 lags `main` by everything that has been merged but not yet released. A submodule
 lags further: anything it released after the last wrapper release is not in the
 gitlink yet, and work it has not released at all is not anywhere. And
-`refs/remotes/origin/main` is itself stale, because the follower fetches
-`refs/tags/<version>` and nothing else — so `git log origin/main` in this
-container reports whatever main looked like whenever that ref was last written,
-which may be weeks ago. Measured in this project's own container on 2026-09-19:
-the checkout sat at `2026.919.40352`, released that morning, while
+the wrapper's own `refs/remotes/origin/main` is itself stale, because what the
+follower fetches here is `refs/tags/<version>` — so `git log origin/main` in
+this container reports whatever main looked like whenever that ref was last
+written, which may be weeks ago. A submodule's remote-tracking refs are the
+opposite case and much fresher: materialising the submodules fetches with
+`--recurse-submodules-default on-demand`, so each submodule's `origin/*` is
+refreshed roughly every time the follower moves, even on days the wrapper's own
+`origin/main` never budges. Measured in this project's own container on
+2026-09-19: the checkout sat at `2026.919.40352`, released that morning, while
 `origin/main` still pointed at a commit from nine days earlier. The ref is
 older than the checkout, which is the opposite of what a remote-tracking branch
 normally means. Fetch before you believe it.
@@ -230,15 +240,25 @@ you are not stuck. Leave it alone, and do not perform a write to fix a problem
 you do not have; `git describe` will confirm the follower is current. Removing
 such a directory is the right move only on an older follower, where the `??`
 entry does count, or when it occupies a submodule path the follower needs to
-materialise. In those two cases it is the one deletion under `/workspace` that
-is correct — remove it and the follower moves again on the next release — and
-not a breach of the never-write rule, which exists to protect tracked work,
-while a stranded directory is nobody's. Tracked dirt is the opposite case: a
-modified or staged file is somebody's unfinished work, so report it and let a
-person decide — never `git reset`, `git checkout --` or `git stash` it away. The
-underlying cause, untracked paths counting at all, is fixed from
-`2026.919.80759` on, so this is a condition that ages out of the estate rather
-than one to live with.
+materialise. `grep <path> .gitmodules` settles which it is, and it is the whole
+test: absent means the estate no longer declares that path, so nothing will ever
+be materialised there and it blocks nothing; present means it is a live
+submodule path and an occupying directory can stop the follower dead. The one
+stranded directory on this estate today,
+`components/qits-artifacts/qits-artifacts-cli/`, is the absent case — a retired
+submodule's leftovers, declared neither at the release nor on `main`. Weigh the
+deletion rather than reaching for it: such a directory is not empty scaffolding
+but a real checkout with its own object store and history under
+`/workspace/.git/modules/<name>`, so removing it throws that away and is worth
+doing only when it is genuinely in the way or you are on a follower that counts
+it. In those cases it is the one deletion under `/workspace` that is correct —
+remove it and the follower moves again on the next release — and not a breach of
+the never-write rule, which exists to protect tracked work. Tracked dirt is the
+opposite case: a modified or staged file is somebody's unfinished work, so
+report it and let a person decide — never `git reset`, `git checkout --` or
+`git stash` it away. The underlying cause, untracked paths counting at all, is
+fixed from `2026.919.80759` on, so this is a condition that ages out of
+the estate rather than one to live with.
 
 One consequence for this page itself: the copy you are reading in a project
 agent container came with the checkout, so it is the released snapshot and by
@@ -271,7 +291,9 @@ credential helper reads are injected at container creation, so `git fetch` and
     git -C /workspace/components/<component>/<repo> fetch origin ticket/<slug>:refs/upcoming/<slug>
     git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> refs/upcoming/<slug>
 
+    # remove each worktree through the repository that created it
     git -C /workspace worktree remove /tmp/upcoming
+    git -C /workspace/components/<component>/<repo> worktree remove /tmp/upcoming-<repo>
 
 A named branch is the usual question, not `main`. Give the fetch a refspec that
 writes a ref of your own and hang the worktree on that: `FETCH_HEAD` is the quick
@@ -300,9 +322,8 @@ prefix or a trailing path makes every request go unanswered.
 
 Fallback, for a container created before those names were injected: if a fetch
 dies with `fatal: could not read Username for 'http://githost.dev.internal:8080'`
-they are missing, and you can derive them from the `QITS_PROJECTS_DAEMON_*` ones
-the container still carries — they are unset rather than empty, so test for
-presence, not with `[ -z ]`:
+they are simply absent on a container that old, and you can derive them from the
+`QITS_PROJECTS_DAEMON_*` names the container still carries:
 
     export GIT_CONFIG_GLOBAL=/etc/qits-gitconfig
     export QITS_GIT_AUTH_HOST="$(echo "$QITS_PROJECTS_DAEMON_GIT_BASE" | sed -E 's#^[a-z]+://##; s#/.*$##')"
@@ -312,9 +333,11 @@ presence, not with `[ -z ]`:
 The `sed` is what strips `QITS_PROJECTS_DAEMON_GIT_BASE` down to the bare
 `host:port` the helper insists on.
 
-The fetch is also what repairs `origin/main`: it is the only thing that writes
-that ref, so the first one after a long gap will report a jump of days rather
-than of commits. A submodule needs its own fetch for the same reason.
+The fetch is also what repairs the wrapper's `origin/main`: nothing else here
+writes that ref, so the first one after a long gap will report a jump of days
+rather than of commits. Fetch in a submodule too — not because its refs are as
+stale, they are usually days fresher, but because you cannot tell by looking
+and the fetch costs a delta.
 
 A worktree rather than a second clone, because every submodule is already a real
 clone under `/workspace/.git/modules/<name>`: the worktree reuses that object
@@ -328,8 +351,13 @@ stop on it, but if it lands on a submodule path it still occupies a directory
 the follower has to materialise. The bookkeeping `git worktree add` leaves under
 `.git/worktrees/` is not itself a problem — `status` reports nothing under `.git`
 — so it is the directory, not the metadata, that has to live elsewhere. Remove
-the worktree when you are done, so the bookkeeping does not accumulate across
-container recreations.
+the worktree when you are done, so the bookkeeping does not accumulate: it lives
+on the `qits_project_*` volume and outlives every container recreation. Remove it
+through the repository that made it, as the block above does; asking the wrapper
+to remove a submodule's worktree answers `fatal: '/tmp/upcoming-<repo>' is not a
+working tree` (exit 128). Do not answer that with `rm -rf` — the directory goes
+and the metadata stays for good; if you already have, `git -C <the right repo>
+worktree prune` is what clears it.
 
 ## Reaching the platform with the `qits` CLI
 
@@ -349,8 +377,8 @@ The commands an agent reaches for:
     qits epic list | new | details | update
     qits release-request list | create | join | withdraw
     qits ci runs | run | retry
-    qits events
-    qits observe --filter ...
+    qits events                     # open stream, never returns — bound it
+    qits observe --filter ...       # the --filter is required
 
 The credential is `qits:agent`. Every read door answers; an operator write comes
 back, verbatim, as `403 - this credential is qits:agent, which reads but does not
@@ -361,15 +389,22 @@ request, or through a person.
 
 `qits events` is how you watch the platform, and it is the same stream the
 checkout follower rides, so what you see there is what will move `/workspace` a
-few minutes later — see "The checkout in a project agent container".
+few minutes later — see "The checkout in a project agent container". It is an
+open stream with no replay: it prints what arrives from the moment you start it
+and never returns, so run it non-interactively and you hang until something
+kills you. Bound it whenever the question is merely whether something arrived —
+`timeout 30 qits events`, or put it in the background and read its output.
 
 Believe the door, not the help. `qits ci runs` answers perfectly well on this
 credential, while the `qits ci` group's own help (`qits ci --help`, not `qits ci
 runs --help`, which names no role at all) and the `qits ci` section of `qits help
 skill` both say reading runs needs `qits:admin` or `qits:system` — roles this
-credential does not hold. The role lines in the help are hand-written prose
-that the doors moved out from under; the 403 you get or do not get is the truth.
-`qits observe` likewise works here.
+credential does not hold. All of the help is hand-written prose that the surface
+moved out from under, roles and subcommands alike — `qits --help` still
+describes `epic` as list/new/details and omits `update`, which exists — so the
+403 you get or do not get, and the command you actually run, are the truth.
+`qits observe` likewise works here, though not bare: it exits 2 with `Missing
+required option: '--filter=<conditions>'` until you give it one.
 
 `/etc/qits-cli-version` holds a single line, `qits=<version>`, and is the cheap
 way to answer which CLI this image actually carries. Every command advertises
