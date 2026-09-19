@@ -175,15 +175,18 @@ checkout is that
 
     git status --porcelain --untracked-files=no --ignore-submodules=none
 
-comes back empty. `--ignore-submodules=none` deliberately overrides this
+comes back empty — but only on platform-access CLI `2026.919.80759` or newer.
+An older follower, which is still the common case, runs that same command
+*without* `--untracked-files=no`, so on such a container the line above can come
+back clean while the follower is stuck on a `??` entry it counts and you did not
+print. `/etc/qits-cli-version` says which one you have; run the guard that
+matches it. `--ignore-submodules=none` deliberately overrides this
 repository's `.gitmodules` `ignore = all`, so a dirty submodule, or one sitting
 off its recorded gitlink, counts as a local change like any other — as do an
 edited tracked file and a staged one. Untracked files are excluded on purpose:
 `git checkout --detach` never deletes one, so the guard has nothing to protect
-there. That exclusion is recent (platform-access CLI `2026.919.80759`); a
-container running an older one counts `??` entries too, and a single stranded
-directory was enough to freeze its checkout for good. `/etc/qits-cli-version`
-says which one you have.
+there. On an older follower they are not excluded, and a single stranded
+directory was enough to freeze a checkout for good.
 
 When the tree is dirty the follower declines to move the checkout and says so
 only in the projects daemon's log, which you cannot see from inside the
@@ -191,12 +194,25 @@ container. The symptom available to you is therefore no symptom at all: a
 checkout that stops following releases, for exactly as long as the dirt remains.
 Scratch work goes in `/tmp`.
 
+If you have landed on such a checkout — which is the likeliest reason to be
+reading this — confirm it by running the guard command for your CLI version and
+reading what it names. An untracked `??` path that a submodule removal stranded
+is the one deletion under `/workspace` that is correct: remove the directory and
+the follower moves again on the next release. That is not a breach of the
+never-write rule, which exists to protect tracked work, and a stranded directory
+is nobody's. Tracked dirt is the opposite case: a modified or staged file is
+somebody's unfinished work, so report it and let a person decide — never `git
+reset`, `git checkout --` or `git stash` it away. The underlying cause, untracked
+paths counting at all, is fixed from `2026.919.80759` on, so this is a condition
+that ages out of the estate rather than one to live with.
+
 ## Seeing what is landing
 
 Because the checkout is pinned to a release, reading what is about to land means
-fetching it yourself. Git in this container has no credential helper configured
-— `GIT_CONFIG_GLOBAL` and `QITS_GIT_AUTH_HOST` are both empty — so a bare fetch
-dies before it reaches the network:
+fetching it yourself. Git in this container has no credential helper configured:
+`GIT_CONFIG_GLOBAL` and `QITS_GIT_AUTH_HOST` are unset — unset rather than empty,
+so test for presence and not with `[ -z ]` — and a bare fetch dies before it
+reaches the network:
 
     fatal: could not read Username for 'http://githost.dev.internal:8080': No such device or address
 
@@ -211,11 +227,31 @@ fetch and open a worktree in `/tmp`:
 
     git -C /workspace fetch origin main
     git -C /workspace worktree add /tmp/upcoming origin/main
-    # a submodule is a real clone of its own, so the same two commands work there:
+
+    # a submodule is a clone of its own: fetch and open the worktree in it
     git -C /workspace/components/<component>/<repo> fetch origin main
     git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> origin/main
 
+    # a ticket branch works the same way; the worktree then takes FETCH_HEAD
+    git -C /workspace/components/<component>/<repo> fetch origin ticket/<slug>
+    git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> FETCH_HEAD
+
     git -C /workspace worktree remove /tmp/upcoming
+
+A named branch is the usual question, not `main`, and `git fetch origin <branch>`
+answers it identically: the worktree then takes `FETCH_HEAD`, or the fetched ref
+by name if you asked for a refspec that writes one. Such a fetch may recurse into
+the submodules and move their remote-tracking refs — harmless here, and it leaves
+no working-tree change, but it is not the no-op the command reads as.
+
+A worktree of the *wrapper* is not a view of the estate. `git worktree add` on
+`/workspace` gives you `components/` as a field of empty directories: the
+gitlinks are in the tree, nothing is materialised behind them, and `ls -A` on any
+submodule path there returns nothing at all. So reading a submodule's upcoming
+code means making the worktree in that submodule's own clone, as the block above
+does, not in a wrapper worktree. The reflex to run `git submodule update --init`
+inside the wrapper worktree is the wrong one: it would pull every submodule down
+again over the network to answer a question about one of them.
 
 `/etc/qits-gitconfig` names the shell credential helper
 `/usr/local/bin/qits-git-credential`, which mints a bearer from the commissioned
@@ -278,14 +314,17 @@ request, or through a person.
 checkout follower rides, so what you see there is what will move `/workspace` a
 few minutes later — see "The checkout in a project agent container".
 
-`qits observe` works on this credential even though its own generated help text
-still claims it needs `qits:admin`: qits-observability grants agents read access
-deliberately, and the help string simply has not caught up. Believe the door, not
-the help.
+Believe the door, not the help. `qits ci runs` answers perfectly well on this
+credential, while its own help text — and the `qits ci` section of `qits help
+skill`, which says reading runs needs `qits:admin` or `qits:system` — names roles
+this credential does not hold. The role lines in the help are hand-written prose
+that the doors moved out from under; the 403 you get or do not get is the truth.
+`qits observe` likewise works here.
 
 `/etc/qits-cli-version` holds a single line, `qits=<version>`, and is the cheap
-way to answer which CLI this image actually carries. `qits --version` prints
-nothing, because the CLI ships no version provider.
+way to answer which CLI this image actually carries. Every command advertises
+`-V, --version  Print version information and exit`, but the CLI ships no version
+provider, so `-V` prints nothing and exits 0 — do not spend a command on it.
 
 `qits help skill` prints the whole surface as a SKILL.md, and is worth reading
 once. Do not install it: in a project agent container `HOME=/workspace`, so
