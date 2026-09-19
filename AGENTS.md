@@ -2,6 +2,8 @@
 
 Home repository aggregating the application's submodules.
 
+If you are an agent working a ticket, epic or task here, read `docs/development-flow.md` first: it is the brief on how work moves from a branch to something running.
+
 ## Layout
 
 Submodules are grouped by the component they belong to, not by the role they
