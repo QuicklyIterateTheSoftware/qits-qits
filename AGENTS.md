@@ -104,6 +104,11 @@ commit` entry, or `git submodule status`.
 
 ### Adding a submodule
 
+A clone you made yourself, and only that. Never run any of these five lines in a
+project agent container: every one of them writes `/workspace`, which freezes the
+checkout follower — see the never-write rule in "The checkout in a project agent
+container".
+
     git submodule add --name <name> ../<name>.git components/<component>/<name>
     git config -f .gitmodules submodule.<name>.ignore all
     git config -f .gitmodules submodule.<name>.update merge
@@ -171,21 +176,31 @@ normally means. Fetch before you believe it.
 
 The never-write rule: never edit, move or delete anything under `/workspace`,
 and put new files somewhere else. The follower's precondition for moving the
-checkout is that
+checkout is that a `git status` comes back empty, and *which* status it runs
+depends on the version of the platform-access CLI — the same artifact as the
+`qits` CLI on `PATH`, so `/etc/qits-cli-version` answers the question — with
+`2026.919.80759` as the cutover:
 
+    # 2026.919.80759 and newer
     git status --porcelain --untracked-files=no --ignore-submodules=none
 
-comes back empty — but only on platform-access CLI `2026.919.80759` or newer.
-An older follower, which is still the common case, runs that same command
-*without* `--untracked-files=no`, so on such a container the line above can come
-back clean while the follower is stuck on a `??` entry it counts and you did not
-print. `/etc/qits-cli-version` says which one you have; run the guard that
-matches it. `--ignore-submodules=none` deliberately overrides this
+    # older
+    git status --porcelain --ignore-submodules=none
+
+Run the one that matches your version. `/etc/qits-cli-version` reports the CLI
+baked into the image, which is not necessarily the binary the running follower
+executes; where that distinction matters, read `/proc/<pid>/exe` for the `qits
+checkout-daemon` process. `--ignore-submodules=none` deliberately overrides this
 repository's `.gitmodules` `ignore = all`, so a dirty submodule, or one sitting
 off its recorded gitlink, counts as a local change like any other — as do an
-edited tracked file and a staged one. Untracked files are excluded on purpose:
-`git checkout --detach` never deletes one, so the guard has nothing to protect
-there. On an older follower they are not excluded, and a single stranded
+edited tracked file and a staged one. Untracked files are excluded from the
+newer guard on purpose: the move itself is a `git checkout --detach`, which
+never deletes one, so there is nothing there to protect. The follower also
+re-materialises submodules, though, and a directory already occupying a
+submodule path can block that — so a stray untracked directory is not
+*dangerous* to your work, it is merely in the way, which is why it is worth
+removing when it sits on a submodule path and harmless otherwise. On an older
+follower it is worse than in the way: a `??` entry counts, and a single stranded
 directory was enough to freeze a checkout for good.
 
 When the tree is dirty the follower declines to move the checkout and says so
@@ -196,53 +211,64 @@ Scratch work goes in `/tmp`.
 
 If you have landed on such a checkout — which is the likeliest reason to be
 reading this — confirm it by running the guard command for your CLI version and
-reading what it names. An untracked `??` path that a submodule removal stranded
-is the one deletion under `/workspace` that is correct: remove the directory and
-the follower moves again on the next release. That is not a breach of the
-never-write rule, which exists to protect tracked work, and a stranded directory
-is nobody's. Tracked dirt is the opposite case: a modified or staged file is
-somebody's unfinished work, so report it and let a person decide — never `git
-reset`, `git checkout --` or `git stash` it away. The underlying cause, untracked
-paths counting at all, is fixed from `2026.919.80759` on, so this is a condition
-that ages out of the estate rather than one to live with.
+reading what it names. If it names nothing, nothing is wrong: on
+`2026.919.80759` or newer the guard can never name an untracked path, so a
+stranded `??` directory sitting in the tree is freezing precisely nothing and
+you are not stuck. Leave it alone, and do not perform a write to fix a problem
+you do not have; `git describe` will confirm the follower is current. Removing
+such a directory is the right move only on an older follower, where the `??`
+entry does count, or when it occupies a submodule path the follower needs to
+materialise. In those two cases it is the one deletion under `/workspace` that
+is correct — remove it and the follower moves again on the next release — and
+not a breach of the never-write rule, which exists to protect tracked work,
+while a stranded directory is nobody's. Tracked dirt is the opposite case: a
+modified or staged file is somebody's unfinished work, so report it and let a
+person decide — never `git reset`, `git checkout --` or `git stash` it away. The
+underlying cause, untracked paths counting at all, is fixed from
+`2026.919.80759` on, so this is a condition that ages out of the estate rather
+than one to live with.
+
+One consequence for this page itself: the copy you are reading in a project
+agent container came with the checkout, so it is the released snapshot and by
+definition older than `main` — including this very section. The current text is
+on `main`, and the fetch-and-worktree recipe below is how you read it. The
+section that tells you how to see what is landing is itself only visible once it
+has landed.
 
 ## Seeing what is landing
 
 Because the checkout is pinned to a release, reading what is about to land means
-fetching it yourself. Git in this container has no credential helper configured:
-`GIT_CONFIG_GLOBAL` and `QITS_GIT_AUTH_HOST` are unset — unset rather than empty,
-so test for presence and not with `[ -z ]` — and a bare fetch dies before it
-reaches the network:
-
-    fatal: could not read Username for 'http://githost.dev.internal:8080': No such device or address
-
-The container does already carry the values the helper needs, under
-`QITS_PROJECTS_DAEMON_*` names; derive the four the helper reads from them, then
-fetch and open a worktree in `/tmp`:
-
-    export GIT_CONFIG_GLOBAL=/etc/qits-gitconfig
-    export QITS_GIT_AUTH_HOST="$(echo "$QITS_PROJECTS_DAEMON_GIT_BASE" | sed -E 's#^[a-z]+://##; s#/.*$##')"
-    export QITS_GIT_AUTH_TOKEN_URL="$QITS_PROJECTS_DAEMON_AUTH_TOKEN_URL"
-    export QITS_GIT_AUTH_AUDIENCE="$QITS_PROJECTS_DAEMON_GIT_AUTH_AUDIENCE"
+fetching it yourself — and git in this container is already configured to do it.
+`GIT_CONFIG_GLOBAL=/etc/qits-gitconfig` and the three `QITS_GIT_AUTH_*` names its
+credential helper reads are injected at container creation, so `git fetch` and
+`git worktree` just work, with no exports and no preparation:
 
     git -C /workspace fetch origin main
     git -C /workspace worktree add /tmp/upcoming origin/main
+
+    # the wrapper at a ticket branch — the commonest reason to open one. Fetch
+    # into a ref of your own and name that ref, rather than FETCH_HEAD
+    git -C /workspace fetch origin ticket/<slug>:refs/upcoming/<slug>
+    git -C /workspace worktree add /tmp/upcoming-wrapper refs/upcoming/<slug>
 
     # a submodule is a clone of its own: fetch and open the worktree in it
     git -C /workspace/components/<component>/<repo> fetch origin main
     git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> origin/main
 
-    # a ticket branch works the same way; the worktree then takes FETCH_HEAD
-    git -C /workspace/components/<component>/<repo> fetch origin ticket/<slug>
-    git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> FETCH_HEAD
+    # a submodule at a ticket branch, the same way
+    git -C /workspace/components/<component>/<repo> fetch origin ticket/<slug>:refs/upcoming/<slug>
+    git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> refs/upcoming/<slug>
 
     git -C /workspace worktree remove /tmp/upcoming
 
-A named branch is the usual question, not `main`, and `git fetch origin <branch>`
-answers it identically: the worktree then takes `FETCH_HEAD`, or the fetched ref
-by name if you asked for a refspec that writes one. Such a fetch may recurse into
-the submodules and move their remote-tracking refs — harmless here, and it leaves
-no working-tree change, but it is not the no-op the command reads as.
+A named branch is the usual question, not `main`. Give the fetch a refspec that
+writes a ref of your own and hang the worktree on that: `FETCH_HEAD` is the quick
+way and works, but it is a single slot that the *next* fetch in that repository
+overwrites, so an unrelated `git fetch --tags` mid-session silently moves a
+worktree's idea of the branch to something weeks older. Use `FETCH_HEAD` only
+immediately after the fetch that wrote it. Such a fetch may also recurse into the
+submodules and move their remote-tracking refs — harmless here, and it leaves no
+working-tree change, but it is not the no-op the command reads as.
 
 A worktree of the *wrapper* is not a view of the estate. `git worktree add` on
 `/workspace` gives you `components/` as a field of empty directories: the
@@ -260,6 +286,20 @@ client credentials and answers for exactly one host — the one in
 scheme and no path: the helper compares it to what git asks about, and a `https://`
 prefix or a trailing path makes every request go unanswered.
 
+Fallback, for a container created before those names were injected: if a fetch
+dies with `fatal: could not read Username for 'http://githost.dev.internal:8080'`
+they are missing, and you can derive them from the `QITS_PROJECTS_DAEMON_*` ones
+the container still carries — they are unset rather than empty, so test for
+presence, not with `[ -z ]`:
+
+    export GIT_CONFIG_GLOBAL=/etc/qits-gitconfig
+    export QITS_GIT_AUTH_HOST="$(echo "$QITS_PROJECTS_DAEMON_GIT_BASE" | sed -E 's#^[a-z]+://##; s#/.*$##')"
+    export QITS_GIT_AUTH_TOKEN_URL="$QITS_PROJECTS_DAEMON_AUTH_TOKEN_URL"
+    export QITS_GIT_AUTH_AUDIENCE="$QITS_PROJECTS_DAEMON_GIT_AUTH_AUDIENCE"
+
+The `sed` is what strips `QITS_PROJECTS_DAEMON_GIT_BASE` down to the bare
+`host:port` the helper insists on.
+
 The fetch is also what repairs `origin/main`: it is the only thing that writes
 that ref, so the first one after a long gap will report a jump of days rather
 than of commits. A submodule needs its own fetch for the same reason.
@@ -271,16 +311,13 @@ again over the same wire.
 
 `/tmp`, and never a path under `/workspace`, because of the never-write rule. A
 worktree directory inside the checkout is untracked, which a follower older than
-`2026.919.80759` treats as a local change and stops on; and even on a current
-one it sits in the way of the next release that wants to write that path. The
-bookkeeping `git worktree add` leaves under `.git/worktrees/` is not itself a
-problem — `status` reports nothing under `.git` — so it is the directory, not the
-metadata, that has to live elsewhere. Remove the worktree when you are done, so
-the bookkeeping does not accumulate across container recreations.
-
-The export block is a workaround for the container not injecting those four
-names directly; when it does, it goes away and only the `git fetch` and `git
-worktree` lines remain.
+`2026.919.80759` treats as a local change and stops on; a current one will not
+stop on it, but if it lands on a submodule path it still occupies a directory
+the follower has to materialise. The bookkeeping `git worktree add` leaves under
+`.git/worktrees/` is not itself a problem — `status` reports nothing under `.git`
+— so it is the directory, not the metadata, that has to live elsewhere. Remove
+the worktree when you are done, so the bookkeeping does not accumulate across
+container recreations.
 
 ## Reaching the platform with the `qits` CLI
 
@@ -315,9 +352,10 @@ checkout follower rides, so what you see there is what will move `/workspace` a
 few minutes later — see "The checkout in a project agent container".
 
 Believe the door, not the help. `qits ci runs` answers perfectly well on this
-credential, while its own help text — and the `qits ci` section of `qits help
-skill`, which says reading runs needs `qits:admin` or `qits:system` — names roles
-this credential does not hold. The role lines in the help are hand-written prose
+credential, while the `qits ci` group's own help (`qits ci --help`, not `qits ci
+runs --help`, which names no role at all) and the `qits ci` section of `qits help
+skill` both say reading runs needs `qits:admin` or `qits:system` — roles this
+credential does not hold. The role lines in the help are hand-written prose
 that the doors moved out from under; the 403 you get or do not get is the truth.
 `qits observe` likewise works here.
 
@@ -327,10 +365,11 @@ way to answer which CLI this image actually carries. Every command advertises
 provider, so `-V` prints nothing and exits 0 — do not spend a command on it.
 
 `qits help skill` prints the whole surface as a SKILL.md, and is worth reading
-once. Do not install it: in a project agent container `HOME=/workspace`, so
-writing it under `~/.claude/skills/` dirties the checkout and trips the
-never-write rule, and `CLAUDE_CONFIG_DIR` points at a volume every container on
-the estate shares.
+once. Do not install it: in a project agent container `HOME=/claude-home` and
+`CLAUDE_CONFIG_DIR=/claude-home/.claude`, which is a mounted volume
+(`QITS_PROJECTS_DAEMON_CLAUDE_MOUNT`) that every container on the estate shares,
+so writing under `~/.claude/skills/` installs it into every other project's
+agent as well as your own.
 
 One caveat on git. Do not configure git through the CLI: `qits git-credential`
 does work in-platform now, but `/etc/qits-gitconfig` names the separate shell
