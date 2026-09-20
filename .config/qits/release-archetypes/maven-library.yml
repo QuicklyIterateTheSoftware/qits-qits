@@ -36,6 +36,12 @@
 # the step's exit code — so "SBOM before green" holds by construction. Nothing below parses a
 # version, fetches a tag or PUTs a document.
 #
+# It also injects `$QITS_PUBLISH_TOKEN` and `$QITS_PUBLISH_TOKEN_COMMAND` — the run's own bearer, and
+# an executable that mints a FRESH one on every call. The deploy below uses the COMMAND, at the call
+# site, and degrades to the anonymous deploy it made yesterday when neither name is there. See
+# java-service.yml's header for why that is the rule, and the deploy block for what presenting it
+# costs in Maven, which is more than it costs anywhere else on the estate.
+#
 # ---------------------------------------------------------------------------------------------
 # THE ONE THING THIS RECIPE GAVE UP, SAID OUT LOUD
 #
@@ -98,12 +104,90 @@ release:
         settings="-s .qits-maven-settings.xml"
       fi
 
+      # THE RUN'S OWN BEARER FOR THE DEPLOY, AND IT HAS TO BE AN HTTP HEADER. The deployment
+      # repository id below is `qits`, and no repository on this estate declares a
+      # <server id="qits"> — all 28 `.qits-maven-settings.xml` files declare `qits-maven-network`
+      # and `qits-central-proxy` and nothing else. A <username>/<password> pair would not have
+      # helped anyway: Maven does not authenticate preemptively, so it sends one only after a 401,
+      # and a PUT that is refused is a publish that already failed. <httpHeaders> is sent on the
+      # first request, which is the one that matters.
+      #
+      # A GENERATED GLOBAL SETTINGS FILE, not an edit to those 28. Maven merges the global and user
+      # settings and the user file wins per id, so `-gs` ADDS the `qits` server beside whatever
+      # `.qits-maven-settings.xml` declares and overrides none of it — measured on Maven 3.9.12,
+      # the version every repository's wrapper pins: `help:effective-settings` showed the global
+      # server together with the user mirrors, and a real `deploy` sent the header on all six PUTs.
+      # The one-file form also means a repository that grows its own settings needs no edit here.
+      #
+      # THE HTTP BLOCKER IS RE-DECLARED because `-gs` REPLACES Maven's own conf/settings.xml, and
+      # `maven-default-http-blocker` is the only live element in it. Leaving it out would silently
+      # drop the blocker for the whole deploy — a loosening nobody asked for, and one that would
+      # hide the very misconfiguration the exact-id mirrors exist to work around.
+      #
+      # THE FILE HOLDS A BEARER, so: `umask 077`, never `cat`ed, and removed after the deploy. Do
+      # not add `-X` to these commands for the same reason — Maven's debug log prints the effective
+      # settings, token and all. A minted token is base64url and dots, so nothing in it needs XML
+      # escaping.
+      #
+      # MINTED HERE rather than read from the $QITS_PUBLISH_TOKEN qits-ci also injects: that one is
+      # minted when the container starts, and the mint's TTL and this step's timeout are the same
+      # number (3600s) with a whole build in between. And it DEGRADES TO ANONYMOUS — this script is
+      # read at main and runs against a tag on whatever qits-ci is deployed, so an absent command
+      # or a failed mint leaves the deploy byte-for-byte the one that worked yesterday rather than
+      # sending an empty bearer or aborting the step.
+      deploy_settings=""
+      deploy_token=""
+      if [ -n "${QITS_PUBLISH_TOKEN_COMMAND:-}" ] \
+        && command -v "$QITS_PUBLISH_TOKEN_COMMAND" >/dev/null 2>&1; then
+        deploy_token=$("$QITS_PUBLISH_TOKEN_COMMAND" 2>/dev/null) || deploy_token=""
+      fi
+      #
+      # `printf` AND NOT A HEREDOC, which is a YAML constraint rather than a shell preference: this
+      # script is a block scalar, its indentation is set by its first line, and a heredoc body has
+      # to sit at the emitted column zero — which is BELOW that indent and silently ends the
+      # scalar. Measured: the parser stops at `<settings` and the recipe no longer loads. Quoted
+      # printf arguments can be indented with the code around them.
+      if [ -n "$deploy_token" ]; then
+        ( umask 077
+          printf '%s\n' \
+            '<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">' \
+            '  <servers>' \
+            '    <server>' \
+            '      <id>qits</id>' \
+            '      <configuration>' \
+            '        <httpHeaders>' \
+            '          <property>' \
+            '            <name>Authorization</name>' \
+            "            <value>Bearer $deploy_token</value>" \
+            '          </property>' \
+            '        </httpHeaders>' \
+            '      </configuration>' \
+            '    </server>' \
+            '  </servers>' \
+            '  <mirrors>' \
+            '    <mirror>' \
+            '      <id>maven-default-http-blocker</id>' \
+            '      <mirrorOf>external:http:*</mirrorOf>' \
+            '      <url>http://0.0.0.0/</url>' \
+            '      <blocked>true</blocked>' \
+            '    </mirror>' \
+            '  </mirrors>' \
+            '</settings>' > /tmp/qits-deploy-settings.xml )
+        deploy_settings="-gs /tmp/qits-deploy-settings.xml"
+      fi
+
       # `altDeploymentRepository` rather than a `distributionManagement` block, so no repository
       # spells a deployment address in its pom. `-DskipTests`: the fold that gated this release
       # already ran them, and re-running a suite is not what a publish is for.
-      ./mvnw -B -ntp $settings deploy -DskipTests \
+      ./mvnw -B -ntp $settings $deploy_settings deploy -DskipTests \
         -Dqits.maven.repository.url="$QITS_MAVEN_REGISTRY_URL" \
         -DaltDeploymentRepository="qits::default::$QITS_MAVEN_REGISTRY_URL"
+
+      # The bearer stops existing the moment it stops being needed. Hygiene rather than a
+      # guarantee: a failed deploy aborts under the composer's `set -e` and leaves the file, and
+      # the step container is destroyed either way. The makeBom below publishes nothing and takes
+      # only `$settings`.
+      rm -f /tmp/qits-deploy-settings.xml
 
       # THE SBOM IS THE ARTIFACT'S RESOLVED DEPENDENCY TREE, and it is GENERATED here and submitted
       # by the composed postlude. Run at the reactor root with no `-pl`, so every module writes its

@@ -131,6 +131,22 @@
 # `qits-publish npm rewrite-lockfile-origin` / `qits-publish docs submit`. That is a deliberate cost
 # and it is the only duplication in this file.
 #
+# THE PUBLISH CREDENTIAL, WHICH EVERY STEP OF EVERY PHASE GETS. A step container whose run carries a
+# commission is handed two names: `$QITS_PUBLISH_TOKEN`, a qits-platform-audience bearer for the
+# run's own `ci-run` client minted when the container started, and `$QITS_PUBLISH_TOKEN_COMMAND`,
+# an executable that mints and prints a FRESH raw token — no `Bearer ` prefix — on every call.
+#
+# USE THE COMMAND, NEVER THE VARIABLE, and use it at the call site rather than once at the top.
+# `qits.idp.token-ttl-seconds` is 3600 and a step's `timeout-seconds` is 3600 too, and a publish is
+# always the LAST thing a step does, after a build that can spend most of that hour — so the
+# variable is a token that may already have expired and the command is one that cannot have.
+#
+# AND GUARD IT. This file is read at main and executed against a tag, on whatever qits-ci the estate
+# is running, so both names may be absent and a mint may fail. Every use degrades to sending NO
+# Authorization header, which is the anonymous publish qits-artifacts still accepts; none of them
+# sends an empty bearer, and none aborts the step. This recipe must not be what breaks a release
+# before the store's refusal has landed.
+#
 # ---------------------------------------------------------------------------------------------
 # WHEN TO OVERRIDE
 #
@@ -310,13 +326,42 @@ release-request:
         ''|true) site="$QITS_CI_REPO_NAME" ;;
       esac
 
+      # THE RUN'S OWN BEARER, AND IT IS MINTED HERE RATHER THAN READ FROM $QITS_PUBLISH_TOKEN.
+      # qits-ci hands a step both: the variable, minted when the container started, and
+      # $QITS_PUBLISH_TOKEN_COMMAND, which prints a FRESH raw token on every call. The mint's TTL
+      # and this step's timeout are the same number (3600s), and this PUT is the last thing the
+      # step does — after a verify that can spend most of that hour — so the variable can already
+      # be expired where the command cannot. Every publish in this estate re-mints at the call site
+      # for that reason.
+      #
+      # IT DEGRADES TO ANONYMOUS, NEVER TO A BROKEN HEADER. This file is read at main and runs
+      # against a tag, on whatever qits-ci the estate is running, so the command may be absent
+      # entirely and a mint may fail. qits-artifacts still accepts an anonymous publish today, so
+      # sending no Authorization header is exactly the call that worked yesterday; sending
+      # `Bearer ` with nothing after it is a 401 that would cost a release before the store's
+      # refusal has even landed. Neither case may abort the step.
+      publish_token=""
+      if [ -n "${QITS_PUBLISH_TOKEN_COMMAND:-}" ] \
+        && command -v "$QITS_PUBLISH_TOKEN_COMMAND" >/dev/null 2>&1; then
+        publish_token=$("$QITS_PUBLISH_TOKEN_COMMAND" 2>/dev/null) || publish_token=""
+      fi
+      # THE ARGUMENT LIST, not an unquoted `${publish_token:+-H "Authorization: …"}`: that value
+      # contains spaces and would word-split into four arguments, of which curl would read the
+      # first as the whole header. `set --` builds it as words, which needs no curl semantics at
+      # all — an empty `"$@"` under `set -u` expands to nothing in both dash and bash.
+      set --
+      if [ -n "$publish_token" ]; then
+        set -- -H "Authorization: Bearer $publish_token"
+      fi
+
       # Branch and commit ride as metadata (the docs store's exact-match discovery keys); the
       # version is the merged sha itself, so a bundle URL never changes meaning. `qits-publish docs
-      # submit` is this call and is unavailable on the QA phase — see the header.
+      # submit` is this call and is unavailable on the QA phase — see the header, which is also why
+      # the bearer is assembled by hand above rather than left to the CLI that credentials itself.
       #
       # PUBLISH-IF-ABSENT: events redeliver and docs versions are immutable, so 409 is success.
       status=$(curl -sS -o /tmp/docs-publish.out -w '%{http_code}' \
-        -X PUT --data-binary @/tmp/userstories.tgz \
+        -X PUT --data-binary @/tmp/userstories.tgz "$@" \
         -H "X-Artifacts-Meta-git.branch.name: $QITS_CI_BRANCH" \
         -H "X-Artifacts-Meta-git.commit.hash: $QITS_CI_SHA" \
         -H "X-Artifacts-Meta-git.repository.name: ${site##*/}" \
