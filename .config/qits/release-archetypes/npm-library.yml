@@ -45,6 +45,11 @@
 # every declared artifact carrying `sbom:`. Nothing below parses the event payload, checks a CalVer
 # shape, fetches a tag or PUTs a document.
 #
+# It also injects `$QITS_PUBLISH_TOKEN` and `$QITS_PUBLISH_TOKEN_COMMAND` — the run's own bearer, and
+# an executable that mints a FRESH one on every call. `.npmrc`'s `_authToken` below is fed by the
+# COMMAND and rewritten immediately before the publish, and degrades to no token line at all when
+# neither name is there. See java-service.yml's header for why that is the rule.
+#
 # THE IDEMPOTENCY POLICY IS THE CLI'S, ONCE. `qits-publish npm plan` answers `publish`,
 # `publish-replay` or `skip` — the replay comparator that used to be an inline `node -p` one-liner
 # copied between two repositories, and the "already published" probe beside it, decided in one
@@ -65,17 +70,61 @@ release-request:
   - image: qits/build-images/node-base:latest
     timeout-seconds: 1800
     script: |
+      # THE RUN'S OWN BEARER, MINTED AT THE CALL SITE. qits-ci hands a step both a
+      # $QITS_PUBLISH_TOKEN minted when the container started and a $QITS_PUBLISH_TOKEN_COMMAND
+      # that prints a FRESH raw token on every call. This uses the command: the mint's TTL and a
+      # step's timeout are the same number (3600s) and a publish is always the last thing a step
+      # does, so the variable can be expired where a re-mint cannot.
+      #
+      # IT DEGRADES TO ANONYMOUS, NEVER TO A BROKEN HEADER. This file is read at main and runs
+      # against a tag on whatever qits-ci the estate is running, so the command may be absent and a
+      # mint may fail. qits-artifacts still accepts an anonymous publish today, so NO `_authToken`
+      # LINE AT ALL is the call that worked yesterday; an empty one is npm sending `Bearer ` with
+      # nothing after it, which is a 401 that would cost a release before the store's refusal has
+      # landed. Neither case may abort the step, which is what the two `return 0`s are.
+      mint_publish_token() {
+        [ -n "${QITS_PUBLISH_TOKEN_COMMAND:-}" ] || return 0
+        command -v "$QITS_PUBLISH_TOKEN_COMMAND" >/dev/null 2>&1 || return 0
+        _minted=$("$QITS_PUBLISH_TOKEN_COMMAND" 2>/dev/null) || return 0
+        printf '%s' "$_minted"
+      }
+
       # -u is load-bearing here (the composer supplies it): with the registry vars unset, an
       # unset-tolerant script writes a registry-less .npmrc and the install resolves the @qits scope
-      # against npmjs.org, where these packages do not exist and never will.
+      # against npmjs.org, where these packages do not exist and never will. The subshell inherits
+      # it, so an unset variable still kills the step.
       #
-      # This preamble is byte-identical to the release step's, which does need the token line.
-      cat > ~/.npmrc <<EOF
-      registry=${QITS_NPM_PROXY_URL}
-      @qits:registry=${QITS_NPM_REGISTRY_URL}
-      # npm-CLI ceremony only — qits-artifacts requires and reads no credential.
-      ${QITS_NPM_REGISTRY_URL#http:}:_authToken=qits-ci
-      EOF
+      # `_authToken` IS THE HOOK because it is the only one npm offers: npm sends it as
+      # `Authorization: Bearer <value>`, which is what a publish into qits-artifacts is identified
+      # by. The literal `qits-ci` that used to sit here, and the comment calling the credential
+      # ceremony, were true only while the store accepted anyone.
+      #
+      # THE KEY HAS TO MATCH THE REGISTRY URL EXACTLY, TRAILING SLASH INCLUDED. npm looks the token
+      # up under the scheme-less form of the registry it is about to dial and does NOT normalise
+      # the two ends together — measured on npm 10.9.8 against a real `npm publish`: with
+      # `…/npm/hosted` the publish died on ENEEDAUTH with the line sitting right there in the file,
+      # and with `…/npm/hosted/` it sent `Authorization: Bearer …`. `$QITS_NPM_REGISTRY_URL` ends
+      # in a slash today, which is the only reason the `#http:` form below lands on the right key.
+      # A deployment that drops that slash turns this into a silent anonymous publish.
+      #
+      # A FUNCTION THAT REWRITES THE WHOLE FILE, not a preamble that appends: the release step
+      # calls it a SECOND time immediately before its publish, because a build sits between the two
+      # and would otherwise hand npm a token older than its own TTL. Rewriting means the second
+      # call replaces the stale line instead of stacking a second one. 077 because the last line is
+      # a bearer.
+      #
+      # This preamble is byte-identical to the release step's. Keep them matched.
+      write_npmrc() {
+        _npmrc_token=$(mint_publish_token)
+        ( umask 077
+          printf 'registry=%s\n@qits:registry=%s\n' \
+            "${QITS_NPM_PROXY_URL}" "${QITS_NPM_REGISTRY_URL}" > ~/.npmrc
+          if [ -n "$_npmrc_token" ]; then
+            printf '%s:_authToken=%s\n' \
+              "${QITS_NPM_REGISTRY_URL#http:}" "$_npmrc_token" >> ~/.npmrc
+          fi )
+      }
+      write_npmrc
 
       pnpm install --frozen-lockfile
       pnpm lint
@@ -95,12 +144,25 @@ release:
   - image: qits/build-images/node-base:latest
     timeout-seconds: 1800
     script: |
-      cat > ~/.npmrc <<EOF
-      registry=${QITS_NPM_PROXY_URL}
-      @qits:registry=${QITS_NPM_REGISTRY_URL}
-      # npm-CLI ceremony only — qits-artifacts requires and reads no credential.
-      ${QITS_NPM_REGISTRY_URL#http:}:_authToken=qits-ci
-      EOF
+      # Byte-identical to the QA step's preamble; read the rationale there. The second call, below,
+      # is what this step has and that one does not.
+      mint_publish_token() {
+        [ -n "${QITS_PUBLISH_TOKEN_COMMAND:-}" ] || return 0
+        command -v "$QITS_PUBLISH_TOKEN_COMMAND" >/dev/null 2>&1 || return 0
+        _minted=$("$QITS_PUBLISH_TOKEN_COMMAND" 2>/dev/null) || return 0
+        printf '%s' "$_minted"
+      }
+      write_npmrc() {
+        _npmrc_token=$(mint_publish_token)
+        ( umask 077
+          printf 'registry=%s\n@qits:registry=%s\n' \
+            "${QITS_NPM_PROXY_URL}" "${QITS_NPM_REGISTRY_URL}" > ~/.npmrc
+          if [ -n "$_npmrc_token" ]; then
+            printf '%s:_authToken=%s\n' \
+              "${QITS_NPM_REGISTRY_URL#http:}" "$_npmrc_token" >> ~/.npmrc
+          fi )
+      }
+      write_npmrc
 
       pnpm install --frozen-lockfile
       pnpm build
@@ -133,6 +195,15 @@ release:
       # to move `latest` backwards, and a bootstrap replays every version the estate still pins);
       # `skip` = this exact version is already there, which a redelivered event makes ordinary.
       plan=$(qits-publish npm plan --package "$package" --version "$QITS_VERSION")
+
+      # THE TOKEN IS REWRITTEN IMMEDIATELY BEFORE THE PUBLISH, and this is the whole reason
+      # write_npmrc is a function. `pnpm install --frozen-lockfile` and `pnpm build` sit between
+      # the preamble and here, and a mint's TTL (3600s) is the same number as this step's timeout —
+      # so on a slow build the token the preamble wrote is expired by the moment `npm publish`
+      # sends it, which is the one moment it has to be valid. The `qits-publish` calls around this
+      # block credential themselves and take nothing from ~/.npmrc.
+      write_npmrc
+
       case "$plan" in
         publish)        npm publish "./$dist" ;;
         publish-replay) npm publish "./$dist" --tag replay ;;
