@@ -46,8 +46,25 @@
 # consumes the pushed result today. The guard on the file's presence stays anyway: it is what lets a
 # repository that does not own the Dockerfile ride this recipe with no override, which is the whole
 # reason the toolchain is a pushed image rather than a per-repository build. And the image is
-# deliberately NOT one of the `artifacts:`: nothing declares it, nothing deploys it, and it is a cache
-# coordinate for one builder, overwritten in place at a fixed tag.
+# deliberately NOT one of the `artifacts:`: nothing declares it, nothing deploys it.
+#
+# ITS TAG IS A FUNCTION OF THIS BUILD'S OWN TREE, AND THAT IS RULE ONE APPLIED TO AN IMAGE THE
+# PIPELINE ITSELF PRODUCES. It used to be the fixed `jdk-25` — one mutable coordinate shared by
+# every build of every repository on this recipe. The step PUSHES that coordinate and then, lines
+# later, the native compile PULLS it back as `BUILDER_IMAGE`; a build overlapping this one (the QA
+# half of one release and the publish half of another overlap routinely, and a retry always does)
+# can have replaced it in between, so the compile silently links against somebody else's toolchain
+# and nothing in the run says so. "Every step consumes the artifacts of the build it is part of"
+# is exactly what a shared in-place tag cannot promise.
+#
+# HASHED, NOT VERSIONED, because the cache contract has to survive. `$QITS_VERSION` would give a
+# per-release coordinate and would also give the QA build and the release build DIFFERENT
+# `BUILDER_IMAGE` arguments — a different `FROM`, a cold cache, and a second native compile on
+# every release. The hash is taken over the Dockerfile's own bytes together with the two resolved
+# tarball urls, which is everything that decides what the toolchain IS: identical inputs land on
+# the identical tag, so the two phases of one release still share every layer, and a toolchain
+# that actually changed gets a NEW coordinate rather than overwriting the one a running build is
+# about to pull.
 #
 # THE TARBALL URLS ARE THE RUN'S, NOT THE DOCKERFILE'S DEFAULTS. BuildKit resolves an `ADD <url>` in
 # the BUILDER's network context, which is qits-net; the committed defaults name an edge vhost on the
@@ -83,9 +100,14 @@ release-request:
     build: true
     timeout-seconds: 3600
     script: |
+      # THE FALLBACK COORDINATE, for a repository that rides this recipe and does NOT own the
+      # Dockerfile: it can only name what the owning repository last pushed, so it keeps the bare
+      # tag. The owner, below, computes its own — and the owner is the only one that could ever
+      # race itself, because it is the only one that pushes.
       builder="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/graalvmce-musl-builder:jdk-25"
 
-      # The toolchain image, when this repository owns it. See the header.
+      # The toolchain image, when this repository owns it. See the header, both for why it is a
+      # pushed image and for why its tag is derived from the inputs rather than fixed.
       if [ -f docker/Dockerfile.musl-builder ]; then
         maven_root="${QITS_MAVEN_REGISTRY_URL%/}"
         musl_url=$(sed -n 's/^ARG MUSL_URL=//p' docker/Dockerfile.musl-builder)
@@ -94,6 +116,11 @@ release-request:
         : "${zlib_url:?docker/Dockerfile.musl-builder declares no ARG ZLIB_URL}"
         musl_url="$maven_root${musl_url#*/artifacts/maven/maven}"
         zlib_url="$maven_root${zlib_url#*/artifacts/maven/maven}"
+        # The Dockerfile's bytes AND the two urls it will be built with — the urls carry
+        # $QITS_MAVEN_REGISTRY_URL, so a deployment that re-points the registry gets its own
+        # toolchain rather than inheriting one built against an address it does not use.
+        builder_tag=$( { cat docker/Dockerfile.musl-builder; printf '%s\n%s\n' "$musl_url" "$zlib_url"; } | sha256sum | cut -c1-16 )
+        builder="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/graalvmce-musl-builder:jdk-25-$builder_tag"
         buildctl build --frontend dockerfile.v0 \
           --local context=docker --local dockerfile=docker \
           --opt filename=Dockerfile.musl-builder \
@@ -143,6 +170,10 @@ release:
       fi
       echo "releasing $declared $QITS_VERSION"
 
+      # Byte-identical to the QA step's, and the tag derivation is half of why: the same tree and
+      # the same registry produce the same `jdk-25-<hash>` in both phases, so `BUILDER_IMAGE` is
+      # the same string and the native compile below is a cache hit on the fold that gated this
+      # release rather than a second one. See the header.
       builder="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/graalvmce-musl-builder:jdk-25"
 
       if [ -f docker/Dockerfile.musl-builder ]; then
@@ -153,6 +184,8 @@ release:
         : "${zlib_url:?docker/Dockerfile.musl-builder declares no ARG ZLIB_URL}"
         musl_url="$maven_root${musl_url#*/artifacts/maven/maven}"
         zlib_url="$maven_root${zlib_url#*/artifacts/maven/maven}"
+        builder_tag=$( { cat docker/Dockerfile.musl-builder; printf '%s\n%s\n' "$musl_url" "$zlib_url"; } | sha256sum | cut -c1-16 )
+        builder="$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/graalvmce-musl-builder:jdk-25-$builder_tag"
         buildctl build --frontend dockerfile.v0 \
           --local context=docker --local dockerfile=docker \
           --opt filename=Dockerfile.musl-builder \

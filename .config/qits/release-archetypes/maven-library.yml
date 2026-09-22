@@ -129,6 +129,21 @@ release:
       # settings, token and all. A minted token is base64url and dots, so nothing in it needs XML
       # escaping.
       #
+      # THE PATH IS THIS RECIPE'S OWN, AND THAT IS A FIX RATHER THAN A PREFERENCE. qits-ci's own
+      # container bootstrap (CiDaemonLauncher.BOOTSTRAP) writes /tmp/qits-deploy-settings.xml when
+      # the step container starts and APPENDS `-gs /tmp/qits-deploy-settings.xml` to MAVEN_ARGS,
+      # which every maven in the step then inherits. A recipe writing that same path overwrites the
+      # platform's file — and the `rm -f` after the deploy DELETED it, so the makeBom below started
+      # with MAVEN_ARGS still naming a file that was gone and died on `The specified global settings
+      # file does not exist: /tmp/qits-deploy-settings.xml`. Every release on this recipe hit it.
+      # Writing somewhere the platform does not own removes the collision in both directions.
+      #
+      # MAVEN_ARGS BEATS THE COMMAND LINE — measured on 3.9.12 and stated in CiDaemonLauncher — so
+      # on a current qits-ci this `-gs` is inert and the ambient file is what the deploy uses. It
+      # stays anyway: this file is read at main and runs against a tag on whatever qits-ci the
+      # estate is deployed with, and on one that injects nothing this is the deploy's only
+      # credential.
+      #
       # MINTED HERE rather than read from the $QITS_PUBLISH_TOKEN qits-ci also injects: that one is
       # minted when the container starts, and the mint's TTL and this step's timeout are the same
       # number (3600s) with a whole build in between. And it DEGRADES TO ANONYMOUS — this script is
@@ -172,8 +187,8 @@ release:
             '      <blocked>true</blocked>' \
             '    </mirror>' \
             '  </mirrors>' \
-            '</settings>' > /tmp/qits-deploy-settings.xml )
-        deploy_settings="-gs /tmp/qits-deploy-settings.xml"
+            '</settings>' > /tmp/qits-recipe-deploy-settings.xml )
+        deploy_settings="-gs /tmp/qits-recipe-deploy-settings.xml"
       fi
 
       # `altDeploymentRepository` rather than a `distributionManagement` block, so no repository
@@ -187,7 +202,43 @@ release:
       # guarantee: a failed deploy aborts under the composer's `set -e` and leaves the file, and
       # the step container is destroyed either way. The makeBom below publishes nothing and takes
       # only `$settings`.
-      rm -f /tmp/qits-deploy-settings.xml
+      #
+      # ONLY THIS RECIPE'S OWN FILE. The platform's /tmp/qits-deploy-settings.xml is named by an
+      # exported MAVEN_ARGS for the whole step, so removing it here is removing the makeBom's own
+      # settings file out from under it — see the block above.
+      rm -f /tmp/qits-recipe-deploy-settings.xml
+
+      # AND THE VERSION PUBLISHED IS THE VERSION THIS BUILD IS. Nothing above asserts it: the
+      # coordinate deployed is whatever the poms at the tag say, while the postlude submits each
+      # SBOM under `$QITS_VERSION` and qits-ci announces the SoftwareRelease under it too. If the
+      # release commit's version bump had not landed in a pom, the jar would go to one coordinate
+      # and every consumer would be told about another — a version that corresponds to nothing
+      # real. npm-library.yml makes this assertion on the built manifest; there is no manifest
+      # here, so it is made against the registry that now holds the bytes.
+      #
+      # A GET RATHER THAN A MAVEN CALL, because reading the reactor's version back out of maven
+      # costs a plugin resolve, and because the thing worth proving is not what the pom said but
+      # what the store now answers for. The GAV is the one already declared — group's dots become
+      # path separators, which is the whole of the maven layout — and the probe is the same one
+      # qits-platform-access-cli's own recipe already runs against this registry.
+      declared=$(sed -n \
+        's/^[[:space:]]*-[[:space:]]*{[[:space:]]*type:[[:space:]]*maven[[:space:]]*,[[:space:]]*name:[[:space:]]*"\{0,1\}\([^,}"[:space:]]*\)"\{0,1\}.*/\1/p' \
+        .config/qits/release.yml)
+      : "${declared:?release.yml declares no maven artifact, so this release publishes nothing}"
+      maven_root="${QITS_MAVEN_REGISTRY_URL%/}"
+      for gav in $declared; do
+        group=${gav%%:*}
+        artifact=${gav#*:}
+        group_path=$(printf '%s' "$group" | tr . /)
+        pom="$maven_root/$group_path/$artifact/$QITS_VERSION/$artifact-$QITS_VERSION.pom"
+        if ! curl -fsS -o /dev/null "$pom"; then
+          echo "the deploy did not leave $gav at $QITS_VERSION — the release is $QITS_VERSION and" >&2
+          echo "the reactor deployed some other version, so the SBOM and the SoftwareRelease about" >&2
+          echo "to be announced would name a coordinate nobody published: $pom" >&2
+          exit 1
+        fi
+        echo "published $gav:$QITS_VERSION"
+      done
 
       # THE SBOM IS THE ARTIFACT'S RESOLVED DEPENDENCY TREE, and it is GENERATED here and submitted
       # by the composed postlude. Run at the reactor root with no `-pl`, so every module writes its
