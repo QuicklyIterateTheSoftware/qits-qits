@@ -92,6 +92,18 @@ tool. A transition normally hands you the next phase's instruction in the same
 session, so it is not bookkeeping you do afterwards — it is how you are given
 your next task. Transition when you are done, and read what comes back.
 
+A phase that does not finish has two other words, and neither of them is a
+status you fake. If the work is stuck — waiting on somebody, on a decision, on
+a door that is shut — **block the ticket** and say what is in the way: the
+reason is required, it lands on the thread, and while the flag is set nothing
+dispatches an agent onto that phase again. It is temporary and scoped to the
+phase it blocks, so the next transition clears it. If the work is not stuck but
+has been decided against, **drop the ticket**: `DROPPED` is reachable from
+every status that is not already closed, and it is what stops abandoned work
+from sitting at `REFINED` looking like work that is ready to be picked up. A
+dropped ticket reopens to `REPORTED`, because changing your mind about
+abandoned work means asking again what it is for.
+
 ## The workspace is resolved last
 
 Only once every component you touched has been released, and the ticket or epic
