@@ -98,6 +98,22 @@
 # frontend repository here does, naming the edge vhosts — must either not copy it into the context
 # or must let the `npm_config_*` environment form win instead, exactly as the QA step below does.
 #
+# THE RUNTIME STAGE OWES THE DEPLOYER A `curl`, AND ONLY AN `-app` HAS TO SAY SO. The swarm health
+# gate qits-deployments installs is the shell string `curl -fsS http://localhost:<port><health_path>
+# || exit 1`, run INSIDE the container — so the probe binary is part of the deployable, and
+# `health_path:` in a repository's `.config/qits/deployments.yml` is only half of that decision.
+# Every other image on the estate is built on `ubi-minimal` and gets curl from the base for free,
+# which is why the requirement has never had to be written down before; the `node:*-alpine` bases
+# these repositories build on carry busybox — `wget`, no `curl` at all. An image that omits it boots
+# perfectly, logs that it is listening, and is then killed on the probe's exit 127 by
+# `--update-failure-action rollback`, which reads as an application fault and is not one. The
+# runtime stage therefore carries, before it drops to the non-root user:
+#
+#     RUN apk add --no-cache curl
+#
+# Not `health_cmd:` with wget instead. `health_cmd:` is for a deployable with NO HTTP surface at all
+# — postgres, which has neither curl nor anything to dial — and an SSR node server answers a path.
+#
 # ---------------------------------------------------------------------------------------------
 # WHEN TO OVERRIDE
 #
