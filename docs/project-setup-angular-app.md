@@ -108,6 +108,15 @@ a Deployment Request and `main` is finalized only once the deployment succeeds.
   (`/<prefix>/q/health/ready`) that nothing here serves, so taking it fails every deployment as
   unhealthy after the container came up perfectly well. Put the path under the published prefix so
   it is answerable from outside the container too.
+- **The image owes that path a `curl`.** The gate is `curl -fsS
+  http://localhost:<port><health_path> || exit 1`, run *inside* the container, and `node:*-alpine`
+  ships busybox `wget` and no `curl` — so the runtime stage needs `RUN apk add --no-cache curl`
+  before it drops to the non-root user. Omit it and you get the same failure this bullet warns about
+  from the other end, wearing a disguise: the container boots, logs that it is listening, and is then
+  killed with `exit (137): dockerexec: unhealthy container` and rolled back. It reads as an
+  application fault and is not one — the probe is exiting 127. Every sibling on the estate is
+  `ubi-minimal` and gets `curl` from the base, which is why this had never been written down before
+  `qits-landing` hit it.
 - **`deployment_target: environment`** — one instance per tier, with the tier in the wire alias.
 - **`upstream_port:`** only if the server is not on 8080.
 
