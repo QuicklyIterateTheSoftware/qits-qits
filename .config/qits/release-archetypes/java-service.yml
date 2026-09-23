@@ -148,6 +148,47 @@
 # before the store's refusal has landed.
 #
 # ---------------------------------------------------------------------------------------------
+# WHAT EVERY STEP CONSUMES THAT THIS BUILD DID NOT PRODUCE, AND WHERE EACH ONE IS PINNED
+#
+# The rule these recipes are held to is that a step consumes the artifacts and the version of the
+# build it is part of. Everything a release PUBLISHES already obeys it: the image ref is
+# `$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/<declared>:$QITS_VERSION`, the SBOM the postlude
+# submits is `$QITS_VERSION`, and the coordinate is read out of this repository's own `artifacts:`
+# rather than derived. What is left is TOOLING, which by definition this build does not produce, and
+# the question for each is only whether two steps of one build can get two different versions of it:
+#
+#   the qits CLI          PINNED, and pinned ONCE PER BUILD. The composed release prelude fetches
+#                         `$QITS_ARTIFACTS_CLI_PACKAGE` at `$QITS_ARTIFACTS_CLI_VERSION`, which
+#                         CiDaemonLauncher injects from qits-ci's own pom pin
+#                         (eu.wohlben.qits:qits-platform-access-cli-binary). It is one value for
+#                         one run — every step of one build fetches the same bytes — and it is a
+#                         line somebody can revert, which the `latestVersion` read it replaced was
+#                         not. A run printing `fetched qits-platform-access-cli <v>` twice with two
+#                         different `<v>` would be a qits-ci bug, not a recipe one.
+#   cyclonedx-maven       PINNED in the text: `org.cyclonedx:cyclonedx-maven-plugin:2.9.1`.
+#   cdxgen (npm-library)  PINNED in the text: `@cyclonedx/cdxgen@11.2.7`.
+#   the musl/zlib tarballs (daemon)
+#                         PINNED BY THIS BUILD'S OWN TREE: the coordinate is read out of the
+#                         repository's `docker/Dockerfile.musl-builder` at the checked-out rev and
+#                         only its ORIGIN is swapped for the in-network registry.
+#   the step image        FLOATING, and it is the one thing on this list a recipe cannot fix.
+#                         `qits/build-images/<x>:latest` is a mutable tag, one container is started
+#                         per step, and two steps of one build are therefore two pulls that may
+#                         land on two different images — a release whose QA ran on one maven-base
+#                         and whose publish ran on the next is ordinary rather than exotic.
+#                         THE FIX IS NOT EXPRESSIBLE HERE. `image:` is emitted verbatim by
+#                         CiReleaseComposer, with no environment expansion and no per-run
+#                         resolution, so nothing a recipe can write makes the tag resolve once.
+#                         Hand-pinning a version instead would be worse: a version named only in
+#                         this YAML is a version qits-platform-maintenance files no keep for, so
+#                         the docker GC would eventually evict the image every step on the estate
+#                         starts from. What this needs is qits-ci resolving `:latest` to a digest
+#                         ONCE when it accepts a run and emitting that digest into every step of
+#                         it — one place, one resolution, and a run that records which image it
+#                         really used. Until that lands, this line is the honest statement of the
+#                         gap rather than a silent one.
+#
+# ---------------------------------------------------------------------------------------------
 # WHEN TO OVERRIDE
 #
 # A repository declaring `release-request:` (phase one) or `release:` (phase two) replaces THAT slot
