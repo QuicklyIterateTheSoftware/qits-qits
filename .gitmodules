@@ -292,3 +292,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-landing-app"]
+	path = components/qits-landing/qits-landing-app
+	url = ../qits-landing-app.git
+	branch = main
+	ignore = all
+	update = merge
