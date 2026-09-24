@@ -973,3 +973,71 @@ before looking at the code — but re-run, do not assume.
    last. The deployer moves itself by hand.
 3. **Then the bare-named orphans can go**, and §4.2 is no longer in the way (see §0-TODAY).
 4. Then qits-123's sweep, then Feature 5, then the live verifications.
+
+---
+
+## 15. CORRECTION — DELETING A CONFIG ROW DOES NOT REMOVE THE VARIABLE (2026-09-24, measured)
+
+**§11's mechanism is wrong on this estate, and §14 reported the config half as done when it was
+not.** Both are corrected here. The rows now hold the QUALIFIED value rather than being absent.
+
+### What was measured
+
+`dev-qits-artifacts` released, deployed and went ACTIVE at **14:42:37** — after the rows were
+deleted. qits-configuration resolves **four** env keys for it. The live swarm service, updated at
+14:43:53, carries **six**: those four plus exactly the two that had been deleted. So the container
+still holds `QUARKUS_OIDC_AUTH_SERVER_URL=http://qits-platform-idp:8080/idp` and still dials the
+bare idp, which is precisely what the cutover would strand.
+
+### Why
+
+**The deployer builds each argv from the served store LAYERED WITH AN EXTRAS FILE on its own config
+volume.** `qits.platform.deployments.extras-file` names it; qits-bootstrap-cli's `ComposeTemplate`
+renders it at bootstrap; `ExtrasSnapshot` takes one snapshot per argv build. The union is what
+reaches `ServiceExtras.env()` — so a key the FILE states is "stated", `envRemovals` never sees it as
+unstated, and no `--env-rm` is emitted for it. The deployer's `--env-rm` logic is present and
+correct (checked against the running tag `2026.924.90840`, not just the branch); it simply never
+applies to a key the file still carries.
+
+`ComposeTemplate` lines 1633-1634 write exactly the two keys that survived on qits-artifacts. The
+file was rendered at the last bootstrap, so it holds the PRE-slice-C spelling — bare.
+
+**The same shape explains leftovers that predate this epic entirely**, which is the corroboration
+that makes this a mechanism rather than a one-off: `qits-configuration` still carries
+`QITS_CONFIGURATION_LEGACY_ENV`, and `qits-platform-maintenance` carries fourteen stale keys
+including the old `QUARKUS_OIDC_CLIENT_CI_*` / `GITHOST_*` client secrets that its own
+`.config/qits/configuration.yml` says to delete "once C5 has landed". Every one of them is a key
+removed from the store while the file went on stating it.
+
+### What was done, and why it is a step back from the rule
+
+The 33 deleted rows were restored with the QUALIFIED value (`/tmp/cfgrestore.py`, 33×200). An entry
+beats a property AND beats the file, so an entry holding the right address is the only lever that
+actually moves a dialer on this estate. The derived defaults stay in the images, which makes the
+rows redundant rather than load-bearing — they can be deleted for real once the file stops being
+layered or a bootstrap re-renders it.
+
+This contradicts §11's "the entry stops existing", and deliberately. That rule assumed deleting a
+row removes the variable; it does not, and a rule that is right in principle is still wrong to
+follow on an estate where it silently does nothing.
+
+### The lesson worth carrying
+
+**"The row is deleted" and "the container stopped seeing it" are different claims.** The first was
+verified — 33 clean 204s and a re-inventory of qits-configuration showing zero bare addresses — and
+reported as though it were the second. The source of truth was checked; the effect was not. On this
+platform the effect needs a service that has actually redeployed:
+
+    # keys the live service carries that config no longer states
+    # (exclude QITS_ENVIRONMENT/QITS_APPLICATION/OTEL_*/QUARKUS_OTEL_* and QITS_RESOURCE_*)
+    GET qits-platform-system:8080/system/api/swarm/services/<id>     -> envKeys
+    GET qits-configuration:8080/configuration/api/applications/<app>/envs/dev/resolved
+
+Anything in the difference is a variable the file is still supplying.
+
+### Follow-up this leaves open
+
+- The layering is arguably a defect: a store that is documented AUTHORITATIVE cannot remove a key.
+  Worth a ticket against qits-deployments — either the file stops being layered once a store is
+  configured, or a row deletion has to be expressible. It is not this epic's to fix.
+- Until then, **never delete an extras row expecting it to reach a container.** Update it.
