@@ -1044,3 +1044,44 @@ Anything in the difference is a variable the file is still supplying.
   write.** `create_ticket` succeeded as `mcp-agent` while the `qits` CLI refuses the same operation
   403 to `qits:agent`. Use them to record a finding rather than leaving it in prose nobody queries.
 - Until then, **never delete an extras row expecting it to reach a container.** Update it.
+
+---
+
+## 16. THE CUTOVER GATE, AS A COMMAND (2026-09-24 ~15:50)
+
+§15 leaves one thing that has to be true before any bare-named service is retired, and it is NOT a
+diff of env keys against config — restoring the rows made those agree again while a container
+deployed earlier still holds the old VALUE. **A container's environment is frozen at creation, so
+the only reliable question is whether the application has DEPLOYED since the entries were
+corrected** (~15:30 UTC on 2026-09-24, qits-configuration revisions ~424-451).
+
+    timeout 120 python3 - <<'PY'
+    import json,subprocess
+    H=["-H","X-Qits-User: agent","-H","X-Qits-Roles: qits:admin"]
+    ENV="5a0a10fc-f971-4497-9e05-35a9893ee994"   # the one environment, `dev`
+    CORRECTION="2026-09-24T15:30:00Z"
+    rows=json.loads(subprocess.run(["curl","-s",*H,
+      f"http://qits-deployments:8080/platform-deployments/api/deployments?environmentId={ENV}"],
+      capture_output=True,text=True).stdout)["deployments"]
+    for app in ["qits-platform-orchestrator","qits-projects","qits-workspaces",
+                "qits-platform-maintenance","qits-ci","qits-platform-system",
+                "qits-containers","qits-artifacts","qits-platform-edge"]:
+        mine=[r for r in rows if r.get("applicationName")==app and r.get("status")=="ACTIVE"]
+        if not mine: print(f"{app:<30} no ACTIVE row"); continue
+        n=max(mine,key=lambda r:r.get("createdAt") or "")
+        print(f"{app:<30} {n['version']:<20} {n.get('createdAt')}  "
+              f"{'OK' if (n.get('createdAt') or '')>CORRECTION else '<-- STALE'}")
+    PY
+
+State when this was written — one OK, eight stale:
+
+| application | deployed | |
+|---|---|---|
+| qits-platform-maintenance | 15:37:14 | **OK** — the first proof the restore reaches a container |
+| qits-platform-orchestrator, qits-projects, qits-workspaces, qits-ci, qits-platform-system, qits-containers, qits-platform-edge | earlier | stale, but each has a release IN FLIGHT that clears it on deploy |
+| **qits-artifacts** | 14:42:37 | stale with **NOTHING in flight** |
+
+**qits-artifacts is the one that will not clear itself.** Its release already finalized, and it does
+not depend on qits-eventstream, so no maintenance bump will reach it either. It needs an empty commit
+on its epic branch and a release request of its own before the cutover. That is house practice for
+exactly this shape — releasing content already on main by pushing an empty commit on your own branch.
