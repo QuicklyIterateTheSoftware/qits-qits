@@ -1038,6 +1038,9 @@ Anything in the difference is a variable the file is still supplying.
 ### Follow-up this leaves open
 
 - The layering is arguably a defect: a store that is documented AUTHORITATIVE cannot remove a key.
-  Worth a ticket against qits-deployments — either the file stops being layered once a store is
+  **Filed as qits-375** (BUG, REPORTED) — either the file stops being layered once a store is
   configured, or a row deletion has to be expressible. It is not this epic's to fix.
+- Filing it also settled a question this file gets wrong elsewhere: **the MCP `repository` tools
+  write.** `create_ticket` succeeded as `mcp-agent` while the `qits` CLI refuses the same operation
+  403 to `qits:agent`. Use them to record a finding rather than leaving it in prose nobody queries.
 - Until then, **never delete an extras row expecting it to reach a container.** Update it.
