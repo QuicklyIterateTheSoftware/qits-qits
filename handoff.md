@@ -1206,3 +1206,49 @@ environments and require the answer to be empty:
 Ignore three families in the output, which are identity rather than address and are correct as they
 stand: `QITS_APPLICATION`, `QITS_AUTH_MACHINE_AUDIENCE` / `*_GRANT_OPTIONS_CLIENT_AUDIENCE` /
 `*_CLIENT_ID`, and `QITS_IDP_ISSUER` (§4.3 — the `iss` claim is compared, never dialled).
+
+---
+
+## 19. CUTOVER PROGRESS AND THE ORDERING LESSON (2026-09-24 22:00)
+
+**Retired 6 of 9**, each verified the same way — bare name no longer resolves, successor answers 200,
+and for the load-bearing ones a downstream check that the PLATFORM still works rather than just the
+service:
+
+| retired | the check that mattered |
+|---|---|
+| qits-platform-orchestrator | first one; proved the mechanism |
+| qits-platform-mirror | every CI build pulls through it |
+| qits-platform-maintenance | — |
+| **qits-deployments** | successor held no stale bare address before the old one went |
+| qits-events | the whole platform's bus |
+| qits-configuration | the deployer still read config afterwards (200) |
+
+Remaining: **qits-platform-idp**, **qits-platform-system**, **qits-platform-edge**.
+
+### The gate stopped a real one, and the lesson is about ORDER not detection
+
+The idp removal was gated on "no running service holds a host-shaped bare idp address, except
+`QITS_IDP_ISSUER` which is the `iss` claim and stays bare deliberately". It stopped on:
+
+    dev-qits-configuration  QUARKUS_OIDC_AUTH_SERVER_URL=http://qits-platform-idp:8080/idp
+
+**`dev-qits-configuration` was created BEFORE its entry was corrected.** Its first release deployed at
+20:37; the entry was set at ~21:45; the redeploy carrying it (`2026.924.214533`) was still RELEASED
+and undeployed. Retiring the idp then would have left qits-configuration unable to fetch JWKS, and
+the deployer's calls into it failing — with its own predecessor already gone, so no fallback.
+
+**The generalisable rule: correct the entry BEFORE the successor is created, not after.** A successor
+is a new container and freezes whatever config existed at its creation; creating it first and fixing
+the entry afterwards buys nothing and looks finished. For each of the nine the order is:
+
+1. correct the entry (or better — see qits-375 — fix the code so there is no entry),
+2. release, so the successor is CREATED with the corrected value,
+3. scan the live environments,
+4. only then remove the predecessor.
+
+Three separate gate stops happened during this rollout. Two were my own instruction defects — a
+prefix filter that could never list a `dev-` prefixed successor, and a substring match that flagged
+`QITS_APPLICATION` and an OTEL `service.instance.id` as dialers. The third was this, a genuine
+hazard. **That ratio is the argument for the gate, not against it:** an instruction that cannot be
+checked is one whose defects land on the estate instead of in a transcript.
