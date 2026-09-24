@@ -1252,3 +1252,34 @@ prefix filter that could never list a `dev-` prefixed successor, and a substring
 `QITS_APPLICATION` and an OTEL `service.instance.id` as dialers. The third was this, a genuine
 hazard. **That ratio is the argument for the gate, not against it:** an instruction that cannot be
 checked is one whose defects land on the estate instead of in a transcript.
+
+---
+
+## 20. RETIRING THE BARE IDP BREAKS THE `qits` CLI IN EXISTING CONTAINERS (2026-09-24 22:20)
+
+**Symptom:** every `qits` command dies with
+
+    Cannot reach the idp at http://qits-platform-idp:8080/idp/token: null
+
+**Cause, and it is not a platform fault.** A container's environment is frozen at creation, and
+containers created before the cutover carry
+
+    QITS_GIT_AUTH_TOKEN_URL=http://qits-platform-idp:8080/idp/token
+    QITS_WORKSPACE_DAEMON_AUTH_TOKEN_URL=http://qits-platform-idp:8080/idp/token
+
+injected at creation from the pre-cutover values. Once `qits-platform-idp`'s bare-named swarm service
+is retired that host does not resolve, so the CLI cannot mint a bearer. The PLATFORM is fine — a real
+`client_credentials` mint against `dev-qits-platform-idp` answers 200 and every service answers on
+its qualified name.
+
+**Fix in a running container** — export both, or prefix the command:
+
+    export QITS_GIT_AUTH_TOKEN_URL=http://dev-qits-platform-idp:8080/idp/token
+    export QITS_WORKSPACE_DAEMON_AUTH_TOKEN_URL=http://dev-qits-platform-idp:8080/idp/token
+
+**Fix properly:** recreate the container, or wait for it to be recreated — the new values come from
+the corrected config. Every workspace and agent container on the estate that predates the cutover has
+this, so expect it to be reported as "the CLI is broken" by somebody who did not do the cutover.
+
+This is the same frozen-env mechanism as §18, arriving from the other direction: there the stale value
+was a service dialling a peer, here it is a human's tooling dialling the idp.
