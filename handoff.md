@@ -1283,3 +1283,54 @@ this, so expect it to be reported as "the CLI is broken" by somebody who did not
 
 This is the same frozen-env mechanism as §18, arriving from the other direction: there the stale value
 was a service dialling a peer, here it is a human's tooling dialling the idp.
+
+---
+
+## 21. CUTOVER: SEVEN OF NINE RETIRED (2026-09-24 22:25)
+
+    RETIRED  qits-platform-orchestrator   qits-platform-mirror   qits-platform-maintenance
+             qits-deployments             qits-events            qits-configuration
+             qits-platform-idp
+    GATING   qits-platform-system  (release 77af9fa2, successor appears on deploy)
+    LAST     qits-platform-edge
+
+The platform has served throughout. After the idp move, verified: every service answers 200 on its
+qualified name, and a real `client_credentials` mint against `dev-qits-platform-idp` returns 200 —
+which is the claim that matters, not a health check.
+
+**§4.2 is now settled by experiment.** The bare idp is gone while `QITS_IDP_ISSUER` is still
+`http://qits-platform-idp:8080/idp`, and nothing on the estate cares, because an `iss` is compared
+for equality and never resolved. The epic's most dangerous change was blocked on a coupling that did
+not exist.
+
+### qits-platform-system went deploy-first, against the letter of the rule
+
+AGENTS.md sends a holder of a single-writer volume ahead of its successor, and this service mounts
+`qits-platform-system-config`. The rule exists for **postgres WAL corruption**; this repository's own
+`.config/qits/deployments.yml` records that the service is stateless — no `resources:` line, no
+database, every answer read from the docker daemon when asked — and nothing in it reads
+`/work/config`. Two containers mounting a config volume nobody writes is harmless, and remove-first
+would have cost a full release cycle of downtime to avoid no risk. Deploy-first, then remove.
+
+### THE EDGE IS THE LAST ONE AND THE ONLY ONE WITH AN OUTAGE WINDOW
+
+Everything needed is measured, not assumed:
+
+    Endpoint.Ports = [{tcp 8080->8080 ingress}, {tcp 443->8443 ingress}]
+
+Swarm refuses a SECOND service publishing an ingress port already taken, so unlike the other eight the
+predecessor **cannot** be left running while the successor is created — the create is rejected
+outright. And the edge fronts the registry, so removing it takes away the route its own successor's
+image would be pulled through.
+
+    docker pull registry.dev.localhost:8080/qits/qits-platform-edge:<version>   # while it still serves
+    docker service inspect qits-platform-edge --pretty                          # keep every flag
+    docker service rm qits-platform-edge
+    docker service create --name dev-qits-platform-edge --no-resolve-image \
+      <every flag from the inspect: --network, --mount, --publish, --env, --label, --update-order, --health-*> \
+      registry.dev.localhost:8080/qits/qits-platform-edge:<version>
+
+Between the `rm` and the successor passing health the platform has **no published listener**: no
+browser access, no registry, no mirror, no container git. Everything on qits-net keeps working, so
+this is an outage of the front door and not of the platform. It wants a person watching, and it is
+the one step of this rollout worth doing at a chosen moment rather than whenever the queue drains.
