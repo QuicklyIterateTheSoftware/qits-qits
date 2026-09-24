@@ -1178,6 +1178,15 @@ running containers:
 would have broken the component that reads the configuration needed to repair it. All seven entries
 are now set to the qualified spelling and the affected services are redeploying.
 
+**THIS WAS THE WRONG DIRECTION, and the owner has said so.** qits-configuration is for
+environment-specific values — the root domain is the example — and everything else is hardcoded in
+the service. A peer's ADDRESS is derivable from `QITS_ENVIRONMENT`, so it belongs in the service's
+own properties and nowhere else. Setting entries to out-vote the file is a workaround, not a design:
+the real fix is that `ComposeTemplate` stops rendering address `env.*` lines into the deployer's
+config-volume file at all, after which every address entry — including the 33 restored here and the 7
+added — is deleted for good. Ordered fix and the full list of rows to remove: **qits-375**. Do not
+add more entries; if a bare address turns up, record it there rather than out-voting it.
+
 **A store entry BEATS the file — measured, not assumed.** `dev-qits-artifacts` shows no bare value at
 all, because the entry restored at 15:30 won over the file's bare one. That is what makes setting an
 entry a real fix rather than a hope.
