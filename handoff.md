@@ -1139,3 +1139,61 @@ a claim.**
 | qits-platform-system | holds `qits-platform-system-config` + docker.sock — remove FIRST, then release |
 | qits-deployments | cannot rename itself after slice D — `rm` + `create` by hand from its inspected spec |
 | qits-platform-edge | publishes 8080 and 443 **ingress** (measured: `[{8080->8080},{443->8443}]`) and fronts the registry — pull the image first, then `rm`, then `create --no-resolve-image`. REAL OUTAGE WINDOW, wants a person |
+
+---
+
+## 18. WHAT THE CONTAINERS ACTUALLY HELD — AND WHY §16's GATE WAS NOT ENOUGH (2026-09-24 20:00)
+
+§16's gate asked whether every consumer had REDEPLOYED since the entries were corrected, and treated
+that as proof none still dialled a bare alias. **It is not proof, and two separate mechanisms defeat
+it.** Both were found by reading the live container environments through the admin workspace —
+`docker service inspect --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}...'` — which is the
+only check that actually answers the question. The system API exposes env KEYS and never values, so
+nothing short of docker can do this.
+
+**1. A hardcoded Java address survives any number of redeploys.**
+`HttpIdpClientProvisioner.baseUrl` was `"http://" + "qits-platform-idp" + ":8080/idp/api/service-clients"`
+— a string literal, not a property and not an entry, so sweeping `application.properties` and the
+qits-configuration store both came back clean while the deployer went on dialling the plane-era name.
+Retiring `qits-platform-idp` would have failed every `idp:client` provisioning with an unresolvable
+host, at the next deploy of any service declaring one. Its own javadoc said so; fixed in `d7df16a`.
+A sweep of every Java source on the estate confirms it was the ONLY one — everything else matching is
+a log string, an `X-Qits-User` identity header, or an application name passed through
+`PdNetworks.alias`.
+
+**2. An application whose STORE key holds nothing takes the file's bare value, redeploy or not.**
+The §11 inventory queried `qits-platform-deployments` and `qits-platform-configuration` and found
+zero entries — but those applications are keyed **`qits-deployments`** and **`qits-configuration`**.
+So their addresses were never corrected, and they came from the extras file alone. Measured on the
+running containers:
+
+    qits_qits-deployments   QITS_EVENTS_URL=http://qits-events:8080
+                            QITS_PLATFORM_DEPLOYMENTS_EXTRAS_URL=http://qits-configuration:8080
+                            QUARKUS_OIDC_AUTH_SERVER_URL=http://qits-platform-idp:8080/idp
+                            QUARKUS_OIDC_CLIENT_CONFIGURATION_AUTH_SERVER_URL=…bare idp
+    dev-qits-configuration  QUARKUS_OIDC_AUTH_SERVER_URL=http://qits-platform-idp:8080/idp
+    qits-platform-maintenance  QUARKUS_OIDC_CLIENT_{CI,GITHOST}_AUTH_SERVER_URL=…bare idp
+
+**The deployer was the dangerous one**: removing qits-events, qits-configuration or qits-platform-idp
+would have broken the component that reads the configuration needed to repair it. All seven entries
+are now set to the qualified spelling and the affected services are redeploying.
+
+**A store entry BEATS the file — measured, not assumed.** `dev-qits-artifacts` shows no bare value at
+all, because the entry restored at 15:30 won over the file's bare one. That is what makes setting an
+entry a real fix rather than a hope.
+
+### The gate that actually holds
+
+Redeployment is necessary and not sufficient. Before retiring any bare-named service, read the live
+environments and require the answer to be empty:
+
+    for s in $(docker service ls --format '{{.Name}}'); do
+      echo "=== $s"
+      docker service inspect "$s" --format '{{range .Spec.TaskTemplate.ContainerSpec.Env}}{{println .}}{{end}}' \
+        | grep -E 'qits-platform-(idp|mirror|events|configuration|maintenance|orchestrator|system|edge)|qits-(events|configuration|deployments)' \
+        | grep -vE '=.*dev-qits' || echo '  (none)'
+    done
+
+Ignore three families in the output, which are identity rather than address and are correct as they
+stand: `QITS_APPLICATION`, `QITS_AUTH_MACHINE_AUDIENCE` / `*_GRANT_OPTIONS_CLIENT_AUDIENCE` /
+`*_CLIENT_ID`, and `QITS_IDP_ISSUER` (§4.3 — the `iss` claim is compared, never dialled).
