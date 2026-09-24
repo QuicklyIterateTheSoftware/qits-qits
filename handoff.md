@@ -1085,3 +1085,57 @@ State when this was written — one OK, eight stale:
 not depend on qits-eventstream, so no maintenance bump will reach it either. It needs an empty commit
 on its epic branch and a release request of its own before the cutover. That is house practice for
 exactly this shape — releasing content already on main by pushing an empty commit on your own branch.
+
+---
+
+## 17. THE CUTOVER IS RUNNING (2026-09-24 19:45+)
+
+**Slice D is LIVE**: qits-deployments `2026.924.185508`, ACTIVE 19:31:57. Its publish run failed once
+first — BuildKit `graceful_stop` mid-build, because qits-containers redeployed underneath it at 19:01
+and bounced the builder. That is the same signature as qits-observability's earlier rejection and it
+is worth knowing as a class: **your own deploys bounce the builder other releases are using.** The
+`PUBLISH` rerun fixed it; the code was never at fault.
+
+**The cutover gate opened** before any of this: all nine consumers redeployed after the ~15:30 entry
+correction, verified by the §16 command. qits-artifacts needed an empty-commit release of its own to
+get there.
+
+### The mechanism is proven on the estate
+
+`qits-platform-orchestrator` was the first, and it went exactly as AGENTS.md said it would: its bump
+release deployed under the live slice D, the deployer found no service named
+`dev-qits-platform-orchestrator`, **created** it, and left the bare-named predecessor running at 1/1.
+Both answered 200 for a while. Removing the predecessor left the successor serving and the bare name
+no longer resolving.
+
+**The load-bearing result: a bare platform name has been withdrawn while the `iss` claim is still
+spelled bare, and nothing broke.** That is §4.2's claim tested rather than argued — see §0-TODAY for
+why it was safe to expect.
+
+### How the steps are executed, and the one thing that made it safe
+
+Docker is reached through an ADMIN workspace (row **1301**, `plane-cutover`, `admin: true`, on branch
+`task/plane-cutover`). Note the create door refuses a branch that already has an active workspace —
+this epic's own branch is taken by the working container, hence a `task/` branch.
+
+There is **no arbitrary-command door**: `POST /workspaces/container/{row}/commands` runs only actions
+declared in `.qits-config.yml`, and no repository on the estate has one. So each step is a scoped
+agent launched at `POST /workspaces/container/{row}/agents`, transcript at `.../commands/{id}/log`.
+
+**Write every instruction as a GATE plus an action, and say "stop and report" rather than "make it
+work".** The first removal attempt refused to run, correctly: the gate I gave it was
+`docker service ls --filter name=qits-platform-orchestrator`, which is a PREFIX match and so could
+never list the `dev-` prefixed successor. The agent saw its precondition unmet and stopped instead of
+deciding what I must have meant. That is the property the edge step depends on — improvising there is
+an outage. **Verify the outcome yourself through qits-platform-system's swarm API; the transcript is
+a claim.**
+
+### State
+
+| service | state |
+|---|---|
+| qits-platform-orchestrator | **DONE** — predecessor removed, bare name retired |
+| idp, configuration, events, mirror, maintenance | empty-commit releases open; successor appears on deploy, then remove the predecessor |
+| qits-platform-system | holds `qits-platform-system-config` + docker.sock — remove FIRST, then release |
+| qits-deployments | cannot rename itself after slice D — `rm` + `create` by hand from its inspected spec |
+| qits-platform-edge | publishes 8080 and 443 **ingress** (measured: `[{8080->8080},{443->8443}]`) and fronts the registry — pull the image first, then `rm`, then `create --no-resolve-image`. REAL OUTAGE WINDOW, wants a person |
