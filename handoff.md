@@ -1988,3 +1988,67 @@ goes back to being undeployable at the next unrelated release.
 (`git tag --contains <fix sha>`), not merely that a deploy succeeded. `qits release-request join`
 would be the clean way to fold a branch into an open request, but it is unavailable once that
 request has RELEASED — the fold is already taken.
+
+## §32 — I broke every resource-declaring deployment, and the fix could not deploy itself (2026-09-25)
+
+**The regression is qits-360's, and it is mine.** The namespace rename moved this component's config
+to `qits.deployments.*` and gave each of the 26 keys that ship a default a bridging line naming the
+OLD environment variable — because nothing that feeds those keys is released by this repository, so
+the two spellings cannot move together. **Two keys had no line at all:**
+
+    qits.deployments.postgres.admin-password
+    qits.deployments.extras-url
+
+**Why they were missed is the lesson.** Both are read as `Optional<String>`, and the file's own
+header claimed an old spelling "fails loudly at boot (SmallRye fails an unsatisfied
+`@ConfigProperty`)". That is true of a REQUIRED property and false of an optional one: **an
+`Optional` `@ConfigProperty` is satisfied by ABSENCE.** Neither failed a boot. Both silently became
+unset. The header now says so.
+
+**What it cost.** From the moment the renamed deployer went live — `2026.925.93750`, deployed 09:37 —
+every deployment declaring a resource ended
+
+    resource provisioning failed: this deployment declares resources and
+    nothing configured qits.deployments.postgres.admin-password
+
+and rolled back: qits-events, qits-platform-idp, qits-platform-maintenance, qits-platform-mirror,
+qits-platform-orchestrator and qits-ci, six in a row. **The estate kept serving and stopped being
+able to deploy.** `qits-platform-system` deployed ACTIVE in the same window and is the control: it
+declares no resources, so it never asked.
+
+The second key had not surfaced and is worse: `extras-url` decides whether the deployer reads
+qits-configuration or the config volume's file, and unset is not an error — it is the documented
+"no service named" arm. The deployer would have gone on deploying from the **bootstrap file**, which
+predates the plane cutover and still names bare aliases, with nothing in any log saying the
+authoritative source had stopped being consulted.
+
+### How I mis-read it for an hour, which is its own lesson
+
+I reported those six as "deployed ok". The deployments API row has a `status` field
+(`ACTIVE`/`FAILED`) and I never read it — I inferred success from the absence of the word `rolled`
+in `detail`. A queued, a pending and a failed row all lack that word. **Read `status`; `detail` is
+prose.**
+
+### The deadlock, and the escape the owner chose
+
+`ResourceProvisioning.provision` asks for the admin password BEFORE doing anything —
+`needsPostgres ? requireAdminPassword() : null` — and this component declares two postgres
+resources. So the deploy of the cure was itself a resource-declaring deployment and died of the
+defect it carried the cure for. `deployer-refuses-its-own-fix`, again.
+
+Three escapes existed; the owner chose the third:
+
+1. a hand `docker service update --env-add` copying both values onto the new spellings — closed to a
+   `qits:agent` credential, because `agent-dispatches` is `qits:admin`/`qits:system`;
+2. reverting the namespace rename — the largest diff, and it still could not deploy itself;
+3. **declaring no resources for exactly one release**, so `provision()` returns before it asks.
+
+Each leg of (3) was checked rather than hoped: it is a SELF-UPDATE (`ownServiceName()` equals the
+wire alias) so the driver exempts it from the recreate path and it is `service update`, never
+`rm`+`create`; `envRemovals` never emits `--env-rm` for a key starting `QITS_RESOURCE_`
+(`SwarmDeploymentDriver:2041`), so the DB credentials stay on the service; and
+`BootResourceRegistration` re-records both registry rows from the environment at every boot.
+
+**THE NEXT RELEASE PUTS `resources:` BACK.** The declaration is commented out in the file so the
+restoration is a revert rather than a recollection. Left off, this component keeps its credentials
+only until something recreates its service, and a cold bootstrap would provision nothing at all.
