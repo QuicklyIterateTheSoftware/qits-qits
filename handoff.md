@@ -1960,3 +1960,31 @@ comes from the same confusion.
 move `qits-platform-idp`. That is exactly what the key was added for, and it is why the epic files
 them as separate tasks. Either order works; the constraint is only that the two wire windows are
 never open at once.
+
+### §30d — A maintenance bump can release past your fix, and obsolete the request carrying it
+
+At 11:30 today qits-platform-maintenance filed its ordinary dependency bump for qits-ci-service,
+`c638bf4b`, which **released as `2026.925.114212`** — folding `main` + `maintenance/dependencies`
+and therefore **NOT** the epic branch, which is where the `resolve-early=false` fix lives. Meanwhile
+the fix's own request `8a66b882` was still waiting on its QA run.
+
+Two consequences, and the second is the one to watch for:
+
+1. **That bump will hit the same boot failure**, because it carries none of the mitigation. Expect
+   another `qits-ci` rollback; it is predicted, not a new fault. qits-ci is `update_order:
+   stop-first`, so the attempt takes the service down and the rollback brings the predecessor back.
+2. **A later request supersedes an earlier one that has not finished.** `c638bf4b` was created after
+   `8a66b882`, so if the bump completes first it can leave the FIX marked OBSOLETE and unshipped —
+   the exact inverse of the escape used in §30, where the fix superseded the stranded release.
+
+**Why it is nonetheless self-correcting here, and what to check rather than assume.** A deploy that
+rolls back strands its request at RELEASED with a DEPLOYMENT gate that cannot pass, so the bump
+cannot finish, and `8a66b882` releases afterwards and supersedes IT — carrying the fix, which is
+what happened to `b5356e09` earlier today. That is a benign race only because the bump FAILS. If the
+bump ever deploys green while the fix is still gating, the fix is obsoleted silently and qits-ci
+goes back to being undeployable at the next unrelated release.
+
+**So: after any qits-ci release, check that the version that actually deployed contains the fix**
+(`git tag --contains <fix sha>`), not merely that a deploy succeeded. `qits release-request join`
+would be the clean way to fold a branch into an open request, but it is unavailable once that
+request has RELEASED — the fold is already taken.
