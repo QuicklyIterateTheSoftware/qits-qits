@@ -2246,3 +2246,35 @@ its cause:
 So the bare hostname is neither configured, nor injected, nor baked. Whatever produces it is inside
 the process. qits-ci keeps serving `2026.924.200432` meanwhile, so this is one stranded release
 rather than an outage.
+
+## §36 — Incident closed: fleet clean, obligations discharged (2026-09-25 15:57)
+
+**The `resources:` restoration is released and deployed** — `2026.925.153918`, ACTIVE. That
+deployment succeeding *with* the declaration present is itself the proof that provisioning works
+again, so the one-release escape of §32 is fully wound back and the standing obligation is gone.
+
+**qits-platform-system is redeployed** (`2026.925.154506`) off an empty commit, which is the only
+way to refresh a container's environment — `restart` and `scale` both re-run the same spec.
+
+**The fleet sweep is clean.** All twenty running services, each grepped for a bare `http://qits-`
+in its last 300 log lines: **zero**. Before the redeploy it was 19 of 20, and the twentieth gave
+exactly one WARN at boot and then nothing — which is the whole of the evidence a lazily-resolving
+service ever offers. That is the method to repeat after any deployment incident; it is the only
+check that catches a silently degraded service.
+
+### Task #7 is closed, and it was wrong once
+
+"No service on this estate dials a bare alias" was asserted earlier from the config store and the
+shipped defaults, and qits-ci disproved it. It is now asserted from **the running processes' own
+logs**, which is the evidence that was missing. Read that as the lesson rather than the conclusion:
+config says what should be injected, a log says what was dialled, and only the second is a fact
+about a running container.
+
+### What is left
+
+- **qits-ci** — `2026.925.114212` still rolled back on `UnknownHostException: qits-platform-idp`,
+  cause unknown, box very tight (see §35). It serves `2026.924.200432` meanwhile. One stranded
+  release; not an outage.
+- **Feature 5** — unblocked as soon as no CI run is in flight. The seventeen renames are prepared
+  and validated against the wrapper's real gitlinks (`/tmp/rename17.sh`, map in
+  `/tmp/renamemap.tsv`), and the PATCH door has been proven to accept this credential with a no-op.
