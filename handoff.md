@@ -1456,3 +1456,44 @@ hold the bare name until something re-creates them.
 **The nine services are done. What remains of the epic is renames of a different kind** —
 qits-135's seventeen REPOSITORY renames and qits-361's nine APPLICATION renames — and qits-361 is a
 third `rm`-and-`create` of these same nine swarm services. See qits-376.
+
+---
+
+## 25. qits-135 — THE SEVENTEEN RENAMES, AND WHY THEY WAIT (2026-09-25)
+
+**Seventeen**, confirmed against the live repository listing: nine `*-platform-service` (edge,
+events, maintenance, configuration, mirror, orchestrator, system, idp, deployments) and eight
+`*-platform-frontend` (the same minus edge, which has none). **`qits-platform-access-cli` is NOT one
+of them** — its `platform` is a component name, and the task says so.
+
+### One risk the estate no longer carries
+
+The memory of the 2026-09-07 rename warns that qits-ci's trigger engine **decides at main**: a
+`when: repoName {exact: …}` matcher in `.config/qits/ci-event-*.yml` is read at each candidate's
+`main`, so a rename whose matcher fix sits only on a branch silently produces **no gating run** —
+matched none, nothing logged. **That trap does not apply here.** There are zero `repoName` matchers
+left on the estate; the recipes moved to `release.yml` under the release-slots system. Checked, not
+assumed.
+
+### The constraint that DOES bite: renaming breaks in-flight CI
+
+A CI step clones `/git/<projectId>/<repoName>`. The git host keys bares by id, so the new name serves
+the instant the PATCH commits **and the old name stops resolving** — which fails every run already
+executing against the old address. **Nineteen release requests from the qits-123 sweep are gating
+right now.** The renames wait for that queue to drain.
+
+### The order when it does
+
+1. **PATCH each repository** — `PATCH /projects/api/repositories/{repoId}` `{"name": …}`, qits:admin.
+   The archetype is re-derived from the role suffix.
+2. **The wrapper `.gitmodules` follows in the same change** — entry name, path and url together, or
+   the repository reads UNDECLARED at the next reconcile. The GitHub backup twin self-heals from the
+   wrapper.
+3. **`RepositoryRenamed` does the rest by itself**: qits-ci's `ci-repository-rename` rewrites
+   `ci_run` and `ci_release_announcement`, qits-deployments' `pd-repository-rename` rewrites
+   `pd_owed_release`, both replaying from the epoch and converging. qits-maintenance self-heals on
+   its next full scan; githost, workspaces, orchestrator and artifacts resolve live.
+4. **Maven artifactIds and npm packages follow per repository.** Note what does NOT move: the IMAGE
+   coordinate is `qits/<application>`, and every one of the nine pins `application:` — so the image,
+   the wire alias, the container and the database are untouched by a repository rename. That is
+   exactly what `application:` was added for, and it is why qits-361 is a separate task.
