@@ -1385,3 +1385,50 @@ is the argument for **qits-376** — teach qits-deployments to match a service b
 `qits.platform.deployments.application` label rather than by name, so a rename is an ordinary replace
 it performs itself. qits-361 renames these same nine again; running this procedure a second time by
 hand would be choosing to repeat this outage.
+
+---
+
+## 23. qits-360 — WHAT IS IN THE RENAME AND WHAT IS DELIBERATELY NOT (2026-09-25)
+
+The task names two renames: the java package root and the config namespace. Three things carry
+`qits.platform.deployments.*` and they are not equally safe, so the scope is stated here rather than
+discovered halfway through.
+
+**IN — the java package root.** `eu.wohlben.qits.platform.deployments.*` -> `eu.wohlben.qits.deployments.*`,
+184 files across all four modules. Nothing outside the repository imports it (checked), so it is
+self-contained.
+
+**A package rename is a WHOLE-TREE TEXT CHANGE, not a java change**, and the build caught two misses
+that a source-only sweep left behind: a file whose `package` line the rewrite skipped, and
+`service/src/test/resources/META-INF/services/org.eclipse.microprofile.config.spi.ConfigSource`,
+which names `EmbeddedPgConfigSource` by string. Anything naming a class by string — a service
+registration, a reflection config, a `beans.xml`, a `@RegisterForReflection` literal — moves with it.
+Verify with a scan over **all file types** excluding `target` and `.git`, by absolute path: a
+relative `grep -rl` from a shell whose cwd has shifted answers 0 and means nothing.
+
+**IN — the config namespace**, `qits.platform.deployments.*` -> `qits.deployments.*`. Two halves:
+
+- The deployer's own ~30 keys. Their env spelling is `QITS_PLATFORM_DEPLOYMENTS_*`, which the
+  deployer's container receives from the extras — so a flip renames the variable the container needs
+  before it can read it. **Dual-read**: the shipped property reads the new key and defaults to the old
+  env name, `qits.deployments.container-runtime=${QITS_PLATFORM_DEPLOYMENTS_CONTAINER_RUNTIME:docker}`.
+  The env source outranks the properties file, so a new-spelling variable wins, an old one still
+  feeds it, and neither falls back to the default.
+- The `extras.<app>.*` prefix, which the task names explicitly ("which ComposeTemplate's extras block
+  spells out in full"). It is spelled in **three repositories** — `ServiceExtras` here,
+  `ExtrasProperties.PREFIX` plus two controllers in qits-configuration, and `ComposeTemplate` in
+  qits-bootstrap-cli — and they must move together, with `ServiceExtras` accepting both prefixes
+  while the store and the volume file still render the old one.
+
+**OUT — the docker LABELS.** `qits.platform.deployments.app-name`, `.application`, `.environment`,
+`.deployment`, `.available-on-env` are a label namespace, not a config one, and the task names
+neither them nor a label. Renaming them makes every running container read as **unclaimed**: CLAUDE.md's
+"Adopting what qits-cd left behind" is explicit that a holder without the environment label is treated
+as an adoptable predecessor, and the environment teardown sweeps by label. A live estate would be left
+with containers running beside their replacements. If they are ever renamed it wants its own change,
+with a read-both-write-new window.
+
+**OUT — the artifactIds and the REST path.** `qits-platform-deployments-*` and
+`/platform-deployments/api` are published coordinates: the artifactIds are resolved by consumers, and
+the path is spelled in the edge's route table, this repository's `deployments.yml`, its frontend and
+`quarkus.quinoa.ignored-path-prefixes`. The task lists neither.
