@@ -1650,3 +1650,50 @@ oldest thing running (2026.922) and is fine for that reason: its only peer addre
 `QITS_OBSERVABILITY_URL`, is injected and already qualified.
 
 **Conclusion: no service on this estate dials a bare alias.** Task #7 is closed.
+
+## §29 — qits-135 prepared, and the bundle id that would have moved silently (2026-09-25)
+
+### The seventeen, resolved against the live catalog
+
+A naive search for `-platform-` returns **eighteen**, and the epic says seventeen. The extra one is
+`qits-platform-access-cli`, which the epic excludes by name — its `platform` is a COMPONENT name, not
+a tier modifier, and its component directory is `components/qits-platform-access/`. Any script that
+selects by substring gets this wrong; select by the `-platform-service` / `-platform-frontend`
+SUFFIX instead, which returns seventeen and excludes it by construction.
+
+    qits-{configuration,deployments,events,idp,maintenance,mirror,orchestrator,system}-platform-{service,frontend}
+      -> qits-<component>-{service,frontend}                                        (16)
+    qits-edge-platform-service -> qits-edge-service                                 (1, no frontend)
+
+Every one sits at `components/<component>/<repository>`, so the `.gitmodules` entry name, path and
+url all move together — see the house rule in the wrapper's own `CLAUDE.md`.
+
+### The CI-recipe trap does not apply, checked rather than assumed
+
+`.config/qits/release-archetypes/java-service.yml` mentions the old repository names, but only in
+COMMENTS — there is no `repoName` matcher anywhere on the estate, and no per-repository
+`.config/qits/` file names a sibling's repository. So no recipe has to land on main first for this.
+
+### What WOULD have broken silently, and is now fixed
+
+`userflows: true` derives the docs bundle's **storage id** from `$QITS_CI_REPO_NAME`. Eight of the
+seventeen relied on it — deployments, edge, events, idp, maintenance, mirror, orchestrator, system —
+and they are exactly the eight the rename touches. The rename would therefore have moved
+`@userflows/qits-idp-platform-service` to `@userflows/qits-idp-service` with nothing failing: the
+old bundle keeps its history under a name nothing publishes to again, and the new one starts empty.
+
+**Fixed ahead of the rename by spelling the component name**, which is the house convention and not a
+new one: every other service already spells it — `qits-ci`, `qits-projects`, `qits-observability`,
+`qits-configuration`, `qits-githost`, `qits-containers`, `qits-workspaces`, `qits-artifacts`, nine
+for nine. `true` survived only where the derived value happened to be tolerable, and it is tolerable
+only until the name moves. Spelled, the bundle id is stable under BOTH this rename and qits-361's
+application rename, and the retired word leaves the storage ids — which is the feature's point.
+
+Verified through the archetype's own parse (`sed -n 's/^userflows:[[:space:]]*//p'` then the `#`
+strip), not by reading the file. Pushed onto the epic branch, so it rides the open sweep requests.
+
+### What still gates qits-135
+
+The queue. A CI step clones `/git/<projectId>/<repoName>`; the new name serves the instant the PATCH
+commits and the old name stops resolving, which fails every run already executing. Renames start
+when nothing is gating.
