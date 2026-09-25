@@ -2168,3 +2168,28 @@ discriminator is, once again, the deployment row's `status`.
 
 The ten stranded releases are the other case: their deployment rows really did FAIL and rolled back,
 so each still needs a DEPLOY rerun once the deployer can provision again.
+
+### §33b — The blast radius, and the irony that bounded it
+
+Every service DEPLOYED between 09:37 (the broken deployer going live) and its correction carries the
+stale bootstrap file's environment. Measured, that is exactly **two**:
+
+| service | deployed | symptom |
+|---|---|---|
+| `dev-qits-platform-system` | 11:12 | one boot WARN naming `http://qits-platform-idp:8080/idp`, then silence — its JWKS fetch is lazy, so it is **silently degraded**: forward-auth header traffic works, bearer-authenticated calls will fail |
+| `dev-qits-deployments` | 13:10 | loud and continuous — its tenant resolves early and its eventstream retries, so it names both bare addresses every few seconds |
+
+**Everything else was protected by the other bug.** The ten releases whose deployments FAILED on
+provisioning never got a container, so they never got the stale environment either. The provisioning
+regression bounded the blast radius of the extras-file regression — which is luck rather than
+design, and worth saying out loud because the next time those two faults will not be simultaneous.
+
+**So the recovery list has an eleventh entry**: `qits-platform-system` needs a redeploy too, and it
+will not announce itself as broken. Nothing about it looks wrong from outside — it is 1/1, it
+answers every read this session has made of it, and its degradation is confined to a door nobody has
+knocked on yet.
+
+**The general lesson, which is the one to carry:** a service whose OIDC tenant resolves lazily hides
+a bad idp address until the first bearer arrives. That is the right runtime behaviour and a terrible
+diagnostic property. After any deployment incident, grep each affected container's log for
+`http://qits-` — one WARN at boot is the whole evidence a lazy service will ever give you.
