@@ -70,8 +70,10 @@
 #
 # The release pushes `$QITS_BUILD_REGISTRY/$QITS_IMAGE_REPOSITORY/<image>:$QITS_VERSION` and the
 # `<image>` half is per-repository. It is NOT derivable from `$QITS_CI_REPO_NAME`: measured across
-# all nineteen, `qits-idp-platform-service` publishes `qits/qits-platform-idp` while
-# `qits-deployments-platform-service` publishes `qits/qits-deployments`, and no rule covers both.
+# all nineteen, `qits-idp-service` publishes `qits/qits-platform-idp` while
+# `qits-deployments-service` publishes `qits/qits-deployments`, and no rule covers both. The
+# REPOSITORY was renamed and the application deliberately was not, which is the whole reason
+# `application:` exists — so the gap between the two names is wider now, not narrower.
 #
 # So the script reads the `artifacts:` entry the repository already declares — the SAME declaration
 # qits-ci announces the `SoftwareRelease` from, and the same one the composed postlude submits the
@@ -103,9 +105,13 @@
 # - THE STORY DIRECTORY, `*/target/userstories`, because the module holding the deployable is
 #   `service/` in most repositories and the root in two.
 # - THE USERFLOW SITE, from `release.yml`'s own `userflows:` key, because that value is not derivable
-#   either: `qits-observability-service` publishes `@userflows/qits-observability` and
-#   `qits-idp-platform-service` publishes `@userflows/qits-idp-platform-service`. `userflows: true`
-#   means the repository's own name, which is what `Userflows.derived()` says on the engine's side.
+#   either: every service on the estate SPELLS it — `qits-observability-service` publishes
+#   `@userflows/qits-observability`, `qits-idp-service` publishes `@userflows/qits-idp`.
+#   `userflows: true` means the repository's own name, which is what `Userflows.derived()` says on
+#   the engine's side — and NOTHING relies on that any more. It was used by the eight repositories
+#   the renames touched, where the derived value would have carried the retired tier modifier into
+#   a storage id and then MOVED that id the day the repository was renamed, stranding a bundle's
+#   history under a name nothing publishes to. Spell the component; do not lean on the default.
 # - THE STORY ALLOW-LIST, from `.config/qits/userflow-stories` when the repository keeps one: one
 #   class name per line, `#` comments and blank lines ignored. It becomes `-Dit.test=<list>`.
 #   ABSENT MEANS THE REPOSITORY'S POM DECIDES which ITs run, which is the shape qits-artifacts,
@@ -357,9 +363,9 @@ release-request:
       tar -czf /tmp/userstories.tgz -C "$stories_dir" .
 
       # THE SITE, out of this repository's own release.yml. `userflows: true` means the repository's
-      # own name; a spelled value wins, because the fleet's sites are not derivable (qits-projects
-      # publishes @userflows/qits-projects and qits-system-platform-service publishes
-      # @userflows/qits-system-platform-service).
+      # own name; a spelled value wins, because the fleet's sites are not derivable — and every
+      # repository spells one, so the derived arm is a fallback nothing takes (qits-projects
+      # publishes @userflows/qits-projects, qits-system-service publishes @userflows/qits-system).
       site=$(sed -n 's/^userflows:[[:space:]]*//p' .config/qits/release.yml | head -1)
       site=${site%%#*}
       site=$(printf '%s' "$site" | tr -d '[:space:]')

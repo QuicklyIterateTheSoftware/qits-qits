@@ -27,12 +27,27 @@ The component directory name says what the thing is, never how it is built:
 component does not.
 
 Repository names follow the `<component>[-<modifier>]-<role>[-<tech>]` grammar:
-`qits-ci-service`, `qits-ci-frontend`, `qits-ci-daemon`,
-`qits-idp-platform-service`, `qits-eventstream-javalib`. Roles are `service`,
-`frontend`, `daemon`, `oci`, `cli`, `javalib` and `jslib`; `platform` is a tier
-modifier before the role; a tech suffix appears only where the role alone is
+`qits-ci-service`, `qits-ci-frontend`, `qits-ci-daemon`, `qits-idp-service`,
+`qits-eventstream-javalib`. Roles are `service`, `frontend`, `daemon`, `oci`,
+`cli`, `javalib` and `jslib`; a tech suffix appears only where the role alone is
 ambiguous. See `wrapper-reorganization-plan.md` for the full map of which
 repository belongs to which component.
+
+**`platform` is not a modifier, and the tier it named is gone.** A service used
+to be one of two kinds — an ENVIRONMENT service, addressed `dev-qits-ci`, or a
+PLATFORM service, one process for the whole estate addressed by the bare
+`qits-platform-idp` — and seventeen repositories carried the word to say which.
+That plane is deleted: every service is an ordinary service in the one
+environment, so there is no second kind for a name to distinguish, and the
+seventeen were renamed to drop it (`qits-idp-platform-service` became
+`qits-idp-service`). A word that no longer means anything is worse than one that
+never existed.
+
+**One name keeps it and is not an exception**: `qits-platform-access-cli`, whose
+`platform` is the COMPONENT — `components/qits-platform-access/` — rather than a
+modifier before the role. Hold that distinction, because a search for
+`-platform-` matches eighteen repositories and only seventeen were ever about the
+tier. Match the `-platform-<role>` SUFFIX, never the bare substring.
 
 The repository name is not the application name. A service keeps its deployed
 identity — the `qits-ci` application is built from `qits-ci-service` — and so do
