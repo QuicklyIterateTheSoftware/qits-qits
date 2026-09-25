@@ -1610,3 +1610,43 @@ brings a CONFLICTED request back by itself. All four are PENDING.
 'origin/(main|release/)'`. Zero means your push missed the fold and needs its own request; one means
 it rode. Do it per repository after any push during a gating queue — the release-request state alone
 does not tell you, because a PENDING request may predate your commit.
+
+## §28 — The cutover verified live, service by service (2026-09-25)
+
+Read through qits-system's swarm API, which is at `dev-qits-platform-system:8080/system/api/swarm/*`
+now (the bare name is gone, and that API is how the gate reads itself — see §24).
+
+**Twenty services, every one `dev-`-prefixed, every one 1/1.** There is no bare-aliased service left
+on the estate. That is the plane deletion's headline claim, and it is now a listing rather than an
+argument. Eight of the twenty still carry `platform` inside the *application* name
+(`dev-qits-platform-idp`, `-edge`, `-mirror`, `-maintenance`, `-orchestrator`, `-system`) — that is
+qits-361's job and not this one's; what the plane deletion owed was the prefix, and every service has
+it.
+
+**The qits-350 verification, which needed doing per service rather than in aggregate.** A service
+reaches the idp one of two ways, and only one of them is visible in the deployment:
+
+- **Injected** — `QUARKUS_OIDC_AUTH_SERVER_URL` in the service's environment. Eleven services carry
+  it, so whatever their image shipped is irrelevant.
+- **Shipped** — no injected variable at all, so the image's own default decides. FOUR services are
+  in this position: qits-events, qits-observability, qits-githost and qits-platform-mirror. Each was
+  checked **at the tag it is actually running**, by reading `application.properties` out of that tag,
+  and all four carry `http://${QITS_ENVIRONMENT:dev}-qits-platform-idp:8080/idp`. This is the check
+  that would have caught a service left dialling a name that no longer resolves, and nothing else
+  would have: the deployment's env is silent about it precisely because there is no variable.
+
+**qits-edge carries the split §4.2 settled, and carries it correctly:**
+
+    qits.idp.url=${QITS_RESOURCE_IDP_URL:${QITS_IDP_URL:http://qits-platform-idp:8080/idp}}
+    qits.idp.dial-url=${QITS_IDP_DIAL_URL:http://${QITS_ENVIRONMENT:dev}-qits-platform-idp:8080/idp}
+
+The first is the **issuer** — the `iss` claim, compared for string equality and never dialled — so it
+stays bare on purpose and a "fix" there would change what tokens say rather than where a request
+goes. The second is what is actually dialled, and it derives. If a future reader sees the bare
+spelling on line 214 and reaches for it, line 229 is the answer.
+
+qits-docs and qits-stt validate no tokens and have no idp dependency at all. `dev-qits-stt` is the
+oldest thing running (2026.922) and is fine for that reason: its only peer address,
+`QITS_OBSERVABILITY_URL`, is injected and already qualified.
+
+**Conclusion: no service on this estate dials a bare alias.** Task #7 is closed.
