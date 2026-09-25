@@ -2278,3 +2278,75 @@ about a running container.
 - **Feature 5** — unblocked as soon as no CI run is in flight. The seventeen renames are prepared
   and validated against the wrapper's real gitlinks (`/tmp/rename17.sh`, map in
   `/tmp/renamemap.tsv`), and the PATCH door has been proven to accept this credential with a no-op.
+
+## §37 — qits-361 HAS A DATA HAZARD THE EPIC DOES NOT MENTION (2026-09-25)
+
+**Renaming these applications renames their PROVISIONED DATABASES, and four of them would be
+re-pointed at fresh empty stores.** Read this before starting qits-361; it is the finding that
+matters more than the rename itself.
+
+A repository declares `resources: postgresql:db` with no third segment, and the deployer DERIVES the
+database name from the APPLICATION name — `qits_` plus the name minus its `qits-` prefix. So:
+
+| application | derives today | derives after the rename |
+|---|---|---|
+| `qits-platform-idp` | `qits_platform_idp` | **`qits_idp`** |
+| `qits-platform-orchestrator` | `qits_platform_orchestrator` | **`qits_orchestrator`** |
+| `qits-platform-maintenance` | `qits_platform_maintenance` | **`qits_maintenance`** |
+| `qits-platform-mirror` | `qits_platform_mirror` | **`qits_mirror`** |
+
+A rename alone therefore provisions a NEW, EMPTY database and starts the application against it —
+**on a green deploy, with nothing failing**. For qits-idp that is a new signing key and no service
+clients: every token on the estate becomes invalid and every machine credential disappears.
+
+**Two of the six are already safe**, and they show the fix: `qits-platform-edge` pins both of its
+databases by name (`postgresql:edge:qits_platform_edge, postgresql:eventstream:qits_platform_edge_eventstream`)
+and `qits-platform-system` declares no resources at all. The `eventstream` halves of orchestrator and
+maintenance are pinned too. It is only the bare `postgresql:db` entries that move.
+
+**So qits-361 gains a prerequisite step:** pin the four existing database names in their
+`deployments.yml` and release that FIRST, on its own, so the rename cannot move a store.
+
+    resources: postgresql:db:qits_platform_idp
+    resources: postgresql:db:qits_platform_orchestrator
+    resources: postgresql:db:qits_platform_maintenance
+    resources: postgresql:db:qits_platform_mirror
+
+### Why that change is NOT in this branch, which is the other half of the finding
+
+I wrote it, and then reverted it, because **a pin naming the wrong database causes exactly the
+catastrophe it exists to prevent** — the deployer would provision the name I wrote and start the
+application against it. The names above are inferred rather than read:
+
+- the derivation is documented in qits-deployments' own notes;
+- `qits-deployments` really uses `qits_deployments` (its config entry carries the JDBC url);
+- `qits-platform-edge`'s hand-written pin is `qits_platform_edge`, the identical transformation.
+
+Three consistent data points and no direct observation. The deployer exposes no `/resources` read,
+these applications' JDBC urls are injected from its registry rather than served by
+qits-configuration, and the admin-workspace shell that could run `psql` answered `SKIPPED_RUNNING`
+on every attempt (its stale agent flag needs a container recreate between dispatches, and the
+round trip is minutes).
+
+**So the prerequisite for qits-361 is one read**, and it is worth doing properly:
+
+    docker exec $(docker ps --filter name=qits-oci-postgresql -q) \
+      psql -U postgres -tAc "select datname from pg_database where datname like 'qits%' order by 1"
+
+Confirm those four exist and that `qits_idp` / `qits_orchestrator` / `qits_maintenance` /
+`qits_mirror` do NOT. Then pin, release, and only then rename.
+
+### The rest of qits-361, for whoever picks it up
+
+Six applications (§31), and the order is by blast radius: **orchestrator** (nothing dials it by
+shipped default), then **maintenance** (3 dialers), **mirror** (13), **idp** (33 — the whole
+estate), **system** (holds a config volume and the docker socket), **edge** LAST (publishes ports,
+holds the ACME volume, and fronts the registry its own successor must be pulled through — the epic
+says outright that step "wants a person watching rather than a script").
+
+Per service: the swarm service is created under the new name and the old one must be removed by
+hand, exactly as in *Retiring the plane's bare-named services*. Dialers cannot move first — four
+services resolve the idp from a SHIPPED default rather than an injected variable (§28), so changing
+those literals before the name exists breaks them. Either declare the new name as an extra alias and
+recreate each service once (the staged trick the plane deletion used), or accept a per-service
+window.
