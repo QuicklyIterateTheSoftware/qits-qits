@@ -1697,3 +1697,36 @@ strip), not by reading the file. Pushed onto the epic branch, so it rides the op
 The queue. A CI step clones `/git/<projectId>/<repoName>`; the new name serves the instant the PATCH
 commits and the old name stops resolving, which fails every run already executing. Renames start
 when nothing is gating.
+
+### §29a — qits-374 is VERIFIED, and this branch was carrying the landmine
+
+Read after the fact, and it settles §27's resolution rather than merely agreeing with it. The owner's
+words on the thread, 2026-09-24:
+
+> please make sure this continues to be the case. the qits landing page is meant to be only
+> accessable via authentication. close this ticket once verified that authentication is still
+> necessary and anon usage is not permitted.
+
+The ticket is **VERIFIED**, and it describes the already-released half of the original change as "a
+live landmine" that has to come back out. **This epic branch was carrying exactly that half** — the
+`QITS_EDGE_AUTH_ANONYMOUS_READ_APPS=landing` line in both `ComposeTemplate` sites. The merge conflict
+in §27 is what caught it, and resolving in favour of main is what removed it. Had that merge been
+resolved the other way and released, the bootstrap would have re-opened the door.
+
+Re-measured 2026-09-25 against `dev-qits-platform-edge:8080`, and it matches the ticket exactly:
+
+    Host: dev.qits.wohlben.eu, machine Accept   -> 401
+    Host: dev.qits.wohlben.eu, browser Accept   -> 302 idp/login?return_host=wohlben.eu&return_path=%2F
+    HEAD                                        -> 401
+    Host: landing.dev.qits.wohlben.eu           -> 404   (not a second address, as designed)
+
+The 401 rather than a 404 is the part that carries information: it says the edge HAS a route there
+and is gating it, which is what tells "gated" apart from "serving nothing".
+
+One incidental observation, pre-existing and recorded in the ticket too rather than introduced here:
+the login redirect carries `return_host=wohlben.eu` rather than the project door's own host. Not this
+epic's, and not investigated.
+
+**Also settled by reading that ticket: the hostname grammar cutover (Feature 4) is released** —
+`qits-edge-platform-service 2026.924.80607` and `qits-bootstrap-cli 2026.924.82038`. So the second of
+the three wire windows is closed, and qits-361 is the third and last.
