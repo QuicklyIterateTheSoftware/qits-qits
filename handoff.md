@@ -2143,3 +2143,28 @@ volume is the stale one by construction. Either the file is excluded from the sn
 a store answered (a config built from the store over a boot config with the config-dir source
 removed), or the bootstrap must re-render it on every deploy — and the second is the arrangement
 this design exists to end. This belongs on qits-375 with the ordinals quoted.
+
+### §33a — The deployer's own release is ACTIVE but its GATE is stuck, and that is the same cause
+
+`qits-deployments` deployed itself successfully at 13:10:50 — the deployment row says `ACTIVE` and
+the service runs `2026.925.123951`, 1/1. Its release request is nonetheless `RELEASED` with
+`DEPLOYMENT: PENDING` and `mergedToMainAt: null`.
+
+The gate closes on the **`DeploymentActive` announcement**, not on the row, and the deployer cannot
+publish: its eventstream client is dialling the bare `qits-events` out of the same stale environment.
+Its own log states the position exactly:
+
+    OutboxSweeper: qits-events is unreachable: 1 of 1 due event(s) got no answer
+    and will keep being retried
+
+**So nothing is lost and no re-release is needed for it.** The announcement is in the outbox, which
+is durable and retried; correcting the environment drains it and the gate closes retroactively. This
+is the eventstream's at-least-once design doing exactly its job.
+
+**Read this before deciding any release here is broken.** A deployment row saying `ACTIVE` beside a
+`PENDING` deployment gate is *not* the `failed-deploy-strands-the-release` shape — that one is a row
+that FAILED. This one is a successful deploy whose announcement has not been delivered yet, and the
+discriminator is, once again, the deployment row's `status`.
+
+The ten stranded releases are the other case: their deployment rows really did FAIL and rolled back,
+so each still needs a DEPLOY rerun once the deployer can provision again.
