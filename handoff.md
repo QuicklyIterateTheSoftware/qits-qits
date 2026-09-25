@@ -1561,3 +1561,52 @@ branch this work is on. So a push refolds each open request and the address chan
 release rather than needing one of its own. Verified against
 `qits release-request list -o json`, which names the epic branch in `sources`. Pushing while those
 runs were QUEUED cost nothing; pushing while one was RUNNING would have restarted it.
+
+## §27 — The config namespace's other half, and a reversal caught by a merge (2026-09-25)
+
+qits-360 renamed the deployer's own namespace to `qits.deployments.*` and made both halves
+dual-read, because nothing that FEEDS those keys is released by qits-deployments. This is the other
+half — the emitters.
+
+**qits-bootstrap-cli** emitted 340 extras keys under `qits.platform.deployments.*` and now emits
+`qits.deployments.*`, golden fixtures included. **The docker labels did not move**, and the three
+places that name one were restored by hand after the blanket rename: `UnwrapPhases`' two label
+namespaces (the sweep that tears the platform down reads containers by label, and a renamed label
+namespace makes every running container read as unclaimed) and the `app-name` filter in its tests.
+
+**The deployer's `git-host-url` default was a live hazard.** It read
+`${QITS_PLATFORM_DEPLOYMENTS_GIT_HOST_URL:http://qits-githost:8080}` — a bare plane-era alias that
+resolves nowhere since the cutover. It only ever worked because the deployment sets the variable; a
+deployment that stopped setting it would have failed every spec fetch with a name that cannot
+resolve. The default now derives from `QITS_ENVIRONMENT`.
+
+Two stale prose references moved with the key they describe, in qits-ci's `application.properties`
+and qits-workspaces' `deployments.yml`.
+
+### The reversal a merge caught
+
+qits-bootstrap-cli's release request came back CONFLICTED, and resolving it is the part worth
+recording. The conflict was the anonymous-read block, and **main was the authority**: this epic
+branch still carried the exemption that put `landing` on `QITS_EDGE_AUTH_ANONYMOUS_READ_APPS`, and
+**the owner reversed that decision on ticket qits-374**. Main's
+`ComposeTemplateTest.nothingIsAnonymousAndTheBytePlaneStaysClosed` asserts the key is ABSENT from
+both the seed stack and the extras — the key itself, not merely that its value is not a byte-plane
+name. Taking this branch's side reintroduced it and went red on exactly that test, which is the test
+doing its job. Both hunks are main's text again, in two places (the seed `qits-platform-edge` env
+block and the extras block); only the namespace rename survives there.
+
+**The landing page stays behind the login wall.** Any branch older than 2026-09-25 that touches
+`ComposeTemplate` will reintroduce the key on merge — resolve in favour of main.
+
+### Release bookkeeping
+
+The 13 address-change pushes: ten refolded into their open sweep request and rode it. Three had
+already released before the push and needed their own request — qits-containers, qits-system,
+qits-docs — as did qits-bootstrap-cli, which the sweep never touched. Two of those four came back
+CONFLICTED against a main that had moved; both were merged, rebuilt and pushed, and a push is what
+brings a CONFLICTED request back by itself. All four are PENDING.
+
+**The check that matters, and it is cheap:** `git branch -r --contains <your sha> | grep -E
+'origin/(main|release/)'`. Zero means your push missed the fold and needs its own request; one means
+it rode. Do it per repository after any push during a gating queue — the release-request state alone
+does not tell you, because a PENDING request may predate your commit.
