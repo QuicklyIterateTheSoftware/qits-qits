@@ -1915,3 +1915,48 @@ predecessor still held claimed rows). With stop-first the predecessor is REMOVED
 successor starts, so the new task comes up in a window the others never see. That is a candidate,
 not a finding: it is untested, and it does not by itself explain a BARE hostname rather than a
 failed lookup of the derived one.
+
+## §31 — qits-361 is SIX applications, not nine (2026-09-25)
+
+The epic's task text names nine — "qits-platform-idp -> qits-idp, and the same for events,
+configuration, mirror, orchestrator, maintenance, system, deployments and edge". Measured against
+the live estate and against each repository's `.config/qits/deployments.yml`, **three of those nine
+are already done**:
+
+    qits-events-platform-service         application: qits-events          <- already clean
+    qits-configuration-platform-service  application: qits-configuration   <- already clean
+    qits-deployments-platform-service    application: qits-deployments     <- already clean
+
+They declare the clean name explicitly, so their swarm services are `dev-qits-events`,
+`dev-qits-configuration` and `dev-qits-deployments` today. Nothing about them moves.
+
+**The six that remain**, each declared in its repository's `deployments.yml` and each a wire-address
+change:
+
+    qits-platform-edge          -> qits-edge
+    qits-platform-idp           -> qits-idp
+    qits-platform-maintenance   -> qits-maintenance
+    qits-platform-mirror        -> qits-mirror
+    qits-platform-orchestrator  -> qits-orchestrator
+    qits-platform-system        -> qits-system
+
+That is the third and last wire window, and it is a third smaller than the epic assumed. Fourteen of
+the twenty running services already carry a clean application name.
+
+**What it costs each one** is what the plane deletion cost the nine: under swarm the alias IS the
+service name, so every dialer moves in the same window. The addresses to move with them are the
+`ComposeTemplate` patterns and `PlatformModel`'s lists in qits-bootstrap-cli, qits-configuration's
+served entries, and the idp issuer — the same set §26 and §28 walked, and every one of them is now
+DERIVED from `QITS_ENVIRONMENT` rather than spelled, which is what makes this window smaller than the
+first: the environment half is already a variable, and only the application half is changing.
+
+**Two names that must NOT move**, for reasons already recorded: `qits-pd-` stays as the
+container-name prefix (docker's charset has no dot), and `qits-platform-access-cli` keeps its name —
+its `platform` is a component, not a tier modifier. See §29 for the seventeen-vs-eighteen trap that
+comes from the same confusion.
+
+**Ordering against qits-135.** The repository renames and the application renames are independent:
+`application:` is declared, so renaming `qits-idp-platform-service` to `qits-idp-service` does NOT
+move `qits-platform-idp`. That is exactly what the key was added for, and it is why the epic files
+them as separate tasks. Either order works; the constraint is only that the two wire windows are
+never open at once.
