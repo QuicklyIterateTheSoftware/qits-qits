@@ -1334,3 +1334,54 @@ Between the `rm` and the successor passing health the platform has **no publishe
 browser access, no registry, no mirror, no container git. Everything on qits-net keeps working, so
 this is an outage of the front door and not of the platform. It wants a person watching, and it is
 the one step of this rollout worth doing at a chosen moment rather than whenever the queue drains.
+
+---
+
+## 22. THE CUTOVER IS COMPLETE — AND THE EDGE STEP CAUSED A SIX-HOUR CI OUTAGE (2026-09-25)
+
+**All nine plane-era services are retired.** The platform runs entirely on `<env>-<application>`:
+orchestrator, mirror, maintenance, deployments, events, configuration, idp, system, edge. Every
+service answers 200 on its qualified name; a real token mint against `dev-qits-platform-idp` answers
+200; public HTTPS answers 401/302 as it should.
+
+### What went wrong, and it was self-inflicted
+
+The edge could not use the deploy-first pattern — it publishes 8080 and 443 in **ingress** mode, so
+swarm refuses a second publisher — and its spec holds secrets, so I did not want to hand-write a
+`docker service create`. I removed it and recreated it through the **docker socket API** from its
+captured `.Spec`, changing only `.Name`.
+
+**A service created that way came up with its overlay VIP unprogrammed.** The task was healthy and
+attached to qits-net with every alias; `docker service inspect` showed the VIP allocated; public
+HTTPS served normally through the ingress ports. But every container on qits-net got
+`No route to host` to the VIP — including brand-new ones, so it was not stale client state. Neither
+`docker service update --force` nor a `--network-rm`/`--network-add` fixed it. (The reattach was also
+a no-op the first time: sent as ONE update with identical aliases, docker diffed it to nothing. It
+has to be two updates.)
+
+**The cost: `githost.dev.internal` is an edge vhost, every CI step clones through it, so every build
+failed `CLONE_FAILED` for about six hours overnight.** Public browsing worked throughout, which is
+exactly what made it easy to miss.
+
+**The fix:** recreate with the **docker CLI**, building the argv from the live spec with a script so
+no secret is read or retyped. The VIP programmed correctly and githost answered immediately.
+
+### Two things I reported wrongly along the way
+
+- **I over-stated the outage.** I said `registry.dev.localhost` and `mirror.dev.localhost` were down
+  too. They were not. **`curl` resolves `*.localhost` to 127.0.0.1 per RFC 6761 regardless of DNS**,
+  so those names are not testable with curl from inside a container at all — `getent` showed the real
+  VIP the whole time. Only `githost.dev.internal`, which is not a `.localhost` name, was genuinely
+  broken. Use `getent` or a non-`.localhost` name to test edge reachability.
+- **I claimed the pre-pull + `--no-resolve-image` sequence was "a different order from the deployer's
+  normal flow".** It is its normal flow: `SwarmDeploymentDriver` pulls at :1399 and passes
+  `--no-resolve-image` on both create and update.
+
+### The conclusion that matters
+
+**Do not reconstruct a swarm service by hand, and do not create one through the API.** The eight
+services the deployer created by CLI all worked first time; the one a human recreated did not. That
+is the argument for **qits-376** — teach qits-deployments to match a service by its
+`qits.platform.deployments.application` label rather than by name, so a rename is an ordinary replace
+it performs itself. qits-361 renames these same nine again; running this procedure a second time by
+hand would be choosing to repeat this outage.
