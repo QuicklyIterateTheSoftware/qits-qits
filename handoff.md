@@ -1432,3 +1432,27 @@ with a read-both-write-new window.
 `/platform-deployments/api` are published coordinates: the artifactIds are resolved by consumers, and
 the path is spelled in the edge's route table, this repository's `deployments.yml`, its frontend and
 `quarkus.quinoa.ignored-path-prefixes`. The task lists neither.
+
+---
+
+## 24. CORRECTION AND COMPLETION — THE NINTH SERVICE (2026-09-25 06:15)
+
+**§22 said "all nine plane-era services are retired". It was EIGHT.** `qits-platform-system`'s
+successor had not deployed yet when that was written; the claim came from a survey taken before its
+release, and was not re-checked before being asserted. Its predecessor was retired at 06:15 and the
+count is now genuinely **9/9**, verified service by service:
+
+    orchestrator  mirror  maintenance  deployments  events  configuration  idp  edge  system
+
+No bare plane-era name resolves, every successor answers 200, and the platform is healthy.
+
+**Retiring qits-platform-system breaks the swarm-inspection tooling in this very workspace**, which
+is worth knowing because every command in §18's gate uses it. The reads go to
+`qits-platform-system:8080/system/api/...`, and that is the name being retired — so the checks start
+answering `?` at exactly the moment the last removal succeeds. Use
+**`dev-qits-platform-system:8080`**. It is the §20 breakage in miniature: the operator's own tools
+hold the bare name until something re-creates them.
+
+**The nine services are done. What remains of the epic is renames of a different kind** —
+qits-135's seventeen REPOSITORY renames and qits-361's nine APPLICATION renames — and qits-361 is a
+third `rm`-and-`create` of these same nine swarm services. See qits-376.
