@@ -1891,3 +1891,27 @@ connects it to qits-ci.
 
 What remains untried needs a door `qits:agent` does not have: read the composed `docker service
 create` argv, or get a shell in a container started from that image with that environment.
+
+### §30c — The negative control: qits-workspaces deployed fine
+
+`qits-workspaces` released and **deployed ok at 09:23:58** (`2026.925.91117`). It is the closest
+analogue qits-ci has on this estate:
+
+- machine gate ON, `QUARKUS_OIDC_AUTH_SERVER_URL` injected — same as qits-ci;
+- takes Quarkus' `quarkus.oidc.jwks.resolve-early=true` default, so it fetches a JWKS at boot —
+  same as qits-ci did;
+- carries the identical depth-3 expression
+  `${QITS_RESOURCE_IDP_URL:${QUARKUS_OIDC_CLIENT_AUTH_SERVER_URL:http://${QITS_ENVIRONMENT:dev}-…}}`.
+
+It booted and served. So this is **not the leading edge of a fleet-wide fault** — qits-ci is
+genuinely anomalous, and the three properties above are all excluded as the cause. Four of my
+address changes have now deployed cleanly too (observability 08:06, containers 08:39, projects
+08:45, workspaces 09:23).
+
+**The largest remaining difference between qits-ci and every service that works is
+`update_order: stop-first`** — qits-ci is the only service on the estate that declares it, for the
+reason its own file gives (one CI process at a time; a start-first successor swept while the
+predecessor still held claimed rows). With stop-first the predecessor is REMOVED before the
+successor starts, so the new task comes up in a window the others never see. That is a candidate,
+not a finding: it is untested, and it does not by itself explain a BARE hostname rather than a
+failed lookup of the derived one.
