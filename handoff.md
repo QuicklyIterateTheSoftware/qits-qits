@@ -1497,3 +1497,67 @@ right now.** The renames wait for that queue to drain.
    coordinate is `qits/<application>`, and every one of the nine pins `application:` — so the image,
    the wire alias, the container and the database are untouched by a repository rename. That is
    exactly what `application:` was added for, and it is why qits-361 is a separate task.
+
+## §26 — The config-for-addresses antipattern, step one (2026-09-25)
+
+The owner's rule: **qits-configuration is for values that genuinely differ per environment** — the
+root domain is the example. A peer's wire alias is not one of those. It is a fact about how the
+estate names things (`<env>-<application>`, with `QITS_ENVIRONMENT` injected into every container by
+qits-deployments), so it belongs in the code that dials, as an expression, not in a config row that
+every deployment has to be told.
+
+### What moved
+
+`qits.observability.url` was the widest offender: **thirteen repositories** shipped the bare
+`http://qits-observability:8080`, which resolved only while a platform plane existed. All thirteen
+now ship `http://${QITS_ENVIRONMENT:dev}-qits-observability:8080` — qits-containers, qits-docs,
+qits-edge, qits-events, qits-githost, qits-idp, qits-maintenance, qits-mirror, qits-observability,
+qits-projects, qits-stt, qits-system, qits-workspaces.
+
+Four more addresses went with it, each the last bare one in its repository:
+
+- qits-containers' **client jar** default, `qits.containers.url` — a default every consumer inherits.
+- qits-maintenance's four `targets.{projects,githost,ci,artifacts}-url`. Its registry and mirror
+  keys were already derived; these four had been missed, and their comment still described the
+  deleted plane ("a live platform overrides the tier ones").
+- qits-projects' `release-requests.workspaces-url`.
+- qits-workspaces' `WorkspaceContainerFactory.observabilityUrl` — a `@ConfigProperty(defaultValue =
+  …)` in **main code**, the one instance that was not in a properties file at all. SmallRye expands
+  expressions in a `defaultValue`, so it derives the same way.
+
+### What deliberately stayed bare
+
+`quarkus.oidc.token.issuer` (qits-events, qits-observability), `qits.idp.issuer` (qits-idp) and
+`qits.idp.url` (qits-edge). These are the **`iss` claim**, compared for string equality and never
+dialled — §4.2 settled that empirically when the bare idp was retired with `QITS_IDP_ISSUER` still
+bare and nothing broke. Deriving them would be a change to a token's contents, not to an address.
+
+### The trap this pass hit
+
+**Ten `OtelLogConfigTest` classes pin the shipped default as a literal**, which is the right shape
+for that test — it exists so an upgrade that changed a default is a diff rather than a silence — and
+it means the expectation moves with the value, in the same commit. Four repositories went red on
+exactly that (docs, stt, observability, and the three later ones) before the expectations were
+updated. `StoryProfile` javadoc in four more repositories quoted the old address in **prose**; that
+moved too.
+
+Two failures in that pass were **not** the change: `ForeignPtyTest.closingTheMasterHangsUpTheChild`
+and two `TerminalSessionTest` cases fail under load in this container and pass on retry. They had
+failed identically in an earlier unrelated build. Do not read them as a regression.
+
+### Why it needed no ordering
+
+`QITS_OBSERVABILITY_URL` still overrides, and the entries `ComposeTemplate` renders already carry
+`http://${ENV_NAME}-qits-observability:8080` — the same value. So the injected variable and the
+derived default agree, and nothing has to land before anything else. The redundant injections in
+`ComposeTemplate` are step two and are **not** done: removing 82 peer-address `env.*` lines from the
+bootstrap template is a separate change with its own risk, and the values agreeing is what makes
+deferring it safe.
+
+### How it ships
+
+The open qits-123 sweep release requests **fold `epic/remove-the-platform-service-concept`** — the
+branch this work is on. So a push refolds each open request and the address change rides the sweep's
+release rather than needing one of its own. Verified against
+`qits release-request list -o json`, which names the epic branch in `sources`. Pushing while those
+runs were QUEUED cost nothing; pushing while one was RUNNING would have restarted it.
