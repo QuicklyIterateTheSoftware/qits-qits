@@ -2052,3 +2052,54 @@ wire alias) so the driver exempts it from the recreate path and it is `service u
 **THE NEXT RELEASE PUTS `resources:` BACK.** The declaration is commented out in the file so the
 restoration is a revert rather than a recollection. Left off, this component keeps its credentials
 only until something recreates its service, and a cold bootstrap would provision nothing at all.
+
+## §33 — THE DEPLOYER IS ISOLATED, and this is the extras-file fallback biting (2026-09-25 13:2x)
+
+**Live state: the platform cannot deploy anything, and the deployer cannot be asked to fix itself.**
+
+The fix for §32 shipped and deployed (`2026.925.123951`, 1/1, credentials intact, reads its own
+database). But the deployment that started it was performed by `2026.925.93750` — the version whose
+missing `extras-url` bridge silently switched it to the **stale bootstrap file** — so the new
+container's ENVIRONMENT carries that file's values, which predate the plane cutover and are BARE:
+
+    OIDC server is not available at the 'http://qits-platform-idp:8080/idp' URL
+    catch-up ... could not read http://qits-events:8080/events/api/events
+
+qits-configuration serves the DERIVED values for this application (`dev-qits-platform-idp`,
+`dev-qits-events`) — checked, 22 entries, zero bare. The key SET matches; only the values are the
+file's. That is the signature of the fallback rather than of a bad config row.
+
+**Why that isolates it.** `QITS_AUTH_MACHINE_REQUIRED` is on, so the OIDC tenant is enabled; the
+tenant can never become ready because the bare idp name resolves nowhere; so every bearer-carrying
+write answers **503**, which is what qits-projects relays as the 502 a DEPLOY rerun comes back with.
+Forward-auth headers do not help — the intake is a machine door and answers 401 to them. And the bus
+is not a way in either: the eventstream client is dialling the bare `qits-events`.
+
+So: reads work, writes do not, and nothing on the platform can ask the deployer to redeploy itself.
+
+**The escape needs the docker socket, which a `qits:agent` credential does not have**
+(`agent-dispatches` is `qits:admin`/`qits:system`). One `docker service update` ends it, and the
+values are exactly what the store already serves:
+
+    docker service update dev-qits-deployments \
+      --env-add QUARKUS_OIDC_AUTH_SERVER_URL=http://dev-qits-platform-idp:8080/idp \
+      --env-add QUARKUS_OIDC_CLIENT_CONFIGURATION_AUTH_SERVER_URL=http://dev-qits-platform-idp:8080/idp \
+      --env-add QITS_EVENTS_URL=http://dev-qits-events:8080 \
+      --env-add QITS_OBSERVABILITY_URL=http://dev-qits-observability:8080
+
+Once it restarts with those, its own next self-deploy reads the SERVED config (the bridge is in this
+version) and the hand-set values are replaced by the same values from the authoritative source.
+
+### What this did NOT explain, stated so nobody assumes it did
+
+**qits-ci's 07:08 and 08:01 bare-idp boot failures are still unexplained.** They predate this
+mechanism: the deployer that performed them was `2026.925.53811`, and that tag carries **zero**
+`qits.deployments.*` keys — the rename is not in it — so it was reading the served config correctly.
+Two bare-address incidents, one mechanism found, one still open. Do not merge them in the write-up.
+
+### The lesson worth keeping
+
+**A config key whose absence selects a DIFFERENT SOURCE is far more dangerous than one whose absence
+is an error.** `extras-url` unset is the documented "no service named" arm, so the fallback is
+silent, correct-looking, and produces a platform configured from a file nobody has updated since
+before the cutover. When a namespace moves, that key is the one to bridge first.
