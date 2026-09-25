@@ -1855,3 +1855,39 @@ only because the alternative is a service that cannot be deployed at all.
 **So the deploy passing is not the end of this.** When `8a66b882` lands, verify the auth path
 explicitly — a bearer-carrying request to qits-ci must be SERVED, not 401'd. A green health gate
 proves nothing here, because health does not touch the idp.
+
+### §30b — Hypotheses tested and KILLED, so nobody repeats them
+
+Each of these looked right and is wrong. The measurement is given so the next reader can stop
+sooner than I did.
+
+1. **"The postgres cutover raced the boot."** The deployer runs deployments serially on
+   `pd-deploy-worker`; qits-oci-postgresql's row was created 31 seconds AFTER qits-ci's and was
+   queued behind it. Ruled out by the deployment timeline.
+2. **"The image has a bare literal baked in."** Pulled the layer and searched the native binary: only
+   the derived expressions. My first pass said otherwise and was a bad test — it excluded matches
+   preceded by `dev-`, and the expression form reads `...:dev}-qits-platform-idp`.
+3. **"The stale extras file re-serves it (qits-375)."** Not on this path. `extras-url` IS set on the
+   live deployer, so `ExtrasSnapshot.over(config, served, url)` layers served-over-BOOT and the
+   volume's file is never consulted. The javadoc on that method contradicts the one above it; the
+   call site settles it.
+4. **"A library jar ships a bare default."** Would appear as a bare string in the binary. It does not.
+5. **"The config entries were corrected after the deploy."** All three were written
+   2026-09-24T15:19 and are unchanged; the predecessor was deployed at 20:18 the same day, AFTER
+   them. Same values both times.
+6. **"Early JWKS resolution is the fault."** Ten services take that default; eight run gate-on with
+   an injected url exactly like qits-ci; four of those deployed successfully the same day. See §30a.
+7. **"qits-ci's triple-nested expression mis-parses."** It is not unique: workspaces, projects,
+   orchestrator and maintenance carry the same depth-3 shape, and orchestrator deployed fine at
+   07:30 today.
+8. **"It was latent and masked by a long-running container."** Stated in §30 and NOT proven. The
+   predecessor carries the same derived env and would have resolved `dev-qits-platform-idp` happily;
+   it may never have needed the bare name at all. Treat the "latent since yesterday" story as a
+   guess that was not tested.
+
+**The only deliberate bare idp literal on the estate** is qits-edge's `qits.idp.url` — the `iss`
+claim, which is compared and never dialled, with a derived `qits.idp.dial-url` beside it. Nothing
+connects it to qits-ci.
+
+What remains untried needs a door `qits:agent` does not have: read the composed `docker service
+create` argv, or get a shell in a container started from that image with that environment.
