@@ -1730,3 +1730,35 @@ epic's, and not investigated.
 **Also settled by reading that ticket: the hostname grammar cutover (Feature 4) is released** —
 `qits-edge-platform-service 2026.924.80607` and `qits-bootstrap-cli 2026.924.82038`. So the second of
 the three wire windows is closed, and qits-361 is the third and last.
+
+### §29b — Correction: a push during a RUNNING gate does NOT refold it
+
+§27 said a push during a gating queue refolds the open request, and §26 said pushing while runs were
+QUEUED "cost nothing; pushing while one was RUNNING would have restarted it". **The second half is
+wrong, and qits-orchestrator-platform-service is the measurement.**
+
+The userflows push landed at 07:26. Orchestrator's gating run was RUNNING at 07:27. The request then
+went to `none` — finalized — and `git branch -r --contains <sha>` answered **0**: the commit is in
+neither `main` nor any release branch. So the run completed against the commit it started with, the
+request finalized without the new commit, and nothing anywhere said so. It did not restart, and it
+did not refold.
+
+The accurate rule, in three lines:
+
+- **QUEUED** — a push refolds. The commit rides the open request. This is the ten-out-of-thirteen
+  case in §27.
+- **RUNNING** — a push is invisible to that request. The fold is already taken. The commit needs its
+  own request once the current one finishes.
+- **RELEASED or later** — a push is invisible for the same reason, and additionally recreates the
+  deleted release branch.
+
+Which means the `--contains` check is not a once-per-push check. **Re-run it after the queue moves**,
+because a repository can finalize in the window between your push and your first check — which is
+exactly what happened here, and the first check (§27, run at 07:05) reported orchestrator as
+carried=1 for the ADDRESS commit while the later userflows commit went on to miss.
+
+    git -C <repo> fetch origin '+refs/heads/release/*:refs/remotes/origin/release/*' '+refs/heads/main:refs/remotes/origin/main'
+    git -C <repo> branch -r --contains "$(git -C <repo> rev-parse HEAD)" | grep -cE 'origin/(main|release/)'
+
+Zero means file a request. Orchestrator's is `0c1f8c04`, filed and pushed with a main merge that was
+a pom version bump only — CI is its gate, as it is for every other fold.
