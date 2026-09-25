@@ -1762,3 +1762,67 @@ carried=1 for the ADDRESS commit while the later userflows commit went on to mis
 
 Zero means file a request. Orchestrator's is `0c1f8c04`, filed and pushed with a main merge that was
 a pom version bump only — CI is its gate, as it is for every other fold.
+
+## §30 — qits-ci could not be deployed, and the bare idp name is still unexplained (2026-09-25)
+
+The qits-123 sweep release for qits-ci, `2026.925.65723`, **released and then failed to deploy**,
+twice, and is stranded: `RELEASED`, `mergedToMainAt: null`, DEPLOYMENT gate `PENDING`. It is the only
+rollback on the estate today. The symptom, from the successor container's own stdout:
+
+    java.net.UnknownHostException: qits-platform-idp: Name or service not known
+    ... Failed to start quarkus, at TenantContextFactory
+
+13 seconds in, exit 1, `swarm rolled dev-qits-ci back to its predecessor`. **The predecessor kept
+serving only because it booted on 2026-09-24**, while the plane-era bare alias still resolved.
+Container environment and name resolution are both settled at creation, so the fault was latent for
+a day and surfaced the moment a new container had to resolve the name itself.
+
+### What is ruled out — by measurement, not by reading
+
+- **The code.** `git diff 2026.924.200432..2026.925.65723` is five files: the removed
+  `deployment_target` key and four pom version bumps. Nothing else.
+- **The libraries.** All ten `<qits.*.version>` pins are identical between the two tags.
+- **A shipped literal.** Every `qits-platform-idp` in the tag's properties files is inside a comment.
+- **The native binary.** Pulled from the registry and searched: it carries only the DERIVED
+  expressions, `http://${QITS_ENVIRONMENT:dev}-qits-platform-idp:8080/idp`. ⚠️ A first pass appeared
+  to show four *bare* occurrences; that was a bad test — it excluded matches preceded by `dev-`, and
+  in the expression form the preceding text is `...:dev}-`. **There is no bare literal in the image.**
+- **The config store.** All three `QUARKUS_OIDC_*_AUTH_SERVER_URL` entries resolve to
+  `dev-qits-platform-idp`, at BOTH versions, `entryClass: plain`, written 2026-09-24T15:19 and
+  unchanged. The deployer's own log confirms what it fetched at deploy time: *"…resolved?version=
+  2026.925.65723 answered 34 extras properties for qits-ci at config-revision=44"*.
+- **The stale extras file (qits-375).** Does not apply on this path: the deployer has
+  `QITS_PLATFORM_DEPLOYMENTS_EXTRAS_URL` set, so `ExtrasSnapshot.over(config, served, url)` layers
+  the served map over the BOOT config and the volume's file is never consulted.
+- **A mount or a resource variable.** The failed container has no mounts, and no
+  `QITS_RESOURCE_IDP_URL` among its 46 environment keys.
+- **Discovery.** Off on the tenant and on all three oidc-clients, so nothing derives an address from
+  the issuer.
+
+**So the source of the bare hostname is not identified.** Reading further needs a door this
+credential does not have — the composed argv, or a shell in the failed container. Do not record a
+cause here until one of those is read; everything above is what a guess would have to survive.
+
+### Why qits-ci and nothing else
+
+It was the **last service still taking Quarkus' default `quarkus.oidc.jwks.resolve-early=true`**, so
+its tenant fetched the JWKS during boot. qits-events and qits-observability both ship
+`resolve-early=false` and document it. Every other service resolves lazily and would not notice a
+wrong idp address until a bearer arrived — which is why this looks like a qits-ci quirk and is not
+one: **the fleet is protected by laziness, not by a correct address.**
+
+### What was changed, and what it does not claim
+
+`quarkus.oidc.jwks.resolve-early=false` in qits-ci, with the reasoning beside it. It is the house
+convention, cited from the two siblings that already carry it, and its stated reason is the one that
+applies here exactly: an orchestrator that refuses to boot because a peer is down is one nobody can
+deploy to fix the peer. **It changes the blast radius, not the cause** — a wrong idp address now
+costs the request that needs a key instead of the whole process.
+
+Note the comment two lines above it in that file — *"NOT a hard dependency: when the window expires
+the same WARN is logged and startup continues"* — describes `connection-delay` and is **not what
+happened**. Boot died. Treat that sentence as scoped to the connection retry, not to the early JWKS
+fetch.
+
+Shipped as release request `8a66b882` on the epic branch. The stranded `b5356e09` is superseded by
+it, which is the intended escape from a release whose deployment gate can never pass.
