@@ -2103,3 +2103,43 @@ Two bare-address incidents, one mechanism found, one still open. Do not merge th
 is an error.** `extras-url` unset is the documented "no service named" arm, so the fallback is
 silent, correct-looking, and produces a platform configured from a file nobody has updated since
 before the cutover. When a namespace moves, that key is the one to bridge first.
+
+## §34 — qits-375 CONFIRMED, with the mechanism: served-over-boot still has the file underneath
+
+Read from the code rather than inferred, and it raises qits-375 from "suspected" to "this is how it
+works".
+
+`ExtrasSnapshot.over(config, served, url)` builds the per-argv snapshot from two sources:
+
+    PropertiesConfigSource(served, url, SERVED_ORDINAL=2000)
+    BootConfigSource(config)                  // getOrdinal() returns BOOT_ORDINAL=100, flattened
+
+Its javadoc says **"`base` is the boot config, never the file. An authoritative source is the SOLE
+source"** — and that is true of the object it is handed and false of what that object CONTAINS.
+`ExtrasSnapshot.locate`'s own comment states it: *"Quarkus' config-dir convention: a relative path is
+relative to the process's working directory, which is `/work` on the deployment host with the config
+volume at `/work/config`. **So the file named here is the one the boot config already read.**"*
+
+So the extras file is inside `config`, and `BootConfigSource` re-exposes it at 100. The consequence:
+
+- a key the store **serves** → served value wins (2000 > 100). Correct.
+- a key the store **does not serve but the file has** → the FILE's value is injected, silently.
+
+The file is bootstrap-rendered and predates the plane cutover, so every key in that second category
+is a **bare, pre-cutover address**. "Authoritative means SOLE" holds for keys the store knows about
+and for no others, which is the opposite of what the deleted-entry argument needs: deleting an entry
+from qits-configuration does not remove the variable, it **reveals the file's stale one**.
+
+**What this does and does not explain.** It is the general mechanism behind silent staleness on
+every deployment, and it is why §33's deployer came up bare — though §33's own path is the worse
+one (with `extras-url` absent the file is layered ABOVE boot at FILE_ORDINAL=1000 and wins
+outright). **It still does not explain qits-ci at 07:08/08:01**: all three of its
+`QUARKUS_OIDC_*_AUTH_SERVER_URL` keys ARE served, so served-over-boot gives them derived values, and
+the deployer of that hour (`2026.925.53811`) carries no `qits.deployments.*` key at all. That one
+stays open — see §30b for the eight hypotheses already killed.
+
+**The fix is not "raise an ordinal".** Two sources cannot both be authoritative, and the one on a
+volume is the stale one by construction. Either the file is excluded from the snapshot outright when
+a store answered (a config built from the store over a boot config with the config-dir source
+removed), or the bootstrap must re-render it on every deploy — and the second is the arrangement
+this design exists to end. This belongs on qits-375 with the ordinals quoted.
