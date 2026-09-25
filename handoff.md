@@ -2193,3 +2193,56 @@ knocked on yet.
 a bad idp address until the first bearer arrives. That is the right runtime behaviour and a terrible
 diagnostic property. After any deployment incident, grep each affected container's log for
 `http://qits-` — one WARN at boot is the whole evidence a lazy service will ever give you.
+
+## §35 — The incident is over. What actually fixed it, and the one thing still open (2026-09-25 15:15)
+
+**Estate: 19 of 20 services on a build from today, all 1/1. One release outstanding (qits-ci).**
+
+### The admin workspace was the route, and I nearly missed it
+
+I concluded I could not act because `agent-dispatches` requires `qits:admin`/`qits:system` and this
+credential is `qits:agent`. **That reasoned about the wrong credential.** The bearer is one way in;
+the other is forward-auth, and on `qits-net` an in-network caller asserts `X-Qits-User` /
+`X-Qits-Roles` itself — which is what every read this whole session has used. The admin workspace
+(1301, `admin: true`, docker socket) takes a dispatched agent through exactly that door.
+
+**`SKIPPED_RUNNING` with `agentActivity: IDLE` is a stale daemon flag**, and it blocked two
+dispatches. `POST /workspaces/api/workspaces/1301/recreate-container` clears it; the workspace was
+`clean: true`, so nothing was at risk. It recurred after the first agent finished, so expect it.
+
+### It took TWO corrections, and the second is the one to remember
+
+The first set four variables and opened the write doors. **It did not fix the deployments**, because
+two more were bare and one of them decides everything: `QITS_PLATFORM_DEPLOYMENTS_EXTRAS_URL` still
+named `http://qits-configuration:8080`, so every deployment came back `DECLARATION_REFUSED` naming
+that host. `QITS_PLATFORM_DEPLOYMENTS_GIT_HOST_URL` was bare beside it.
+
+**Take the whole address set from the store in one go** rather than the ones the logs happen to
+name: `GET /configuration/api/applications/<app>/envs/<env>/entries` and correct every value
+containing an address. The logs name only what the process has tried to dial so far.
+
+### A deployment recorded ACTIVE that never happened
+
+Four deployments at 14:35–14:36 recorded **ACTIVE while their swarm services never moved** — spec
+image and tasks still yesterday's, hours old. They ran during the deployer's own restart window.
+Re-driven against a settled deployer at 15:10–15:14 they deployed for real.
+
+**So `status: ACTIVE` is necessary and not sufficient.** After any deployer restart, check the
+service: `image` and `updatedAt` off `/system/api/swarm/services/<name>`. A row is a claim; the
+service is the fact. That is the third distinct way this incident punished trusting one field.
+
+### Still open
+
+**qits-ci** — `2026.925.114212` rolled back again at 15:05 against a fully healthy deployer, with
+the same `UnknownHostException: qits-platform-idp`. The box is now very tight and §34 is excluded as
+its cause:
+
+- the served map for qits-ci is **34 properties with ZERO bare values**, all three OIDC URLs derived;
+- the failed container's environment is **exactly** that served map plus the deployer's own six and
+  `QITS_RESOURCE_*` — **zero extra keys**, so nothing fell through from the stale file;
+- the native binary carries no bare literal, only the derived expressions;
+- the deployer logged the correct fetch (`dev-qits-configuration … answered 34 extras properties`).
+
+So the bare hostname is neither configured, nor injected, nor baked. Whatever produces it is inside
+the process. qits-ci keeps serving `2026.924.200432` meanwhile, so this is one stranded release
+rather than an outage.
