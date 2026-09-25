@@ -2350,3 +2350,44 @@ services resolve the idp from a SHIPPED default rather than an injected variable
 those literals before the name exists breaks them. Either declare the new name as an extra alias and
 recreate each service once (the staged trick the plane deletion used), or accept a per-service
 window.
+
+## §38 — qits-135 broke every service's own webui submodule, and qits-361's database hazard is CONFIRMED
+
+### The rename had fallout inside the repositories, not just in the wrapper
+
+Eight of the seventeen renamed repositories are FRONTENDS, and each one is a submodule of its own
+service at `service/src/main/webui`. The service's OWN `.gitmodules` named the old sibling, and the
+git host serves the new name the instant the rename commits while the old one stops resolving. So
+every build of those eight services died in step 0:
+
+    fatal: repository '.../qits-<component>-platform-frontend/' not found
+    Failed to clone 'service/src/main/webui' a second time, aborting
+
+**Four release requests were REJECTED inside a minute on exactly this.** A one-second CI run is the
+tell: that is the clone failing, never the code. The recipes needed no change — they derive the
+submodule name from `.gitmodules` and the url from `$QITS_CI_REPOSITORY_URL`'s parent — so correcting
+the declaration corrected the override with it, and a new sha re-armed all four requests by itself.
+
+**The local clones' remotes are stale too**, which is separate and bites the workspace rather than
+CI: `git push` in a renamed submodule answers `repository ... not found` until
+`git remote set-url origin` is pointed at the new name. Seventeen of those, plus the eight embedded
+webui clones.
+
+**The lesson is the shape of the thing:** a repository rename is not one edit. It is the catalog
+row, the wrapper's `.gitmodules`, **every sibling that embeds the renamed repository as a submodule
+of its own**, and every local clone's remote. Search for the old name across `.gitmodules` files —
+not just the wrapper's — before calling a rename done.
+
+### The database hazard is no longer inferred
+
+`pg_database` on qits-oci-postgresql, read through the admin workspace:
+
+    qits_platform_idp, qits_platform_maintenance, qits_platform_mirror,
+    qits_platform_orchestrator                                        all present
+    qits_idp, qits_maintenance, qits_mirror, qits_orchestrator        all ABSENT
+
+The absence is the half that proves it: those four short names are exactly what a rename would have
+derived and created, empty. The pins from §37 are therefore correct as written and are released as
+their own change, ahead of any rename — `postgresql:db:qits_platform_<x>` on orchestrator,
+maintenance, mirror and idp. qits-platform-edge already pinned both of its databases and
+qits-platform-system declares none, which is why only four repositories carry it.
