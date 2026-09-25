@@ -1826,3 +1826,32 @@ fetch.
 
 Shipped as release request `8a66b882` on the epic branch. The stranded `b5356e09` is superseded by
 it, which is the intended escape from a release whose deployment gate can never pass.
+
+### §30a — Correction: early JWKS resolution is NOT why qits-ci was alone
+
+§30 said qits-ci "was the last service still taking Quarkus' default
+`quarkus.oidc.jwks.resolve-early=true`" and that "the fleet is protected by laziness, not by a
+correct address." **Both are false, measured across the estate the same day.**
+
+**Ten services take the default** — artifacts, configuration, containers, deployments, githost,
+maintenance, mirror, orchestrator, system, workspaces — against four that disable it (events,
+observability, projects, and now ci). **Eight of those ten run with the machine gate ON and an
+injected `QUARKUS_OIDC_AUTH_SERVER_URL`, exactly like qits-ci**, and four of them — artifacts,
+configuration, containers, orchestrator — **deployed successfully on 2026-09-25**, fetching a JWKS at
+boot from the derived address without trouble.
+
+So early resolution is not the fault, and the rest of the fleet is not living on borrowed time. The
+question §30 set out to answer — *what is different about qits-ci?* — is **still unanswered**, and
+the field of candidates is narrower than it looked: gate-on, oidc-url-injected, early-resolving
+services are the norm here and they work.
+
+**What that does to the mitigation.** `quarkus.oidc.jwks.resolve-early=false` is kept, but for the
+one property it actually has — boot stops depending on a peer — and not because it explains
+anything. Its cost is now written beside it: **if the bare name is still reached when a key is first
+needed, qits-ci will boot GREEN and then refuse every bearer-authenticated request**, because the
+fetch moved from startup to first use. That is harder to diagnose than a rollback. It is accepted
+only because the alternative is a service that cannot be deployed at all.
+
+**So the deploy passing is not the end of this.** When `8a66b882` lands, verify the auth path
+explicitly — a bearer-carrying request to qits-ci must be SERVED, not 401'd. A green health gate
+proves nothing here, because health does not touch the idp.
