@@ -2783,3 +2783,40 @@ at 0/0 is also what preserves the rollback that made the port handover safe in t
 (`aliases[4] = dev-qits-platform-edge`, re-rendered by the deployer itself, so it is now the
 deployer's own spec and not a hand-written detail). Verified: `dev-qits-platform-edge` answered 302 on
 four consecutive probes with the predecessor at 0/0, and its DNS entry went from two IPs to one.
+
+## 44. The wrapper release, and why a rename re-conflicts the fold
+
+The epic branch JOINED the already-open wrapper request (7c8c1f47) rather than opening its own —
+that is what `create` does on a project wrapper — and the fold went `CONFLICTED` at once:
+
+    one side does not have the submodule at all, which is a person's call
+
+**The cause is structural and it recurs.** The request folds `main` plus every participating branch.
+Two ticket branches were participating, each holding gitlinks at the pre-rename
+`-platform-service` paths, which cannot be combined with a branch that renamed those paths. And
+qits-maintenance pushes `bump(targeted)` commits onto **every open wrapper branch**, the renaming one
+included — measured: a bump hit both sibling branches 20 seconds after the push that first folded
+cleanly. So every bump re-opens the conflict.
+
+**Two doors that do not exist**, so do not plan around them: `POST .../sources` only **adds** — a
+branch cannot be removed from a request — and `withdraw` is final and, on a shared wrapper request,
+drops everybody else's branches with it. A fresh request is no escape either, since wrapper branches
+auto-join the open one.
+
+**What works: make the epic branch a DESCENDANT of every other source**, so the fold has nothing left
+to combine. `refold.sh` (in the session scratchpad) is the reconcile and it is written to be re-run:
+integrate `origin/<epic>` first (the bump train moves it, so a push is otherwise rejected
+non-fast-forward), then merge each sibling, resolving every conflict by **keeping the rename**. It
+refuses to commit a non-submodule change or a resurrected old path.
+
+**No pin is written by hand.** Git's rename detection mapped the siblings' bumps onto the renamed
+paths by itself on the first merge; on the second, each of the ten conflicts was verified sha-by-sha
+against the sibling branch first, which already carried an identical pin for every one — so keeping
+the deletions lost no bump.
+
+**Check what a blocking branch contains before treating it as somebody's work.** Both held nothing
+but `bump(targeted)` commits and **zero** wrapper content; their ticket titles describe changes that
+live in submodules. Merging them delayed nobody.
+
+Left for a person: the **APPROVAL** gate (a wrapper release needs a yes), then the epic's six
+`implementedOn` markers and its own close, which `update_feature` refuses by design.
