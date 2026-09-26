@@ -2391,3 +2391,80 @@ derived and created, empty. The pins from §37 are therefore correct as written 
 their own change, ahead of any rename — `postgresql:db:qits_platform_<x>` on orchestrator,
 maintenance, mirror and idp. qits-platform-edge already pinned both of its databases and
 qits-platform-system declares none, which is why only four repositories carry it.
+
+## §39 — qits-361 is running: the config migration is the part the epic does not mention (2026-09-26)
+
+The epic describes qits-361 as "a third wire-address change, with the same rules as the plane
+deletion". It is not, and the difference is what this section exists for. The plane deletion moved
+an ADDRESS while the application kept its name. A rename moves the NAME, and on this platform the
+name is a key.
+
+### What a rename would have destroyed, and how it was measured
+
+**Configuration entries are keyed by application.** Renaming `qits-platform-idp` to `qits-idp`
+therefore does not carry its configuration across — the renamed service deploys with NONE of it,
+boots, passes its health gate, and is wrong. That is the worst available failure shape: no log
+line, no red deployment, an idp serving with no issuer override and no browser-SSO origins.
+
+Counted before touching anything, from `GET /configuration/api/applications`:
+
+| application | entries | imported (bootstrap) | plain (operator) |
+|---|---|---|---|
+| qits-platform-idp | 43 | 38 | 5 |
+| qits-platform-orchestrator | 41 | 32 | 9 |
+| qits-platform-edge | 30 | 28 | 2 |
+| qits-platform-maintenance | 21 | 15 | 6 |
+| qits-platform-system | 10 | 9 | 1 |
+| qits-platform-mirror | 1 | 1 | 0 |
+| **total** | **146** | **123** | **23** |
+
+The `imported` ones would eventually come back under the new key, because `ComposeTemplate` now
+spells it — but only on a bootstrap run, and nothing runs one on a live estate. The 23 `plain` ones
+would not come back at all.
+
+### The sequence that works, and why each step is there
+
+1. **Copy every entry to the new application key** (`PUT /applications/<new>/envs/dev/entries/<key>`).
+   Verified afterwards by diffing key sets AND values: 146/146 present and identical. Do not skip
+   the value comparison — a copy that silently truncated would pass a key-count check.
+2. **Give the new application the OLD address as a network alias**, `aliases[N]=dev-qits-platform-<x>`.
+   This is the whole reason there is no flag day: the renamed service answers to both names, so
+   every reader still spelling the old one keeps working and moves on its own schedule. It is the
+   same trick the plane deletion used, and the extras grammar already supported it
+   (`ServiceExtras`: `aliases[<i>] = <dns-name>`, applied to the shared network attachment).
+   Watch the slot number — qits-platform-edge already had `aliases[0..3]` for its vhosts, so its
+   new one is `aliases[4]`.
+3. **Flip `application:` and release.** The deployer sees an unknown application and creates a new
+   service beside the running one; the predecessor keeps serving until decommissioned. A rename is
+   a blue/green, not an update.
+4. **Decommission the predecessor** once the successor is healthy.
+
+### The database pins are now load-bearing FOREVER, not just for the window
+
+`resources: postgresql:db` with no third segment derives the database from the application name.
+Every one of the five stateful renames therefore keeps an explicit pin
+(`postgresql:db:qits_platform_idp` and so on), and **removing one later is not a tidy-up** — it is
+a silent migration to a brand new empty database on a deploy that goes green. Each file now says
+so in those words, because the old comment read as though the pin were scaffolding for the rename.
+
+### The edge is not like the other five
+
+It publishes host ports 8080 and 443 in `mode: ingress`. A rename creates a SECOND service wanting
+the same ports, and on a one-node swarm the successor sits Pending forever — `update_order:
+stop-first` solves that for an update of one service and does nothing for two. So the edge needs
+its predecessor decommissioned FIRST, which is a planned outage of the platform's front door rather
+than a rolling change. It is last for that reason and not merely by blast radius. Note the failure
+mode already on record: a socket-API-created edge can serve ingress with no overlay VIP, and the
+fix needs `docker service create` from the admin workspace.
+
+### What is NOT in qits-361, decided rather than forgotten
+
+- **`PG_PLATFORM_*` bootstrap state keys.** Hand-spelled, invisible on the wire, and looked up on a
+  warm re-bootstrap. Renaming them regenerates passwords the live databases do not have.
+- **`qits.idp.issuer`.** An identifier, not an address. It moves when every consumer discovers
+  rather than pins, and not with the addresses.
+- **The angular project names inside the five renamed frontends** (`qits-platform-spa-mirror` and
+  friends). They are dist directory names each service's Dockerfile greps for with `test -f`, so
+  each is a three-file change across two repositories.
+- **`/platform-deployments/api`.** Filed as qits-380: the last live HTTP path spelling the word, and
+  self-gating, because the deploy's own health gate curls `/platform-deployments/q/health/ready`.
