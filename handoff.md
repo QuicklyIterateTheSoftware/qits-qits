@@ -2571,3 +2571,59 @@ the suite was green, which is why nobody noticed: javac does not insist the two 
 mismatch is invisible until a tool that walks directories disagrees with one that reads
 declarations. Directories moved to match; `find` now reports no `eu/wohlben/qits/platform` directory
 anywhere on the estate.
+
+## §40 — The pre-merge baseline for every feature, measured (2026-09-26)
+
+qits-379 has to tell "not shipped yet" apart from "shipped and broken" after the wrapper merges.
+That is only possible against a recorded BEFORE, so here it is. Every line below was measured
+through the edge with a `Host:` header, or against the service alias on qits-net.
+
+### qits-114, the plane — DONE, and this is the whole claim of the epic
+
+| probe | answer |
+|---|---|
+| `qits-platform-{idp,mirror,edge,system,orchestrator,maintenance,events,deployments,configuration,githost,containers}` | not one resolves |
+| `dev-qits-*` for all 18 applications | all resolve, all healthy |
+| deployments catalogue | 20 applications, ONE `environmentId`, no tier field |
+| `deployment_target:` | gone from the parser and from all eighteen declarations |
+
+### qits-116, the grammar — mechanism live, activation waits on the merge
+
+| probe | now | after the merge |
+|---|---|---|
+| `idp.dev.qits.wohlben.eu` | 401 (routed, auth-gated) | 404 |
+| `platform-idp.dev.qits.wohlben.eu` | 404 | 404 |
+| `projects.dev.qits.wohlben.eu` | 401 | 404 |
+| `projects.qits.wohlben.eu` | 404 | 401 |
+
+The 401/404 pair is the signal, not the 401 itself: 401 means the edge ROUTED the name and the
+application refused the request, 404 means the edge has no such name. A name that answers 401 is
+served.
+
+### qits-115, one editor — DONE
+
+| probe | answer |
+|---|---|
+| `editor.dev.qits.wohlben.eu` | 401 — an ordinary app vhost, which is where this feature ends |
+| `editor.qits.dev.wohlben.eu` | 404 — the per-project four-label origin is GONE |
+| `editor.qits.wohlben.eu` | 404 — the new grammar, correct until the merge |
+
+### qits-327, the project's door — correct for a project with no landing publisher
+
+| probe | answer |
+|---|---|
+| `qits.wohlben.eu` | 302 to `dev.qits.wohlben.eu` — the built-in redirect the feature keeps "where nothing published the label" |
+| `landing.qits.wohlben.eu` | 404 — the feature REQUIRES this: `landing.…` must not be a second address |
+
+So the door is behaving as specified, and it changes to serving the landing application only when
+one publishes `host: landing` AND the grammar is switched on.
+
+### qits-117, the word — everything except the application names
+
+Gone: the java package root (no `eu/wohlben/qits/platform` directory anywhere), the config
+namespace (25 `qits.deployments.*`, zero `qits.platform.*`), `PdEnvironment.designated`, the
+seventeen repository names, the grammar prose in both the wrapper and the project template, and
+the CLI's own copy of the plane table.
+
+Left: five application names, blocked on qits-376, plus the three things §39 lists as deliberately
+out of scope.
