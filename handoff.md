@@ -2627,3 +2627,60 @@ the CLI's own copy of the plane table.
 
 Left: five application names, blocked on qits-376, plus the three things §39 lists as deliberately
 out of scope.
+
+## §41 — qits-361 is done: five of six renamed, and the recipe that worked (2026-09-26)
+
+§39 said this was blocked. It was, and then it was not: qits-376 shipped `renamed_from:` and the
+deployer has run it since `2026.926.81338`. Five applications are renamed on the live estate.
+
+| application | successor | predecessor |
+|---|---|---|
+| qits-system | 2026.926.34049 ACTIVE | SCALED_TO_ZERO |
+| qits-mirror | 2026.926.83717 ACTIVE | SCALED_TO_ZERO |
+| qits-orchestrator | 2026.926.91511 ACTIVE | SCALED_TO_ZERO |
+| qits-maintenance | 2026.926.92407 ACTIVE | SCALED_TO_ZERO |
+| qits-idp | 2026.926.94544 ACTIVE | SCALED_TO_ZERO |
+| qits-platform-edge | — | ACTIVE, recommended DROPPED (qits-381) |
+
+### The recipe is FOUR things and each omission fails somewhere different
+
+This took three attempts to get right, and two of the four fail only AFTER a green CI and a cut tag,
+which is why they are worth listing rather than remembering:
+
+1. **`application:`** in `.config/qits/deployments.yml`.
+2. **`name:` in `.config/qits/release.yml`, in the SAME release.** The deployer pulls
+   `qits/<application>:<version>`; the publish step tags what release.yml says. Move one and not the
+   other and the deploy dies `IMAGE_MISSING` with the release already cut. Measured on qits-system:
+   `no image registry.dev.localhost:8080/qits/qits-system:2026.926.31915`.
+3. **Every config entry copied to the new application key.** Configuration is keyed by application,
+   so without this the service deploys with NOTHING configured and passes its health gate.
+4. **`aliases[N]` naming the old wire address**, so no reader moves in the window.
+
+Then scale the predecessor to zero.
+
+### What the pins bought, measured rather than argued
+
+**The signing keys survived the idp rename.** `dev-qits-idp` and `dev-qits-platform-idp` both served
+the JWKS with the identical `kid` (`pzpa4HJVN0nH__62FQbHAg`), so every token in flight stayed valid
+and a token minted after the cutover was accepted by a peer. That is the pinned store doing its job:
+a derived database name would have followed the application into an empty database, and an idp on an
+empty database mints a new keypair and invalidates everything with nothing in any log.
+
+**The credential survived every rename.** `renamed_from` transfers the claim row BEFORE the password
+is read, so the successor is provisioned with the role's existing password and the predecessor — still
+running with open pools — keeps working. Both copies answered a DATASOURCE-BACKED readiness probe
+simultaneously on mirror, orchestrator and maintenance, which is the proof: two services, one
+database, one working credential. In the other order the role is rotated and the rename takes the
+predecessor down as a side effect of its successor's first deploy.
+
+### Two residues, both real, neither a defect
+
+**The catalogue keeps all six old names.** Five are `SCALED_TO_ZERO` shells; retiring a name needs
+`DELETE /services/{name}`, which is 403 for a workspace credential. So the application count went
+from 20 to 25. That is bookkeeping, nothing routes to them, and it is qits-376's tidy-up.
+
+**The word survives where a WORKER runs twice.** qits-orchestrator and qits-maintenance each logged
+error spans confined to the minutes when successor and predecessor were both ACTIVE — the double-work
+collision the epic predicts — and they stopped when the predecessor was scaled to zero. Newest error
+09:15:03 and 09:24:00 respectively, nothing after. For those two the scale-to-zero is not tidy-up, it
+is the fix.
