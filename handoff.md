@@ -2474,6 +2474,41 @@ the publish step tags whatever `.config/qits/release.yml` names — and that sti
 because CI is green either way: the publish succeeds, the tag is cut, and the failure arrives
 afterwards from the deployer.
 
+### ONE RENAME IS COMPLETE, and it is the proof the recipe works
+
+`qits-system` is renamed on the live estate. It is the only one of the six that could be,
+because it declares no `resources:` and so holds no database claim — which is exactly the
+step every other one dies at.
+
+Measured after the swap:
+
+| | |
+|---|---|
+| `qits-system` @ 2026.926.34049 | ACTIVE |
+| `qits-platform-system` @ 2026.925.183506 | SCALED_TO_ZERO |
+| `http://dev-qits-system:8080/system/q/health/ready` | 200 |
+| `http://dev-qits-platform-system:8080/system/q/health/ready` | 200 — via the successor's `aliases[0]` |
+| `system.dev.qits.wohlben.eu` | 401, i.e. routed and auth-gated, unchanged |
+
+**THE FULL RECIPE, which is four things and not one.** Any future rename needs all of them or
+it fails in a different place each time:
+
+1. `application:` in `.config/qits/deployments.yml`.
+2. **`name:` in `.config/qits/release.yml`, in the SAME release.** The deployer pulls
+   `qits/<application>:<version>`; the publish step tags what release.yml says. Move one and
+   not the other and the deploy dies IMAGE_MISSING after a green CI and a cut tag.
+3. **Every config entry copied to the new application key**, because configuration is keyed by
+   application. Skip it and the service deploys with nothing configured and passes health.
+4. **`aliases[N]` naming the old wire address**, so no reader has to move in the same window.
+
+**Why the predecessor is SCALED_TO_ZERO rather than DECOMMISSIONED.** Retiring the name needs
+the service removed first (`DELETE /services/{name}`), which is 403 for a workspace credential.
+Scaling to 0 is what is available, and for this application it is the part that MATTERS rather
+than a compromise: the epic's own text says two copies of qits-system would be "two services
+holding the same socket and two boot sweeps deleting each other's terminal containers". Scaled
+to zero, there is one sweep. What is left behind is a tidy-up — a stopped deployment row and a
+catalogue entry — and it belongs to qits-376.
+
 ### Where this leaves qits-361
 
 Blocked on **qits-376** — *qits-deployments should match a service by label, not by name, so
