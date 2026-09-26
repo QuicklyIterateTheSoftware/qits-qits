@@ -2706,3 +2706,51 @@ container per occurrence and costs a full wrapper clone.
 
 Also worth checking: the 171 `ticket.dispatch` peer sessions on this branch all report idle,
 so rows outliving their sessions looks systemic rather than a one-off.
+
+## 43. qits-361: the edge handover, and two docker flag traps
+
+The edge was the last of six applications to be renamed, and the only one that needed the docker
+socket. Swarm had **rejected** the successor's create outright — `InvalidArgument: port '8080' is
+already in use by service 'dev-qits-platform-edge' as an ingress port` — so no `dev-qits-edge`
+existed. Established from the deployer's source before reaching for the socket: an ingress
+`PublishedPort` is reserved by the service's `EndpointSpec` independent of replica count (scaling to
+0 frees nothing), only a missing declared volume or network alias triggers `removeForRecreate`, and
+`DeployService` pulls unconditionally before every create — so the deployments API could neither
+free the port nor create during the window.
+
+Run in a fresh admin workspace (1351), because 1301 was jammed — see §42.
+
+**Trap 1: `--publish-rm` takes the TARGET port, `--publish-add` takes `published=`/`target=`.**
+The two flags are not symmetric. `--publish-rm 8080 --publish-rm 443` removed only `8080->8080`;
+`443` matched no target and was a **silent no-op** — exit 0, "converged" — leaving `443->8443` still
+reserved and the create still refused. `--publish-rm 8443` is what finishes it. The danger is the
+ordering: 8080 is withdrawn by then, so the public door is already down while the port that blocks
+the successor is still held.
+
+**Trap 2: `--network qits-net,alias=...` is refused** — `invalid field qits-net`, exit 125, nothing
+created. Appending aliases requires the key form, `--network name=qits-net,alias=...`. A bare
+`--network qits-platform` with no aliases is accepted either way.
+
+**The rollback was never removed.** `--publish-rm` rather than `service rm`, so the predecessor
+survives portless at 1/1 and the door is restored with
+`--publish-add mode=ingress,published=8080,target=8080 --publish-add mode=ingress,published=443,target=8443`.
+
+**A hand-created service carries the predecessor's labels, and the deployer must take them back.**
+Cloning the captured spec verbatim is right for networks, mounts and health, and wrong for identity:
+the successor advertised `app-name=qits-platform-edge`, the old application key,
+`target=platform` (the label qits-347 deleted) and OTEL `service.version=2026.925.94551` /
+`service.instance.id=dev-qits-platform-edge`. Checked before worrying: removal is by service **name**
+and the only label-driven removal is `removeEnvironmentContainers` by environment id, so this is a
+telemetry and adoption problem and **not** a hazard to the predecessor's retirement.
+`restart` does not fix it — it is a bounce and re-renders no spec. What does is the release request's
+**DEPLOY phase rerun**, which re-posts the release intake so the deployer renders the spec itself.
+
+**Verified through the swap:** both edges answered identically on every Host tried, the public
+`https://qits.wohlben.eu` stayed 302 with no gap, the machine vhosts (registry, mirror, githost)
+answered 401 rather than 000, and the certificate still carries the re-tiered SANs — `wohlben.eu`,
+`*.wohlben.eu`, `*.qits.wohlben.eu`, `*.dev.qits.wohlben.eu`, which is qits-356 live.
+
+**The live grammar is `<app>.<env>.<project>.<domain>`:** the door redirects to
+`dev.qits.wohlben.eu`, so `qits` still has its `dev` tier. `supports_environments: false` is wrapper
+content and reaches the platform only at workspace resolution, which is why
+`projects.qits.wohlben.eu` 404s today and `projects.dev.qits.wohlben.eu` is the address.
