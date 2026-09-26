@@ -2422,22 +2422,70 @@ The `imported` ones would eventually come back under the new key, because `Compo
 spells it — but only on a bootstrap run, and nothing runs one on a live estate. The 23 `plain` ones
 would not come back at all.
 
-### The sequence that works, and why each step is there
+### THE SEQUENCE I PLANNED DOES NOT WORK. What the platform actually refuses
 
-1. **Copy every entry to the new application key** (`PUT /applications/<new>/envs/dev/entries/<key>`).
-   Verified afterwards by diffing key sets AND values: 146/146 present and identical. Do not skip
-   the value comparison — a copy that silently truncated would pass a key-count check.
-2. **Give the new application the OLD address as a network alias**, `aliases[N]=dev-qits-platform-<x>`.
-   This is the whole reason there is no flag day: the renamed service answers to both names, so
-   every reader still spelling the old one keeps working and moves on its own schedule. It is the
-   same trick the plane deletion used, and the extras grammar already supported it
-   (`ServiceExtras`: `aliases[<i>] = <dns-name>`, applied to the shared network attachment).
-   Watch the slot number — qits-platform-edge already had `aliases[0..3]` for its vhosts, so its
-   new one is `aliases[4]`.
-3. **Flip `application:` and release.** The deployer sees an unknown application and creates a new
-   service beside the running one; the predecessor keeps serving until decommissioned. A rename is
-   a blue/green, not an update.
-4. **Decommission the predecessor** once the successor is healthy.
+I planned a blue/green: copy the config, alias the old address onto the successor, flip
+`application:`, let the predecessor keep serving, then retire it. Steps 1 and 2 are right and
+are done. **Steps 3 and 4 are impossible from a workspace credential**, and the reason is a
+chain in which every link is individually correct. Measured on qits-mirror, 2026-09-26:
+
+1. **Deploying the successor is refused by the deployer.** A rename IS a new application,
+   because services are keyed by name, so `qits-mirror` came up beside the running
+   `qits-platform-mirror` and the deployment went FAILED:
+
+       resource provisioning failed: the database `qits_platform_mirror` is already
+       provisioned for qits-platform-mirror — two repositories cannot share one database,
+       so name a different one in `resources:`
+
+   That is the RIGHT failure. The alternative is provisioning an empty `qits_mirror`,
+   starting against it green, and losing the store with nothing in any log.
+
+2. **Retiring the predecessor to free the claim → 409**, "the newest deployment is ACTIVE, so
+   this application is still deployed: take it out of its repository's deployments.yml and
+   let the deployment stop, or scale it to 0 and remove the service, before retiring the
+   name".
+
+3. **Scaling to 0 does not satisfy it.** The row becomes `SCALED_TO_ZERO` and step 2 answers
+   409 with the same words. The claim is a resource ROW, not a running task — so there is no
+   drain-then-rename path either.
+
+4. **`DELETE /services/{name}`, which step 2 asks for, is 403** for this credential. Note the
+   contrast, because it is not a blanket refusal: `decommission` and `scale` both ACCEPT
+   forward-auth `qits:admin` on qits-net. This one does not.
+
+The loop has no exit from here. The only route past step 4 is `docker service rm` by hand from
+the admin workspace, which removes the swarm service and leaves the deployer's own
+`pd_service` row behind — hand-written state nothing gated, which is the antipattern this epic
+exists to delete rather than a shortcut for finishing it.
+
+**The cost of learning this on the estate: the mirror was down for about two minutes** at step
+3, restored by scaling back to 1 (DNS and `/mirror/q/health/ready` both confirmed back).
+
+### A SECOND COUPLING: the image coordinate moves with the application
+
+`qits-system` has no `resources:` line, so it holds no claim and is the one of the six that can
+rename. It released clean and then failed anyway:
+
+    IMAGE_MISSING — no image registry.dev.localhost:8080/qits/qits-system:2026.926.31915
+
+The deployer derives what to pull from `application:` as `qits/<application>:<version>`, while
+the publish step tags whatever `.config/qits/release.yml` names — and that still said
+`qits/qits-platform-system`. **Both halves have to land in ONE release.** Worth writing down
+because CI is green either way: the publish succeeds, the tag is cut, and the failure arrives
+afterwards from the deployer.
+
+### Where this leaves qits-361
+
+Blocked on **qits-376** — *qits-deployments should match a service by label, not by name, so
+applications can be renamed*. The full chain is on that ticket, along with the two things its
+design has to carry that are not obvious from the title: `pd_resource` is keyed by application
+name, so the database claim must move with the label; and configuration is keyed by application
+too, so a rename without the copy step deploys a service with NO configuration and passes its
+health gate anyway.
+
+Reverted in mirror, orchestrator, maintenance and idp so main stays deployable; the two open
+requests withdrawn. `qits-system` is going through with the image coordinate fixed. The edge is
+qits-381, blocked by this AND by a deadlock of its own.
 
 ### The database pins are now load-bearing FOREVER, not just for the window
 
