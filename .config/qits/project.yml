@@ -1,0 +1,6 @@
+# Whether this project's services are deployed once per environment.
+# Absent file, absent key and `true` all mean the same thing: this project
+# supports environments. Only an explicit `false` changes anything — it says
+# the project has exactly one environment, its name locked to what the
+# project already has.
+supports_environments: false
