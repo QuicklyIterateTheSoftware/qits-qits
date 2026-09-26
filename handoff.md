@@ -2516,3 +2516,23 @@ fix needs `docker service create` from the admin workspace.
   each is a three-file change across two repositories.
 - **`/platform-deployments/api`.** Filed as qits-380: the last live HTTP path spelling the word, and
   self-gating, because the deploy's own health gate curls `/platform-deployments/q/health/ready`.
+- **`eu.wohlben.qits.platformdocs`** in qits-docs-service — 17 java files, no config or xml
+  references. It is named after `qits-platform-docs`, an application retired by the byte-plane split
+  long before this epic, so it IS the word surviving something that no longer exists. Left alone
+  because qits-117 names one java package root and it is the deployer's; widening to a repository
+  the epic never mentions, mid-flight, is the same error as narrowing.
+- **Maven artifactIds** (`qits-platform-deployments`, `-events`). Deliberate and already written
+  down: the wrapper's own grammar says a component keeps its deployed identity — artifactIds, npm
+  packages, image coordinates, wire names and databases do NOT follow a repository rename. The image
+  coordinate DOES follow an APPLICATION rename, which is a different thing and is why qits-system
+  needed both halves in one release.
+
+### What was half-done and is now finished
+
+`qits-360` renamed `eu.wohlben.qits.platform.deployments.*`, but only in the `deployments` module.
+In `deployments-events` the `package` declarations had moved to `eu.wohlben.qits.deployments.events`
+while the DIRECTORIES still read `.../eu/wohlben/qits/platform/deployments/events`. It compiled and
+the suite was green, which is why nobody noticed: javac does not insist the two agree, so the
+mismatch is invisible until a tool that walks directories disagrees with one that reads
+declarations. Directories moved to match; `find` now reports no `eu/wohlben/qits/platform` directory
+anywhere on the estate.
