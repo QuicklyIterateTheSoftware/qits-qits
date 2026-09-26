@@ -2754,3 +2754,32 @@ answered 401 rather than 000, and the certificate still carries the re-tiered SA
 `dev.qits.wohlben.eu`, so `qits` still has its `dev` tier. `supports_environments: false` is wrapper
 content and reaches the platform only at workspace resolution, which is why
 `projects.qits.wohlben.eu` 404s today and `projects.dev.qits.wohlben.eu` is the address.
+
+### The end state of a renamed predecessor is SCALED_TO_ZERO
+
+Measured across all six of this epic's renames, and worth stating because I got it wrong at the end
+and nearly took an irreversible step over it:
+
+    qits-platform-idp            SCALED_TO_ZERO
+    qits-platform-mirror         SCALED_TO_ZERO
+    qits-platform-orchestrator   SCALED_TO_ZERO
+    qits-platform-maintenance    SCALED_TO_ZERO
+    qits-platform-system         SCALED_TO_ZERO
+    qits-platform-edge           SCALED_TO_ZERO
+
+**No predecessor is decommissioned and no swarm service is removed.** The application-decommission
+door refuses while the newest deployment row is ACTIVE — *"take it out of its repository's
+deployments.yml and let the deployment stop, or scale it to 0 and remove the service, before retiring
+the name"* — and scaling to 0 is where it correctly ends. Scaling does not change the row to GONE, and
+that is fine: the predecessor holds no ports, answers no traffic, and remains as the rollback.
+
+Retiring the NAME is not part of a rename and should not be attempted. `DELETE /services/{name}`
+answers **403** even with the forwarded `qits:admin` pair, and that 403 is the boundary working. A
+403 on one path is not a reason to perform the same action through the docker socket, or to ask
+another session to — that routes around the decision instead of honouring it. The predecessor staying
+at 0/0 is also what preserves the rollback that made the port handover safe in the first place.
+
+**The old wire address survives the scale-down**, because the successor carries it as a network alias
+(`aliases[4] = dev-qits-platform-edge`, re-rendered by the deployer itself, so it is now the
+deployer's own spec and not a hand-written detail). Verified: `dev-qits-platform-edge` answered 302 on
+four consecutive probes with the predecessor at 0/0, and its DNS entry went from two IPs to one.
