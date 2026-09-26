@@ -2684,3 +2684,25 @@ error spans confined to the minutes when successor and predecessor were both ACT
 collision the epic predicts — and they stopped when the predecessor was scaled to zero. Newest error
 09:15:03 and 09:24:00 respectively, nothing after. For those two the scale-to-zero is not tidy-up, it
 is the fix.
+
+## 42. qits-383: a stale RUNNING command takes break-glass offline
+
+Filed while doing the edge cutover. Workspace 1301 (the estate's only admin workspace, so the
+only container with the docker socket) reported `runtimeStatus RUNNING` + `agentActivity IDLE`
+with its daemon freshly connected, while every `POST /agent-dispatches` answered
+`SKIPPED_RUNNING`. The cause was one command row, `status RUNNING`, `launchedAt` the previous
+day, `kind CHAT`, `agentSurface ticket.dispatch`.
+
+The two readings disagree and the stale one is the one that gates work: `agentActivity` comes
+from the daemon and says IDLE; the dispatch decision reads the command row and says RUNNING.
+
+No door ends a command — `DELETE .../commands/{id}`, `.../stop` and `.../cancel` are all 405 or
+404, and `/commands/actions` returns an empty list. So the admin workspace could be given no
+new work at all, which means `qits-registry-break-glass.sh`, freeing an ingress published port,
+and CLI-recreating a service after the socket-API-no-VIP failure were all unreachable.
+
+Worked around by creating a second admin workspace (1351). That works but leaves a privileged
+container per occurrence and costs a full wrapper clone.
+
+Also worth checking: the 171 `ticket.dispatch` peer sessions on this branch all report idle,
+so rows outliving their sessions looks systemic rather than a one-off.
