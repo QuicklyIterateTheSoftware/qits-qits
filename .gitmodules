@@ -298,3 +298,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-ci-runner-daemon"]
+	path = components/qits-ci/qits-ci-runner-daemon
+	url = ../qits-ci-runner-daemon.git
+	branch = main
+	ignore = all
+	update = merge
