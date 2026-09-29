@@ -226,12 +226,22 @@ release:
         .config/qits/release.yml)
       : "${declared:?release.yml declares no maven artifact, so this release publishes nothing}"
       maven_root="${QITS_MAVEN_REGISTRY_URL%/}"
+      # ON AN EDGE RUNNER THIS GET CROSSES THE PUBLIC EDGE, which refuses an anonymous read and
+      # needs the run's own job token; on the internal plane $QITS_TOKEN is unset and the internal
+      # alias needs no auth at all, so the header is added only when there is a token to send. The
+      # argument list, not an unquoted `${QITS_TOKEN:+-H "Authorization: …"}`, for the same
+      # word-splitting reason as the docs publish above: `set --` builds it as words, and an empty
+      # `"$@"` under `set -u` expands to nothing in both dash and bash.
+      set --
+      if [ -n "${QITS_TOKEN:-}" ]; then
+        set -- -H "Authorization: Bearer $QITS_TOKEN"
+      fi
       for gav in $declared; do
         group=${gav%%:*}
         artifact=${gav#*:}
         group_path=$(printf '%s' "$group" | tr . /)
         pom="$maven_root/$group_path/$artifact/$QITS_VERSION/$artifact-$QITS_VERSION.pom"
-        if ! curl -fsS -o /dev/null "$pom"; then
+        if ! curl -fsS -o /dev/null "$@" "$pom"; then
           echo "the deploy did not leave $gav at $QITS_VERSION — the release is $QITS_VERSION and" >&2
           echo "the reactor deployed some other version, so the SBOM and the SoftwareRelease about" >&2
           echo "to be announced would name a coordinate nobody published: $pom" >&2
