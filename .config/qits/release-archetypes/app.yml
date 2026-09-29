@@ -86,8 +86,9 @@
 #         ( umask 077; \
 #           printf 'registry=%s\n@qits:registry=%s\n' \
 #             "$QITS_NPM_PROXY_URL" "$QITS_NPM_REGISTRY_URL" > ~/.npmrc; \
-#           [ -n "$token" ] && printf '%s:_authToken=%s\n' \
-#             "${QITS_NPM_REGISTRY_URL#http:}" "$token" >> ~/.npmrc; ) ; \
+#           [ -n "$token" ] && printf '%s:_authToken=%s\n%s:_authToken=%s\n' \
+#             "${QITS_NPM_REGISTRY_URL#*:}" "$token" \
+#             "${QITS_NPM_PROXY_URL#*:}" "$token" >> ~/.npmrc; ) ; \
 #         npm ci --no-audit --no-fund && npm run build
 #
 # Two things in that block are measured rather than stylistic. The `_authToken` KEY has to match the
