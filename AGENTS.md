@@ -390,8 +390,7 @@ The commands an agent reaches for:
 
     qits projects list
     qits repositories list --project qits
-    qits ticket list | new | details | comment
-    qits epic list | new | details | update
+    qits work list | details | create | update | transition | status | comment
     qits release-request list | create | join | withdraw
     qits ci runs | run | retry
     qits events                     # open stream, never returns — bound it
@@ -417,8 +416,7 @@ credential, while the `qits ci` group's own help (`qits ci --help`, not `qits ci
 runs --help`, which names no role at all) and the `qits ci` section of `qits help
 skill` both say reading runs needs `qits:admin` or `qits:system` — roles this
 credential does not hold. All of the help is hand-written prose that the surface
-moved out from under, roles and subcommands alike — `qits --help` still
-describes `epic` as list/new/details and omits `update`, which exists — so the
+moved out from under, roles and subcommands alike, so the
 403 you get or do not get, and the command you actually run, are the truth.
 `qits observe` likewise works here, though not bare: it exits 2 with `Missing
 required option: '--filter=<conditions>'` until you give it one.
