@@ -104,8 +104,13 @@ release-request:
       # the two ends together — measured on npm 10.9.8 against a real `npm publish`: with
       # `…/npm/hosted` the publish died on ENEEDAUTH with the line sitting right there in the file,
       # and with `…/npm/hosted/` it sent `Authorization: Bearer …`. `$QITS_NPM_REGISTRY_URL` ends
-      # in a slash today, which is the only reason the `#http:` form below lands on the right key.
-      # A deployment that drops that slash turns this into a silent anonymous publish.
+      # in a slash today, which is the only reason the `#*:` form below lands on the right key.
+      # A deployment that drops that slash turns this into a silent anonymous publish. `#*:` and not
+      # `#http:`: the latter leaves `https:` on an https address, and npm then never finds the key.
+      #
+      # THE MIRROR GETS THE TOKEN TOO. qits-ci writes a token for both hosts into ~/.npmrc before
+      # the step runs, and this function overwrites that file. Since the mirror stopped accepting
+      # anonymous reads, dropping its line made every install die on a 401 (2026-09-29).
       #
       # A FUNCTION THAT REWRITES THE WHOLE FILE, not a preamble that appends: the release step
       # calls it a SECOND time immediately before its publish, because a build sits between the two
@@ -120,8 +125,9 @@ release-request:
           printf 'registry=%s\n@qits:registry=%s\n' \
             "${QITS_NPM_PROXY_URL}" "${QITS_NPM_REGISTRY_URL}" > ~/.npmrc
           if [ -n "$_npmrc_token" ]; then
-            printf '%s:_authToken=%s\n' \
-              "${QITS_NPM_REGISTRY_URL#http:}" "$_npmrc_token" >> ~/.npmrc
+            printf '%s:_authToken=%s\n%s:_authToken=%s\n' \
+              "${QITS_NPM_REGISTRY_URL#*:}" "$_npmrc_token" \
+              "${QITS_NPM_PROXY_URL#*:}" "$_npmrc_token" >> ~/.npmrc
           fi )
       }
       write_npmrc
@@ -158,8 +164,9 @@ release:
           printf 'registry=%s\n@qits:registry=%s\n' \
             "${QITS_NPM_PROXY_URL}" "${QITS_NPM_REGISTRY_URL}" > ~/.npmrc
           if [ -n "$_npmrc_token" ]; then
-            printf '%s:_authToken=%s\n' \
-              "${QITS_NPM_REGISTRY_URL#http:}" "$_npmrc_token" >> ~/.npmrc
+            printf '%s:_authToken=%s\n%s:_authToken=%s\n' \
+              "${QITS_NPM_REGISTRY_URL#*:}" "$_npmrc_token" \
+              "${QITS_NPM_PROXY_URL#*:}" "$_npmrc_token" >> ~/.npmrc
           fi )
       }
       write_npmrc
