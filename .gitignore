@@ -13,3 +13,4 @@ docker-compose.qits.yml
 .npm/
 .redhat/
 .claude/
+.playwright-mcp/
