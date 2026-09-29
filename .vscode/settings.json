@@ -2,7 +2,7 @@
   // The project's editor settings: applied to everyone who opens this project's web editor,
   // versioned like any other file. User-level overrides live in .openvscode-server/ (ignored,
   // on the volume) and win over these.
-  "workbench.colorTheme": "Default Dark Modern",
+  "workbench.colorTheme": "Dark Modern",
   "window.autoDetectColorScheme": false,
 
   // The Java language server's embedded Maven reads ~/.m2/settings.xml and ignores MAVEN_ARGS,

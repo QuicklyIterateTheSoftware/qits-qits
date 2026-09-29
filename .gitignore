@@ -12,3 +12,4 @@ docker-compose.qits.yml
 .m2/
 .npm/
 .redhat/
+.claude/
