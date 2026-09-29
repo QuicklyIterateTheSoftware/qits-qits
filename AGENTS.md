@@ -390,8 +390,7 @@ The commands an agent reaches for:
 
     qits projects list
     qits repositories list --project qits
-    qits ticket list | new | details | comment
-    qits epic list | new | details | update
+    qits work list | details | create | update | transition | status | comment
     qits release-request list | create | join | withdraw
     qits ci runs | run | retry
     qits events                     # open stream, never returns — bound it
