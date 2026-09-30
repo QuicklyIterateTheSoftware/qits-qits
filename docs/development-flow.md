@@ -93,11 +93,14 @@ session, so it is not bookkeeping you do afterwards — it is how you are given
 your next task. Transition when you are done, and read what comes back.
 
 A phase that does not finish has two other words, and neither of them is a
-status you fake. If the work is stuck — waiting on somebody, on a decision, on
-a door that is shut — **block the ticket** and say what is in the way: the
-reason is required, it lands on the thread, and while the flag is set nothing
-dispatches an agent onto that phase again. It is temporary and scoped to the
-phase it blocks, so the next transition clears it. If the work is not stuck but
+status you fake. If the phase cannot go on — waiting on somebody, on a decision,
+on a door that is shut, or a verification that found the problem still there —
+**block it** with `block_entity`, for a ticket, an epic or a campaign alike, and
+say what is in the way: the reason is required, it lands on the thread, and
+while the flag is set nothing dispatches an agent onto that phase again. It is
+temporary and scoped to the phase it blocks, so the next transition clears it.
+Moving a status back corrects a claim that turned out wrong; it is never how a
+phase reports that it failed. If the work is not stuck but
 has been decided against, **drop the ticket**: `DROPPED` is reachable from
 every status that is not already closed, and it is what stops abandoned work
 from sitting at `REFINED` looking like work that is ready to be picked up. A
