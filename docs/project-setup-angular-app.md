@@ -10,8 +10,8 @@ This is the steps, written after the first one — `qits-landing-app`, built 202
 that application actually took. It is deliberately not a second
 [`project-setup-quinoa-angular.md`](project-setup-quinoa-angular.md): that file is 458 lines because
 it is the reference for a configuration bought with bugs. This one is a list of steps, and the
-reference material lives where it belongs — in `.config/qits/release-archetypes/app.yml`'s header,
-and in `qits-landing-app`'s own README and file comments.
+reference material lives where it belongs — in the header of `.config/qits/release-archetypes/app.yml`
+in qits-ci-service, which ships the recipe, and in `qits-landing-app`'s own README and file comments.
 
 ## 1. Create the repository, with one command
 
@@ -86,8 +86,8 @@ builds are then produced by the same instructions. The consequence is that the b
 the step container's environment, so the @qits registry **origins** reach it as build args and the
 **credential** reaches it as a buildkit secret (`--secret id=qits-npm-token`, mounted as a file at
 `/run/secrets/qits-npm-token`) — never as a build arg, which is written into the image history of a
-pullable image. `.config/qits/release-archetypes/app.yml`'s header is the contract; read it before
-writing the first Dockerfile rather than re-deriving it here.
+pullable image. The header of qits-ci-service's `.config/qits/release-archetypes/app.yml` is the
+contract; read it before writing the first Dockerfile rather than re-deriving it here.
 
 **`.config/qits/deployments.yml`** — how qits-platform-deployments deploys the image, read at the
 released tag. Carrying the file at all is what makes the release the front half: the deployer opens
