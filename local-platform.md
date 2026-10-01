@@ -138,7 +138,7 @@ on the git host, so updating it needs a push option carrying this host's configu
 
     cd components/qits-observability/qits-observability-service
     git commit ...
-    git push -o qits.token=local-dev https://githost.qits.<domain>/artifacts/git/qits-observability main
+    git push -o qits.token=local-dev https://githost.qits.<domain>/git/<project>/qits-observability main
 
 It puts the commit on `main` and stops there — no build, no image, no deployment, and no version
 identity for the deployer to pull. It is a way to unstick a repository, not a way to ship.
@@ -159,9 +159,9 @@ health-gates the fresh container on `qits-net`, and only then removes the old on
 stop-first rolling update). `main` is finalized once that deployment is live. Watch it land:
 
     docker ps                                                                        # the step container, then the new deployment
-    curl -s https://deployments.qits.<domain>/platform-deployments/api/environments  # the environment id
-    curl -s 'https://deployments.qits.<domain>/platform-deployments/api/deployments?environmentId=<id>' | jq   # newest-first, with detail on failures
-    curl -s https://deployments.qits.<domain>/platform-deployments/api/applications | jq  # environment apps and platform services, flattened
+    curl -s https://deployments.qits.<domain>/deployments/api/environments  # the environment id
+    curl -s 'https://deployments.qits.<domain>/deployments/api/deployments?environmentId=<id>' | jq   # newest-first, with detail on failures
+    curl -s https://deployments.qits.<domain>/deployments/api/applications | jq  # environment apps and platform services, flattened
 
 The deployments listing is scoped to an environment, so platform-service deployments are not in it;
 `docker ps` under `qits-pd-platform-qits-*` is what shows those.
@@ -204,9 +204,8 @@ upstream (`quay`, `redhat`, `hub`). The first pull of a reference fetches from i
 verifies the digest and keeps the bytes forever; every later pull is served from disk. Once a
 base image has been pulled once, every later build succeeds with the internet down — an expired
 tag serves stale, and only a never-cached reference fails (502, naming the upstream). Manage the
-upstreams in the explorer at `https://artifacts.qits.<domain>/artifacts/` → Mirrors, or over
-`https://artifacts.qits.<domain>/artifacts/api/mirror-upstreams`; deleting one stops future
-fetching but keeps the cache.
+upstreams in qits-artifacts' explorer (Mirrors) or its `mirror-upstreams` API; deleting one stops
+future fetching but keeps the cache.
 
 Three facts an operator needs:
 
@@ -281,7 +280,7 @@ credential instead of minting new ones.
 the release train pushes tags there and not to GitHub, so check for anything the git host holds
 alone before running it:
 
-    git ls-remote --tags https://githost.qits.<domain>/artifacts/git/<repo>
+    git ls-remote --tags https://githost.qits.<domain>/git/<project>/<repo>
     git ls-remote --tags https://github.com/QuicklyIterateTheSoftware/<repo>.git
 
 A rebootstrap recreates the git host from the local checkouts, so what is committed and pushed
