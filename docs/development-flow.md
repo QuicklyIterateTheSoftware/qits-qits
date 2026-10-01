@@ -26,8 +26,8 @@ fix, docs, chore...). The id is the one the dispatch prompt names, and the one
 only on a repository whose default branch carries
 `.config/qits/commit-subjects.yml` with `enforce: true`; most repositories do
 not yet. Merge commits and pushes by platform automation are exempt: qits:system
-service clients, and qits:ci-run, which covers maintenance bumps and release
-folds. When the guard refuses a commit you cannot rewrite,
+service clients (release folds, workspace integrations) and qits:ci-run
+(maintenance bumps). When the guard refuses a commit you cannot rewrite,
 `git push -o qits.subject-bypass="<why>"` is the break-glass, and every use is
 recorded and readable at qits-githost
 `GET /githost/api/repositories/{id}/commit-subject-bypasses`. `measureCommitSubjects`,
