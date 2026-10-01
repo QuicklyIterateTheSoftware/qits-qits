@@ -16,6 +16,24 @@ restating for this checkout. Commit each change in the
 repository it belongs to: a change to a service is a commit in that service's
 repository, and the wrapper only ever carries wrapper content.
 
+## Commit subjects name the work
+
+Every commit subject names the ticket, epic or task it belongs to, by
+qualified id: `term(<project>-<n>): message`, for example
+`feat(qits-1337): refuse malformed commit subjects`. The term is free (feat,
+fix, docs, chore...). The id is the one the dispatch prompt names, and the one
+`qits work` shows. qits-githost refuses a push with a malformed subject, but
+only on a repository whose default branch carries
+`.config/qits/commit-subjects.yml` with `enforce: true`; most repositories do
+not yet. Merge commits and pushes by platform automation are exempt: qits:system
+service clients, and qits:ci-run, which covers maintenance bumps and release
+folds. When the guard refuses a commit you cannot rewrite,
+`git push -o qits.subject-bypass="<why>"` is the break-glass, and every use is
+recorded and readable at qits-githost
+`GET /githost/api/repositories/{id}/commit-subject-bypasses`. `measureCommitSubjects`,
+a repository MCP tool, or `GET /projects/api/repositories/{id}/commit-subjects`
+in qits-projects, reports which recent commits on a repository comply.
+
 ## A release request per repository, and it is the only way to ship
 
 Nothing reaches the running platform because you pushed it. For each repository
