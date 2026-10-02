@@ -68,9 +68,9 @@ push to `main` builds and deploys nothing.
 an inventory of every pin in every repository — maven properties and
 dependencies, npm entries, Dockerfile image ARGs, and this repository's
 submodule gitlinks — and when a newer version appears it emits a
-MaintenanceBump. One platform pipeline applies it: this wrapper's
-`.config/qits/ci-platform-event-maintenance-bump.yml`, which qits-ci runs
-against whichever repository the payload names. It edits the manifest,
+MaintenanceBump. One platform pipeline applies it: qits-ci's packaged
+`.config/qits/platform-pipelines/maintenance-bump.yml` (in qits-ci-service),
+which qits-ci runs against whichever repository the payload names. It edits the manifest,
 commits a `bump(...)`, and pushes `maintenance/<upstream>`; the service
 then opens a release request for that branch, so a bump ships through the
 same gate as anything else. There are no per-dependent bump pipelines and
