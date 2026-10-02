@@ -28,8 +28,9 @@ component does not.
 
 Repository names follow the `<component>[-<modifier>]-<role>[-<tech>]` grammar:
 `qits-ci-service`, `qits-ci-frontend`, `qits-ci-daemon`, `qits-idp-service`,
-`qits-eventstream-javalib`. Roles are `service`, `frontend`, `daemon`, `oci`,
-`cli`, `javalib` and `jslib`; a tech suffix appears only where the role alone is
+`qits-eventstream-javalib`. Roles are `service`, `frontend`, `app`, `daemon`,
+`oci`, `cli`, `javalib` and `jslib` (`app`: a deployable application of its own,
+such as `qits-landing-app`); a tech suffix appears only where the role alone is
 ambiguous. See `wrapper-reorganization-plan.md` for the full map of which
 repository belongs to which component.
 
