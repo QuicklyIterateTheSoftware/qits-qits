@@ -397,12 +397,13 @@ The commands an agent reaches for:
     qits events                     # open stream, never returns — bound it
     qits observe --filter ...       # the --filter is required
 
-The credential is `qits:agent`. Every read door answers; an operator write comes
-back, verbatim, as `403 - this credential is qits:agent, which reads but does not
-write`. That is the credential doing its job, not a misconfiguration to escalate
-or work around. Filing a ticket, commenting on one and `qits ci retry` are all
-writes and will answer 403 — a change that matters goes through a release
-request, or through a person.
+The credential is `qits:agent`. Every read door answers. Some writes are open to
+it on purpose: for example qits-maintenance's bump, adoption and artifact doors,
+pushes to its own refs on the git host, and campaigns in qits-projects. Each door
+says so with `qits:agent` in its `@RolesAllowed`. Any other write answers `403`.
+That is the credential doing its job, not a misconfiguration to escalate or work
+around: a change that matters goes through a release request, or through a
+person.
 
 `qits events` is how you watch the platform, and it is the same stream the
 checkout follower rides, so what you see there is what will move `/workspace` a
