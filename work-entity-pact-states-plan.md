@@ -43,8 +43,13 @@ here instead of inventing a state.
 | 6 | a blocked ticket with a dependency | ticket A blocked, depends on ticket B | `getEntity` | blocked marker |
 | 7 | a campaign with ordered developments | 1 campaign ordering 3 epics, one done | `listProjectCampaigns`, `getEntity` (campaign) | campaign view |
 | 8 | no entity with the given id | nothing | `getEntity` (404) | not-found page |
+| 9 | a project with pending release requests | PENDING (CI not answered), READY (CI passed), REJECTED (CI failed), CONFLICTED, RELEASED, and one FINALIZED | `listProjectReleaseRequests` | top-bar release menu (recorded) |
+| 10 | a project with no release requests | a project with one repository, no requests | `listProjectReleaseRequests` | release menu, empty (recorded) |
 
-Rows 1, 2 and 8 come first (the card needs them). The others are recorded when the screen that
+Rows 1, 2 and 8 come first (the card needs them); rows 9 and 10 serve the release menu. Release
+requests are written straight to the table with fixed times, and their CI answers as ledger
+verdicts at the folded sha; the states delete the rows again after each use, because open requests
+are swept by every later test. The others are recorded when the screen that
 calls them is built, in the same change as that screen's pact interaction, so no golden master
 exists that nobody consumes.
 
