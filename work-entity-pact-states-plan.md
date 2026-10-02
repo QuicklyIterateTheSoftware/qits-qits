@@ -45,6 +45,7 @@ here instead of inventing a state.
 | 8 | no entity with the given id | nothing | `getEntity` (404) | not-found page |
 | 9 | a project with pending release requests | PENDING (CI not answered), READY (CI passed), REJECTED (CI failed), CONFLICTED, RELEASED, and one FINALIZED | `listProjectReleaseRequests` | top-bar release menu (recorded) |
 | 10 | a project with no release requests | a project with one repository, no requests | `listProjectReleaseRequests` | release menu, empty (recorded) |
+| 11 | a project with repositories in components | `components/contract/` (service, frontend) and `components/billing/` (daemon, javalib), forge twins with SUCCEEDED, FAILED and AUTH_REQUIRED backups and one with no twin; every repository carries its `cloneUrl` | `listProjectRepositories` | Repositories page tree (recorded) |
 
 Rows 1, 2 and 8 come first (the card needs them); rows 9 and 10 serve the release menu. Release
 requests are written straight to the table with fixed times, and their CI answers as ledger
