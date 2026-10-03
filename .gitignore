@@ -14,3 +14,9 @@ docker-compose.qits.yml
 .redhat/
 .claude/
 .playwright-mcp/
+
+# Per-machine overrides the bootstrap reads from this root (see the file's own header).
+.env
+
+# Angular CLI's cache, left by an `ng` command run from this root rather than its app.
+.angular/
