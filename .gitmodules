@@ -304,3 +304,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-containers-javalib"]
+	path = components/qits-containers/qits-containers-javalib
+	url = ../qits-containers-javalib.git
+	branch = main
+	ignore = all
+	update = merge
