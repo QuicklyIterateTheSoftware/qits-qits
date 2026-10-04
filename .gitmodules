@@ -310,3 +310,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-runner-javalib"]
+	path = components/qits-runner/qits-runner-javalib
+	url = ../qits-runner-javalib.git
+	branch = main
+	ignore = all
+	update = merge
