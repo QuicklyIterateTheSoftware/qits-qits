@@ -39,7 +39,7 @@ rewrite that section when phase 1 lands.
     components/qits-configuration/  qits-configuration-service, qits-configuration-frontend
     components/qits-docs/           qits-docs-service, qits-docs-frontend
     components/qits-observability/  qits-observability-service, qits-observability-frontend
-    components/qits-containers/     qits-containers-service
+    components/qits-containers/     qits-containers-service, qits-containers-javalib
     components/qits-stt/            qits-stt-service
 
     components/qits-deployments/    qits-deployments-platform-service, qits-deployments-platform-frontend
