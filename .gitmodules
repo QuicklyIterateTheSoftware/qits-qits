@@ -316,3 +316,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-workspaces-runner-daemon"]
+	path = components/qits-workspaces/qits-workspaces-runner-daemon
+	url = ../qits-workspaces-runner-daemon.git
+	branch = main
+	ignore = all
+	update = merge
