@@ -33,7 +33,8 @@ rewrite that section when phase 1 lands.
     components/qits-ci/             qits-ci-service, qits-ci-frontend, qits-ci-daemon, qits-ci-runner-daemon
     components/qits-projects/       qits-projects-service, qits-projects-frontend, qits-projects-daemon
     components/qits-workspaces/     qits-workspaces-service, qits-workspaces-frontend,
-                                    qits-workspace-daemon, qits-workspace-oci
+                                    qits-workspace-daemon, qits-workspace-oci,
+                                    qits-workspaces-runner-daemon
     components/qits-artifacts/      qits-artifacts-service, qits-artifacts-frontend
     components/qits-githost/        qits-githost-service, qits-githost-frontend
     components/qits-configuration/  qits-configuration-service, qits-configuration-frontend
