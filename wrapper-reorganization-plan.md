@@ -56,6 +56,7 @@ rewrite that section when phase 1 lands.
     components/qits-integrations/   qits-integrations-quarkus-javalib, qits-integrations-angular-jslib
     components/qits-ui-components/  qits-ui-components-jslib
     components/qits-userflows/      qits-userflows-javalib
+    components/qits-runner/         qits-runner-javalib
     components/qits-build-images/   qits-build-images-oci
     components/qits-database/       qits-database-oci
     components/qits-bootstrap/      qits-bootstrap-cli
