@@ -31,7 +31,7 @@ rewrite that section when phase 1 lands.
 ## The map
 
     components/qits-ci/             qits-ci-service, qits-ci-frontend, qits-ci-daemon, qits-ci-runner-daemon
-    components/qits-projects/       qits-projects-service, qits-projects-frontend, qits-projects-daemon
+    components/qits-projects/       qits-projects-service, qits-projects-frontend, qits-projects-daemon, qits-projects-desk-runner-daemon
     components/qits-workspaces/     qits-workspaces-service, qits-workspaces-frontend,
                                     qits-workspace-daemon, qits-workspace-oci,
                                     qits-workspaces-runner-daemon
