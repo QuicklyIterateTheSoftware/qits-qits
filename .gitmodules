@@ -322,3 +322,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-projects-desk-runner-daemon"]
+	path = components/qits-projects/qits-projects-desk-runner-daemon
+	url = ../qits-projects-desk-runner-daemon.git
+	branch = main
+	ignore = all
+	update = merge
