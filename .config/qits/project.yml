@@ -4,3 +4,8 @@
 # the project has exactly one environment, its name locked to what the
 # project already has.
 supports_environments: false
+
+# The front desk (qits-767): keep the qits project's desk up permanently, with its
+# project.work session started by the daemon and reachable on claude.ai.
+front_desk:
+  lifecycle: ALWAYS_ON
