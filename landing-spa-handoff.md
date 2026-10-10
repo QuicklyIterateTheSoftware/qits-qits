@@ -3,7 +3,131 @@
 Written 2026-10-03 ~01:00 at shutdown. Actionable state only. Read this, then
 `git log` on the branch below.
 
-## In flight right now (2026-10-03 morning)
+## Resume here (end of 2026-10-09)
+
+0. 2026-10-10: RR b451e2db WITHDRAWN by the user (not ready). qits-1132 (release loop) DROPPED: fixed, loop stopped.
+   CLI updated to 2026.1009.213410; ~/.npmrc registry token expired (use the t.json bearer via npm_config_ env).
+
+1. Landing `external/rr-detail` 6261fef (user checkout + ng serve :4200): projects golden masters pinned
+   2026.1009.210714, client regenerated, casts gone, pact file regenerated. Unit 630 green, lint green.
+   Browser: 24 screenshot-only failures (new + changed baselines) → baselines job regenerates them.
+   Still skipped: ci-runs/ci-reports pacts (need qits-ci landing-runs-state released → @qits/ci-golden-masters);
+   rerun-release-phase/-automation pacts (provider recorded a `{}` body for body-less calls: fix in
+   qits-projects' recording test); project-picker + project-card skips (untouched).
+   Next: file a landing RR (rr-nav + rr-detail) so the baselines automation runs.
+2. qits-ci `external/landing-runs-state` 4a4aaefc (listRuns/listRunReports states) — RR not filed.
+3. Pre-run (qits-1133) release order: qits-ci `external/pre-run-ci` 28039989 (alone) → maintenance
+   `external/pre-run-maintenance` f91634ba (switch off) → projects `external/pre-run-projects`
+   02a0866e → landing LA-1 → MT-3..MT-6. None filed yet.
+4. publish-if-changed: qits-ci `external/publish-if-changed` 896a84cc after maintenance bumps
+   qits-ci's CLI pin to 2026.1009.193251 AND the adoption fix (in pre-run-maintenance) is live.
+5. qits-githost `external/fold-rebuild` 2260d852: file alone when CI is idle (projects already
+   sends rebuild:true).
+6. GC for orphaned automation branches: agent STOPPED by the user; AutomationBranchSweep already
+   covers finished requests. Pick up only if orphans show up.
+7. Wrapper docs uncommitted: this file, qits-maintenance-plan.md note, pre-run-gates-plan.md,
+   publish-if-changed-plan.md (and a stray m.json of unknown origin).
+
+## In flight right now (2026-10-09)
+
+- USER 2026-10-09: Release Requests in the left nav (top level, between Work and Editor), showing
+  the newest request; `projects/<slug>/release-requests/` lists the project's requests; the detail
+  page is a full port of qits-projects-frontend's release-request-detail-page + panels, with
+  provider states, pacts and releases. Pieces:
+  (1) qits-projects-service `external/rr-detail-states`: provider states + golden masters for every
+      detail call (agent, files the RR).
+  (2) landing `external/rr-nav` f60739d: nav entry + list page DONE, no RR yet; user checkout +
+      ng serve here. 3 shell screenshots change (new nav row) → baselines job. Not shown yet:
+      sources, conflict, gate ticket, awaiting-approval/unattended (no recordings), Withdraw.
+  (1) PUSHED 5119cb36, in RR b5e665fd (joined a maintenance bump RR). State table:
+      scratchpad rr-provider-states.md (copy into the agent brief if lost: 11 states, ids …0001-3).
+  (3) landing `external/rr-detail` (stacked on rr-nav): detail port in small pushes, user checkout
+      follows; USER asked for links to all correlated CI runs (in progress). After (1) releases: landing pins the new golden masters and ports the detail page.
+  (1b) qits-projects-service waiting for b5e665fd to release, then ONE RR for both:
+      `external/rr-commit-states` 99c8a640 (listCommitChanges/getCommitFileDiff recordings) and
+      `external/rr-phase-race` fd3af23d (QA phase = newest run at mergedSha; V39 commit_sha).
+  (3) STATUS: landing `external/rr-detail` fb5b08f = full port (user checkout + ng serve), worktree
+      /tmp/rr-detail. Not ported: QA reports (needs qits-run-reports), change tree, submodule-pin
+      commit links. Skipped until releases: release-request/changes/ci-runs pact specs + 4 loaded
+      screenshots. After projects release: exact pin, regenerate client ({repositoryId}, new names),
+      drop skips, QITS_GOLDEN_UPDATE=true, list screenshots → "…in every state".
+  (1c) qits-ci-service `external/landing-runs-state` d93a812b DONE, no RR (pinned
+      qits-ci-runner-protocol:2026.1003.50846 is MISSING from the registry — CI build may fail): listRuns operationId, state "a
+      repository with the runs of a release request", @qits/ci-golden-masters. Release ALONE, CI idle.
+  (5) USER DECISION 2026-10-09: `maintenance/<group>` = ONE commit on its base, rebuilt + force-
+      with-lease per bump (agent: qits-maintenance [+ qits-ci step] `external/one-commit-bumps`);
+      folds rebuilt from main each refold, not chained (agent: qits-projects `external/fold-rebuild`).
+      A bump KEEPS cancelling/restarting the running QA run (user rejected deferral).
+      Landing a9e6b8c: real branch lanes behind a check (parents/tipSha/fold read via casts; add
+      them to the consumes lists + drop casts BEFORE any landing RR).
+  (5b) fold-rebuild DONE, no RRs: qits-githost-service `external/fold-rebuild` 2260d852 (merge
+      endpoint `rebuild: true`) + qits-projects-service `external/fold-rebuild` 0555b4b5 (sends it).
+      Any deploy order. githost: release ALONE when CI idle. Open requests rebuild once on next trigger.
+  (5c) one-commit bumps DONE, no RRs: qits-ci-service `external/one-commit-bumps` 1a63190d (merged
+      maintenance-bump.yml step) FIRST and alone, then qits-maintenance-service
+      `external/one-commit-bumps` c3151a73. qits-ci also has `external/landing-runs-state` d93a812b →
+      release both qits-ci branches in ONE request. Plan-doc note added (uncommitted) in
+      qits-maintenance-plan.md. No per-repo bump pause exists.
+  (6) USER 2026-10-09: pipeline panel = whole lifecycle (P1 fold+automations, P2 QA, P3 gates,
+      P4 publish, P5 deploy, P6 deploy gates, finalized); every automation and gate its own
+      category, returned as a generic LIST and rendered generically (no per-kind UI code).
+      qits-projects `external/release-gate-classes` (agent): ReleaseGate interface, one class per
+      gate (like ReleaseRequestAutomation), generic wire fields, old fields kept. Graph: source
+      column headers with the priority dropdown replace the sources block.
+  (6b) qits-projects `external/release-gate-classes` 1d752a11 (REBASED on rr-commit-states 3fc51495,
+      so it lands after it): qualityGates[] on detail + list answers, automations[] on the list,
+      DeploymentRollbackGate (list read can't see rollbacks), DeploymentGate → finalize step.
+      Open USER question: make ReleaseRequests.evaluate loop over gate classes (pluggable holds).
+      qits-projects queue (all behind b5e665fd, starved by bumps — USER to pick options 1–4):
+      rr-commit-states → release-gate-classes, rr-phase-race, fold-rebuild.
+  (7) ROOT CAUSE of the starvation: release LOOP qits-runner-javalib ⇄ qits-ci-runner-daemon via
+      runner-javalib's TEST-scope pin on qits-ci-runner-protocol (comment: never bump it); every turn
+      also bumps desk-runner-daemon, projects-service, workspaces-service. USER RULE: an artifact
+      whose content did not change must NOT publish (like golden masters, `publish: if-changed`);
+      guard/ignore and cycle removal were both rejected. Agent: `external/publish-if-changed`
+      (hash normalisation, maintenance bumps follow publications, linked siblings, the two repos).
+      USER: make it PLATFORM DEFAULT for maven+npm, content digest (platform deps by THEIR digest),
+      one class per ecosystem (pluggable, more package managers later); plan doc
+      publish-if-changed-plan.md (agent writes, I commit). Loop-stopping subset ships first.
+      FILED: runner-javalib RR 48268b69 (dfaa6c4, NEEDS USER APPROVAL; stops the loop alone);
+      CLI RR b6d69d30 (f998fca, --dry-run + ContentHash registry). THEN wait for maintenance to bump
+      qits-ci-service's CLI pin, THEN qits-ci-service `external/publish-if-changed` 896a84cc
+      (default if-changed, link groups) — NOT before the pin, or release steps go red.
+      Open: maintenance adoption/ReleaseCoordinates.java:54 assumes artifact version = release
+      version; qits-artifacts digest lookup maven/npm only; RR artifacts panel hides "unchanged".
+  (8) 2026-10-09 21:40: b5e665fd RELEASED 2026.1009.192822 (rr-detail-states in it). runner-javalib
+      fix released 192438 (published nothing: "unchanged since 184810"); CLI released 193251.
+      qits-projects next: agent builds `external/rr-projects-train` = release-gate-classes(+commit-
+      states) + rr-phase-race + fold-rebuild (conflicts in ReleaseRequests.java, openapi.yml) → join
+      to open RR 2422c314. githost fold-rebuild 2260d852 still to file (alone). Landing: shields/cog/
+      attention 50a8c0d; QA reports (#12) in progress.
+  (9) USER DECISION 2026-10-09: lifecycle = PRE-RUN GATES → build (Test) → quality gates → publish
+      → deploy → deployment gates → finalized. QA starts only when every automation is fresh;
+      dependency bumps become an automation kind (`dependency-bump`), `maintenance/<group>` retires
+      (one-commit-bumps branches likely superseded). No open request + upstream publication → open
+      one (my default, changeable). Design agent writing pre-run-gates-plan.md + new ticket
+      referencing qits-978 (never edit the epic).
+  (10) qits-ci-service `external/landing-runs-state` 4a4aaefc (rebased on main d2e5ce6f): listRuns +
+      listRunReports/getRunReport, state "a run with reports: failing tests and coverage" (only the
+      test-results payload recorded; coverage payload needs a 2nd state if landing pacts it).
+      Pre-run design: qits-1133 + pre-run-gates-plan.md; Q1–Q3 open with the user.
+  (11) qits-projects `external/rr-projects-train` db920f86 (base tag 2026.1009.192822; gates +
+      commit-states + phase-race + fold-rebuild + NOT_APPLICABLE) → RR **fd25eb6e** PENDING.
+      qits-maintenance must still SEND NOT_APPLICABLE rows (AutomationService.trigger drops them;
+      store per (rr, fold, kind)) — part of the pre-run work. githost fold-rebuild 2260d852: file
+      alone when CI idle (needed for rebuild:true to have an effect).
+  (12) qits-1133 implementation started (USER Q1: dependency-bump bumps ONLY platform-internal deps,
+      in every request; USER Q2: NO limits,
+      a bump always restarts; USER FINAL: bump branch PER REQUEST `maintenance/automations/dependency-bump/<rr>` (2 RRs may be open at once), one commit rebuilt (one-commit-bumps logic reused), automation branches deleted when the request ends); PLATFORM GC also deletes maintenance/automations/** (and leftover maintenance/<group>) branches not a source of any open RR, 1 h grace (agent `external/gc-automation-branches`): qits-ci `external/pre-run-ci` (CI-1 preRun filter,
+      CI-2 dependency-bump kind file); qits-maintenance `external/pre-run-maintenance` (MT-1 stages +
+      WAITING/NOT_APPLICABLE sent, MT-2 DependencyBumpAutomation, + adoption-check fix); qits-projects
+      `external/pre-run-projects` stacked on rr-projects-train (PR-2 deferral). Then LA-1 in landing.
+      qits-ci `external/pre-run-ci` 28039989 DONE (merges one-commit-bumps 1a63190d; CI-1 holds QA on preRun=="PENDING"; dependency-bump = MaintenanceBump payload kind on maintenance-bump.yml). githost already admits it.
+      qits-maintenance `external/pre-run-maintenance` f91634ba DONE (on one-commit-bumps c3151a73; switch qits.maintenance.automations.dependency-bump.enabled=false; V21 mt_automation_decision; accepts=[WAITING,NOT_APPLICABLE] compat; adoption fix). AutomationBranchSweep (hourly) already deletes finished requests' automation branches. qits-projects `external/pre-run-projects` 02a0866e DONE (on rr-projects-train; V40 qa_announced_sha; preRun DTO; qualityGates order automations before ci). fd25eb6e RELEASED 2026.1009.210714. Release order: qits-ci pre-run-ci → maintenance pre-run-maintenance (switch off) → projects pre-run-projects → landing LA-1. Remaining: MT-3 (upstream hook), MT-4 (dispatcher opens main-only RR, withdraws empty), MT-5 cutover, MT-6 retire groups.
+  (4) After landing releases its pact: the provider's landing pact jar pin moves (bump train) and
+      verifies the new interactions.
+
+## Earlier (2026-10-03 morning)
 
 - USER 2026-10-03: the deployed app is defunct until another agent finishes qits-528 (edge deny /
   delete travel; the apex `/projects` goes to qits-projects today). Until then: LOCAL work only, NO new
@@ -185,7 +309,7 @@ Written 2026-10-03 ~01:00 at shutdown. Actionable state only. Read this, then
      175905 solid feature bars (`ui-board-row solid`) + white/20; 180303 headings unpinned
      (`ui-board [pinned]="false"`); 183455 campaign state tests + `ui-list-lane` ids never cut +
      `shootMembers`; 184026 recorded "no open workspace". qits-workspaces 183318 verifies the
-     landing pact. User's checkout `external/workspace-links` at 8c15472 (= 184026's content).
+     landing pact. User's checkout is on `main` (= 184026); new work branches from there.
    - Open for the user: one workspace page per item or per workspace; split the epic board's ui
      blocks from In Progress's (recommended: keep shared until a third switch).
    - qits-877 filed: `qits ci cancel` in the CLI.
