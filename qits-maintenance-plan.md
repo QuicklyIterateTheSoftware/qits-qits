@@ -415,6 +415,15 @@ ecosystem:
    edit: `.gitmodules` names a submodule and never its version. That step is what
    retires the fifteen `ci-event-upstream-frontend.yml` hop files.
 
+> **Superseded 2026-10-09 (user decision):** a `maintenance/<group>` branch is always exactly ONE
+> commit on its base. Every bump rebuilds it from the base with all of the group's pending changes
+> and pushes with `--force-with-lease` on the head it read. The subject counts only the changes that
+> differ from the base. The two steps are now one (`node-base`), so one bump is one commit. A branch
+> with a commit not authored by `maintenance@qits.local` and not in the base is never rebuilt: the
+> step exits 42 and the service marks it STALE. Request source branches written by the estate-pins
+> automation (group `targeted`) are still appended ff-only. See qits-ci `maintenance-bump.yml` and
+> qits-maintenance `BumpBase`.
+
 Branch policy, **ff-only, never force**: fetch `refs/heads/<branch>`; if it
 exists, check it out and commit on top; if absent, start from `baseRef`. Commit
 `bump(<group>): <n> dependencies` with one body line per change, author
