@@ -78,6 +78,12 @@ verdict is the whole quality gate: every step of that pipeline gates and no step
 may opt out (`README.md`, "Branching model"). There is nothing else to satisfy
 and nothing to bypass.
 
+That gate runs the whole suite, so do not run it locally first. Before you push,
+run only the tests you know your change affects — the new ones and the existing
+classes covering the code you touched — on a best-effort basis, and leave the rest
+to the gate. A full local run duplicates work the release request is about to do,
+on a platform where that capacity is shared.
+
 For a deployable service the primary gate is a successful deployment. Such a
 repository is FINALIZED into `main` only once the deployer reports that version
 live; a repository that declares no `.config/qits/deployments.yml` — a library,
