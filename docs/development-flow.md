@@ -16,6 +16,25 @@ restating for this checkout. Commit each change in the
 repository it belongs to: a change to a service is a commit in that service's
 repository, and the wrapper only ever carries wrapper content.
 
+## Name everything by its full id
+
+Whenever you name something the platform tracks, write its full qualified id,
+in everything a person or another agent reads: reports, comments, commit
+messages, tickets and handoffs.
+
+- A work item is `<project>-<n>`, for example `qits-1178`. Never `1178`, `#1178`
+  or "the ticket".
+- A release request is `<repository>-rr-<n>`, for example
+  `qits-workspaces-service-rr-165`. Never `rr-165`: the number counts per
+  repository. `create` prints the qualified id first, and `-o json` carries it
+  as `qualifiedId`.
+- Anything known only by a uuid gets the full uuid, or the 8-character prefix
+  together with what it is and where: "qits-ci run `9677c59a`", not
+  `9677c59a`.
+
+An abbreviation that is clear to you is ambiguous to the next reader, who has
+no way to tell which repository or project you meant.
+
 ## Commit subjects name the work
 
 Every commit subject names the ticket, epic or task it belongs to, by
