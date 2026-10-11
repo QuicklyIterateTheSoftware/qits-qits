@@ -82,6 +82,22 @@ flaked container, a registry that was down — retry that run with
 must not ship, because the change is wrong or nobody wants it any more:
 WITHDRAWN is final.
 
+## Waiting for a request or a run: declare it and end your turn
+
+A release takes minutes to hours. Do not poll for it, in a loop or by hand, and
+do not sit idle at the prompt: an agent that ends its turn with nothing declared
+reads as blocked on a person. Declare what you wait on and end your turn:
+
+    qits wait release-request <request id>   # any final state: FINALIZED, REJECTED, FAILED, ...
+    qits wait ci-run <run id>
+    qits wait work <work id> --status VERIFIED --timeout 2h
+
+The command returns at once. While the wait is open, your work item reads
+"waiting on" its label, not blocked. When the request, run or item reaches what
+you named, or the timeout passes, the platform gives you a new turn that says
+which. Then carry on: a REJECTED request means fix and push, then wait again.
+`qits wait list` shows your open waits and `qits wait cancel <id>` ends one.
+
 ## Open them early; do not batch
 
 Open each repository's release request as soon as that repository's part is
