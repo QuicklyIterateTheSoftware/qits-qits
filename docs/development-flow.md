@@ -16,6 +16,25 @@ restating for this checkout. Commit each change in the
 repository it belongs to: a change to a service is a commit in that service's
 repository, and the wrapper only ever carries wrapper content.
 
+## Name everything by its full id
+
+Whenever you name something the platform tracks, write its full qualified id,
+in everything a person or another agent reads: reports, comments, commit
+messages, tickets and handoffs.
+
+- A work item is `<project>-<n>`, for example `qits-1178`. Never `1178`, `#1178`
+  or "the ticket".
+- A release request is `<repository>-rr-<n>`, for example
+  `qits-workspaces-service-rr-165`. Never `rr-165`: the number counts per
+  repository. `create` prints the qualified id first, and `-o json` carries it
+  as `qualifiedId`.
+- Anything known only by a uuid gets the full uuid, or the 8-character prefix
+  together with what it is and where: "qits-ci run `9677c59a`", not
+  `9677c59a`.
+
+An abbreviation that is clear to you is ambiguous to the next reader, who has
+no way to tell which repository or project you meant.
+
 ## Commit subjects name the work
 
 Every commit subject names the ticket, epic or task it belongs to, by
@@ -62,6 +81,22 @@ flaked container, a registry that was down — retry that run with
 `qits ci runs --release-request <id>`. `withdraw` is only for a request that
 must not ship, because the change is wrong or nobody wants it any more:
 WITHDRAWN is final.
+
+## Waiting for a request or a run: declare it and end your turn
+
+A release takes minutes to hours. Do not poll for it, in a loop or by hand, and
+do not sit idle at the prompt: an agent that ends its turn with nothing declared
+reads as blocked on a person. Declare what you wait on and end your turn:
+
+    qits wait release-request <request id>   # any final state: FINALIZED, REJECTED, FAILED, ...
+    qits wait ci-run <run id>
+    qits wait work <work id> --status VERIFIED --timeout 2h
+
+The command returns at once. While the wait is open, your work item reads
+"waiting on" its label, not blocked. When the request, run or item reaches what
+you named, or the timeout passes, the platform gives you a new turn that says
+which. Then carry on: a REJECTED request means fix and push, then wait again.
+`qits wait list` shows your open waits and `qits wait cancel <id>` ends one.
 
 ## Open them early; do not batch
 
