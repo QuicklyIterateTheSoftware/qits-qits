@@ -70,12 +70,6 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-workspaces-frontend"]
-	path = components/qits-workspaces/qits-workspaces-frontend
-	url = ../qits-workspaces-frontend.git
-	ignore = all
-	update = merge
-	branch = main
 [submodule "qits-ci-frontend"]
 	path = components/qits-ci/qits-ci-frontend
 	url = ../qits-ci-frontend.git
