@@ -9,3 +9,13 @@ supports_environments: false
 # project.work session started by the daemon and reachable on claude.ai.
 front_desk:
   lifecycle: ALWAYS_ON
+  # The delivery loop (qits-1440): the desk's project.delivery session, with its own
+  # qits:desk token, dispatches the backlog newest first, approves what `approves`
+  # hands it and starts REFINED items, within these limits. A change here is a
+  # wrapper release, which a person approves; the desk never widens its own rules.
+  delivery:
+    enabled: true
+    max_running: 5
+    start_refined: true
+    approves: [manual-review, artifact-declarations]
+    interval: PT10M
