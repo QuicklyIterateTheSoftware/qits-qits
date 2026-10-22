@@ -20,4 +20,4 @@ front_desk:
     max_running: 5
     start_refined: true
     approves: [manual-review, artifact-declarations, automation, contract]
-    interval: PT15M
+    interval: PT10M
