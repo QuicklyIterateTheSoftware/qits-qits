@@ -13,9 +13,11 @@ front_desk:
   # qits:desk token, dispatches the backlog newest first, approves what `approves`
   # hands it and starts REFINED items, within these limits. A change here is a
   # wrapper release, which a person approves; the desk never widens its own rules.
+  # `automation` and `contract` (qits-1517) let it approve a member request of an item
+  # in flight under rule member-ci-green, once every gate before approval is green.
   delivery:
     enabled: true
     max_running: 5
     start_refined: true
-    approves: [manual-review, artifact-declarations]
+    approves: [manual-review, artifact-declarations, automation, contract]
     interval: PT10M

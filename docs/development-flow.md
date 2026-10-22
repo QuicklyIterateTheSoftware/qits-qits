@@ -16,6 +16,25 @@ restating for this checkout. Commit each change in the
 repository it belongs to: a change to a service is a commit in that service's
 repository, and the wrapper only ever carries wrapper content.
 
+## A commit is a push
+
+The workspace daemon (`OriginSync` in qits-workspace-daemon) pushes every agent
+branch that has commits the git host lacks — the wrapper branch and any branch
+made in a submodule — with the agent's own credential, within seconds of the
+commit: it polls and is nudged at every harness hook. Nobody runs `git push`.
+
+- A local commit on your ticket, epic or task branch counts as published:
+  review the diff before `git commit`, not before a push.
+- Fix a mistake with a new commit. Never amend, rebase or reset a commit
+  that is already pushed: the daemon never force-pushes, so a rewritten
+  branch diverges from origin and quietly stops syncing.
+- A push you did not make is the daemon doing its job, not a subagent or
+  another actor; `git log origin/<branch>` shows what landed.
+- A commit on a detached HEAD is never pushed: each submodule worktree
+  starts detached at `origin/main`, so a submodule commit reaches the host
+  only once it sits on your branch (`git switch -c <your branch>` first).
+  The default branch is never pushed either.
+
 ## Name everything by its full id
 
 Whenever you name something the platform tracks, write its full qualified id,
