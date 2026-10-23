@@ -11,13 +11,16 @@ front_desk:
   lifecycle: ALWAYS_ON
   # The delivery loop (qits-1440): the desk's project.delivery session, with its own
   # qits:desk token, dispatches the backlog newest first, approves what `approves`
-  # hands it and starts REFINED items, within these limits. A change here is a
-  # wrapper release, which a person approves; the desk never widens its own rules.
+  # hands it and starts REFINED items, within these limits.
   # `automation` and `contract` (qits-1517) let it approve a member request of an item
   # in flight under rule member-ci-green, once every gate before approval is green.
+  # `config-directory` (qits-1560) lets it approve a fold that changes .config/qits/,
+  # this file included: it reads each change against the work the request carries,
+  # approves what is expected and correct, and asks the owner once when a change is
+  # unexpected, wrong or unclear.
   delivery:
     enabled: true
     max_running: 5
     start_refined: true
-    approves: [manual-review, artifact-declarations, automation, contract]
+    approves: [manual-review, artifact-declarations, automation, contract, config-directory]
     interval: PT10M
