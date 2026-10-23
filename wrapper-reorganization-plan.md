@@ -50,7 +50,8 @@ rewrite that section when phase 1 lands.
     components/qits-maintenance/    qits-maintenance-platform-service,  qits-maintenance-platform-frontend
     components/qits-mirror/         qits-mirror-platform-service,       qits-mirror-platform-frontend
     components/qits-orchestrator/   qits-orchestrator-platform-service, qits-orchestrator-platform-frontend
-    components/qits-system/         qits-system-platform-service,       qits-system-platform-frontend
+    components/qits-system/         qits-system-platform-service,       qits-system-platform-frontend,
+                                     qits-system-runner-daemon
     components/qits-edge/           qits-edge-platform-service
 
     components/qits-registries/     qits-registries-javalib, qits-blobstore-javalib

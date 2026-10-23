@@ -128,6 +128,75 @@ and gets the replay.
 5. SPA release → service webui gitlink bump → service release → deployer creates the service.
 6. Browser proof: Overview glances; swarm lists; node → containers → [sh]; terminate; no leftovers.
 
+## Execution targets (qits-1481)
+
+A new Maven module, `targets/`, sits beside the existing `system/` and `service/` modules.
+It brings this service's first database: flyway location `db/system/migration`, tests on
+`EmbeddedPg`.
+
+This amends decision 1 above. **Writes are allowed in the `targets` module only**: target
+rows, lease rows and work-volume rows, plus runner control sent over its own socket. Every
+docker read under "Sources of truth" stays read-only, unchanged.
+
+### Database
+
+- `target`: id, name, slots_total, minimums (`min_ci`, `min_workspace`, `min_desk`),
+  capabilities, credential_volume, login_claude/login_kimi, registration_token_id/subject,
+  client_id, quarantine and health columns.
+- `lease`: id, slot_type (CI/WORKSPACE/DESK), owner_app, owner_ref, project_id, work_key,
+  pin_target_id, target_id, priority, state, spec, spec_hash, exit_code, timestamps.
+- `work_volume`: owner_app, work_key, target_id, volume_name, timestamps.
+
+### Doors — `/system/api`
+
+| Door | Roles | Notes |
+|---|---|---|
+| `POST /targets` | admin, admin-agent, system | answers the target plus `installLine`, once |
+| `GET /targets`, `GET /targets/{id}`, `GET /targets/{id}/health` | admin, admin-agent, system, agent | DTO carries slots, minimums, used, login, credentialVolume, loginCommand, kimiLoginCommand, connected, quarantined, runnerVersion |
+| `PATCH /targets/{id}` | admin, admin-agent, system | 409 `MINIMUMS_EXCEED_TOTAL` |
+| `DELETE /targets/{id}` | admin, admin-agent, system | 409 `TARGET_BUSY` while a lease is not ENDED; else sends `Retire` |
+| `POST /targets/{id}/registration-token` | admin, admin-agent, system | rotates the token, answers a new `installLine` |
+| `POST /targets/{id}/greenlight` | admin, admin-agent | |
+| `POST /targets/{id}/healthcheck` | admin, admin-agent, system, agent | 202 `{requestId}` |
+| `POST /targets/{id}/login-check` | admin, admin-agent | 202; 409 `TARGET_UNAVAILABLE` when not connected |
+| `GET /targets/install.sh` | `qits:target-runner-registration` + the read roles | toolkit `InstallScript` |
+| `POST /targets/{id}/register` | `qits:target-runner-registration` only | answers `{clientId, secret, tokenUrl, audience, socketUrl}` |
+| `POST /leases` | `qits:system` | 201 QUEUED; 409 `LEASE_EXISTS` for a live owner/ownerRef |
+| `GET /leases`, `GET /leases/{id}` | `qits:system` (own leases); admin and agent read all | |
+| `PUT /leases/{id}/spec` | `qits:system`, the owner | a roll: the runner recreates the container |
+| `DELETE /leases/{id}` | `qits:system`, the owner | ENDING, then ENDED once the runner reports it gone |
+| `DELETE /work-volumes/{workKey}` | `qits:system`, the owner | purges the volume; 409 while a live lease uses it |
+| WebSocket `/system/targets/socket` | `qits:target-runner` | `sub` matched against `target.client_id`; `qits.auth.machine.required=true` |
+
+### Config
+
+```
+qits.system.targets.tenants.<app>=<TYPE>                      (who may lease which slot type)
+qits.system.targets.slot-images.{ci,workspace,desk}
+qits.system.targets.registry-mirrors.{registry-hosts,mirror-hosts,upstreams}
+qits.system.targets.runner-version-override
+qits.system.targets.reconnect-grace=PT2M
+qits.system.targets.commission-reconcile-interval=1h
+qits.system.targets.public-url                                (wss base, default wss://system.qits.${QITS_DOMAIN})
+qits.system.targets.estate-interval=PT1M
+qits.system.targets.healthcheck.schedule=PT1M,PT15M,PT30M,PT60M,PT90M,PT120M,PT180M
+qits.system.targets.healthcheck.timeout=PT5M
+```
+
+### Events (qits-eventstream)
+
+- `TargetLeaseChanged{leaseId, ownerApp, ownerRef, slotType, targetId, state, exitCode, detail}`:
+  on every state change.
+- `TargetLoginChanged{targetId, name, claude, kimi, checkedAt}`: on every change of either value.
+
+### The runner
+
+The other side of the socket is `qits-system-runner-daemon`
+(`components/qits-system/qits-system-runner-daemon`), one process per target node. It holds
+that node's docker socket, starts and stops lease containers, and reports slots and sign-in
+state back. See dossier page "The runner: qits-system-runner-daemon" (qits-1481) for its
+frames, slot policies and derived names.
+
 ## Status
 
 - 2026-08-23 — decided; worktree `feature/system` (`/home/wohlben/code/qits-qits-system`);
