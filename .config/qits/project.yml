@@ -19,9 +19,12 @@ front_desk:
   # approves what is expected and correct, and asks the owner once when a change is
   # unexpected, wrong or unclear. A fold whose changes could not be read, or have not
   # been read yet, holds the same requirement but stays a person's.
+  # `no-changes` (qits-1568) lets it approve, under rule manual-review-verified, a fold
+  # that adds nothing to main for work it names; an empty request naming no work item
+  # stays the owner's.
   delivery:
     enabled: true
     max_running: 5
     start_refined: true
-    approves: [manual-review, artifact-declarations, automation, contract, config-directory]
+    approves: [manual-review, artifact-declarations, automation, contract, config-directory, no-changes]
     interval: PT10M
