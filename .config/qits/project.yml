@@ -17,7 +17,8 @@ front_desk:
   # `config-directory` (qits-1560) lets it approve a fold that changes .config/qits/,
   # this file included: it reads each change against the work the request carries,
   # approves what is expected and correct, and asks the owner once when a change is
-  # unexpected, wrong or unclear.
+  # unexpected, wrong or unclear. A fold whose changes could not be read, or have not
+  # been read yet, holds the same requirement but stays a person's.
   delivery:
     enabled: true
     max_running: 5
