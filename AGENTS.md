@@ -378,11 +378,14 @@ worktree prune` is what clears it.
 ## Reaching the platform with the `qits` CLI
 
 `qits` is on `PATH` in every agent container and needs no sign-in. The container's
-`QITS_TOKEN` puts it in in-platform mode: the CLI reads that bearer once per
-process, holds it in memory for the process's whole life and never writes it to
-disk. There is no `qits login` to run in here, and the browser flows are refused
-outright. It also dials each service by its wire alias itself, so none of the
-addressing needs composing by hand.
+`QITS_TOKEN` makes it the token home: the CLI reads that bearer once per process,
+holds it in memory for the process's whole life and never writes it to disk.
+There is no `qits login` to run in here, and the browser flows are refused
+outright. It dials each service on the public edge itself —
+`https://<app>.qits.<QITS_DOMAIN>`, the only place that token is accepted — so
+none of the addressing needs composing by hand. (In-platform mode, which dials
+the wire aliases, is chosen only by `QITS_PLATFORM=true`: the central MCP service
+sets it, with the caller's own credential.)
 
 The commands an agent reaches for:
 
@@ -433,5 +436,6 @@ so writing under `~/.claude/skills/` installs it into every other project's
 agent as well as your own.
 
 One caveat on git. Do not configure git through the CLI: `qits git-credential`
-does work in-platform now, but `/etc/qits-gitconfig` names the separate shell
-helper `/usr/local/bin/qits-git-credential`, and that is what git actually runs.
+does answer from `QITS_TOKEN` in the token home, but `/etc/qits-gitconfig` names
+the separate shell helper `/usr/local/bin/qits-git-credential`, and that is what
+git actually runs.
