@@ -32,7 +32,7 @@ rewrite that section when phase 1 lands.
 
     components/qits-ci/             qits-ci-service, qits-ci-frontend, qits-ci-daemon
                                      (qits-ci-runner-daemon retired by qits-1481: CI runs on qits-system-runner-daemon's CI slots)
-    components/qits-projects/       qits-projects-service, qits-projects-frontend, qits-projects-daemon, qits-projects-desk-runner-daemon
+    components/qits-projects/       qits-projects-service, qits-projects-frontend, qits-projects-daemon (qits-projects-desk-runner-daemon retired by qits-1481: desks run on qits-system-runner-daemon's DESK slots)
     components/qits-workspaces/     qits-workspaces-service, qits-workspaces-frontend,
                                     qits-workspace-daemon, qits-workspace-oci
                                     (qits-workspaces-runner-daemon retired by qits-1481: workspaces run on qits-system targets)
