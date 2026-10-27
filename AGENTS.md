@@ -2,7 +2,7 @@
 
 Home repository aggregating the application's submodules.
 
-If you are an agent working a ticket, epic or task here, read `docs/development-flow.md` first: it is the brief on how work moves from a branch to something running.
+For how to develop on the platform, run `qits help guide`: it prints the platform's current guide for where you are, a workstation or an agent, desk or refinement room inside the platform. If your `qits` has no `help guide` yet, read `docs/development-flow.md`.
 
 ## Layout
 
