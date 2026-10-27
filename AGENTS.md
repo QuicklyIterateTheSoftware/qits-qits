@@ -332,21 +332,19 @@ inside the wrapper worktree is the wrong one: it would pull every submodule down
 again over the network to answer a question about one of them.
 
 `/etc/qits-gitconfig` names the shell credential helper
-`/usr/local/bin/qits-git-credential`, which mints a bearer from the commissioned
-client credentials and answers for exactly one host — the one in
+`/usr/local/bin/qits-git-credential`, which answers git with the container's own
+`QITS_TOKEN` and answers for exactly one host — the one in
 `QITS_GIT_AUTH_HOST`. That is why the value has to be a bare `host:port`, with no
 scheme and no path: the helper compares it to what git asks about, and a `https://`
 prefix or a trailing path makes every request go unanswered.
 
-Fallback, for a container created before those names were injected: if a fetch
+Fallback, for a container created before that name was injected: if a fetch
 dies with `fatal: could not read Username for 'http://githost.dev.internal:8080'`
-they are simply absent on a container that old, and you can derive them from the
-`QITS_PROJECTS_DAEMON_*` names the container still carries:
+it is simply absent on a container that old, and you can derive it from the
+`QITS_PROJECTS_DAEMON_*` name the container still carries:
 
     export GIT_CONFIG_GLOBAL=/etc/qits-gitconfig
     export QITS_GIT_AUTH_HOST="$(echo "$QITS_PROJECTS_DAEMON_GIT_BASE" | sed -E 's#^[a-z]+://##; s#/.*$##')"
-    export QITS_GIT_AUTH_TOKEN_URL="$QITS_PROJECTS_DAEMON_AUTH_TOKEN_URL"
-    export QITS_GIT_AUTH_AUDIENCE="$QITS_PROJECTS_DAEMON_GIT_AUTH_AUDIENCE"
 
 The `sed` is what strips `QITS_PROJECTS_DAEMON_GIT_BASE` down to the bare
 `host:port` the helper insists on.
@@ -379,13 +377,15 @@ worktree prune` is what clears it.
 
 ## Reaching the platform with the `qits` CLI
 
-`qits` is on `PATH` in every agent container and needs no sign-in. Both
-`QITS_COMMISSIONED_CLIENT_ID` and `QITS_COMMISSIONED_CLIENT_SECRET` being set put
-it in in-platform mode, where it mints a `client_credentials` bearer once per
-process, holds it in memory and never writes it to disk. There is no `qits login`
-to run in here, and the browser flows are refused outright. It also dials each
-service by its wire alias itself, so none of the addressing needs composing by
-hand.
+`qits` is on `PATH` in every agent container and needs no sign-in. The container's
+`QITS_TOKEN` makes it the token home: the CLI reads that bearer once per process,
+holds it in memory for the process's whole life and never writes it to disk.
+There is no `qits login` to run in here, and the browser flows are refused
+outright. It dials each service on the public edge itself —
+`https://<app>.qits.<QITS_DOMAIN>`, the only place that token is accepted — so
+none of the addressing needs composing by hand. (In-platform mode, which dials
+the wire aliases, is chosen only by `QITS_PLATFORM=true`: the central MCP service
+sets it, with the caller's own credential.)
 
 The commands an agent reaches for:
 
@@ -436,5 +436,6 @@ so writing under `~/.claude/skills/` installs it into every other project's
 agent as well as your own.
 
 One caveat on git. Do not configure git through the CLI: `qits git-credential`
-does work in-platform now, but `/etc/qits-gitconfig` names the separate shell
-helper `/usr/local/bin/qits-git-credential`, and that is what git actually runs.
+does answer from `QITS_TOKEN` in the token home, but `/etc/qits-gitconfig` names
+the separate shell helper `/usr/local/bin/qits-git-credential`, and that is what
+git actually runs.

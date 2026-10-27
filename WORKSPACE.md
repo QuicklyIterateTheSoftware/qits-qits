@@ -22,7 +22,7 @@ Nothing has merged when that answers. The request folds `main`, your branch and 
 
 ## The qits CLI
 
-`qits` is on PATH and already signed in by this container's credential, so there is no `qits login` to run in here. That credential is one of two: `QITS_TOKEN` on a runner-placed workspace — one opaque token, used as it is — or the commissioned pair `QITS_COMMISSIONED_CLIENT_ID` / `QITS_COMMISSIONED_CLIENT_SECRET`, from which a bearer is minted once per process and kept in memory, never written to disk. It finds each service by itself, so none of the addressing above has to be composed by hand.
+`qits` is on PATH and already signed in by this container's credential, so there is no `qits login` to run in here. That credential is `QITS_TOKEN` — one opaque, non-expiring token, used as it is, held in memory and never written to disk. It finds each service by itself, so none of the addressing above has to be composed by hand.
 
     qits work list --project qits
     qits ci runs --project qits --repository <repository> --limit 3
