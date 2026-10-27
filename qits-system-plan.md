@@ -183,11 +183,15 @@ qits.system.targets.healthcheck.schedule=PT1M,PT15M,PT30M,PT60M,PT90M,PT120M,PT1
 qits.system.targets.healthcheck.timeout=PT5M
 ```
 
+A failing `login` or `slots` health check is reported and never quarantines a target (decided
+2026-10-23): a signed-out target must not stop CI. The sign-in gate still holds WORKSPACE and
+DESK leases QUEUED on a signed-out target, with a detail naming the target and its login command.
+
 ### Events (qits-eventstream)
 
 - `TargetLeaseChanged{leaseId, ownerApp, ownerRef, slotType, targetId, state, exitCode, detail}`:
   on every state change.
-- `TargetLoginChanged{targetId, name, claude, kimi, checkedAt}`: on every change of either value.
+- `TargetLoginChanged{targetId, targetName, claude, kimi, checkedAt}`: on every change of either value.
 
 ### The runner
 
