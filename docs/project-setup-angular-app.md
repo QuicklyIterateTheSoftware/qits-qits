@@ -147,7 +147,7 @@ publishes the image and deploys it.
 
 ## 6. Release it, and look at it
 
-Open the release request the ordinary way (`docs/development-flow.md`), let the publish slot push
+Open the release request the ordinary way (`qits help guide`), let the publish slot push
 the image and the deployer roll it out, then open `<component>.<env>.<domain>` in a browser. A
 passing pipeline is not the claim; the claim is that the page renders where it is addressed, and
 only the environment answers that.

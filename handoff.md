@@ -6,7 +6,7 @@ Status: **IMPLEMENTATION**. Do not mark the epic implemented — that is a perso
 Written 2026-09-23 by the previous implementing agent. **19 of 29 tasks implemented, 13 released.**
 The workspace has NOT been integrated and must not be until everything below is released.
 
-Read `docs/development-flow.md`, then `get_epic`, then `list_dossier_pages` / `get_dossier_page`.
+Run `qits help guide`, then `get_epic`, then `list_dossier_pages` / `get_dossier_page`.
 The dossier is read-only; where it is wrong, this file records it rather than correcting it there.
 
 ---

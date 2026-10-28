@@ -2,7 +2,7 @@
 
 Home repository aggregating the application's submodules.
 
-For how to develop on the platform, run `qits help guide`: it prints the platform's current guide for where you are, a workstation or an agent, desk or refinement room inside the platform. If your `qits` has no `help guide` yet, read `docs/development-flow.md`.
+For how to develop on the platform, run `qits help guide`: it prints the platform's current guide for where you are, a workstation or an agent, desk or refinement room inside the platform.
 
 ## Layout
 
