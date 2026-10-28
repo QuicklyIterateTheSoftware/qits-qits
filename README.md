@@ -18,8 +18,14 @@ and the issuance step.
 
 Every request through the edge — maven, npm, docker, git, plain curl —
 authenticates, reads included. Workstation setup — signing in, git, and
-the npm, Maven and Docker registries — is in `qits help guide --for
+the npm and Maven registries — is in `qits help guide --for
 workstation`. Run it on a fresh machine before anything else.
+
+Docker has no `qits` login yet. `docker login` against the registry and
+mirror vhosts takes a client the idp commissions for this machine: the
+bootstrap report prints the one-liner (a `POST /idp/api/clients`), and
+the answer's `clientId` and `secret` are the pair. It does not survive a
+re-bootstrap; hand it back with `DELETE /idp/api/clients/<clientId>`.
 
 ## Branching model
 
