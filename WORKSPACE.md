@@ -8,11 +8,11 @@ Release dependencies before their consumers, then let the affected application o
 
 ## Releasing from inside this container
 
-**Branch → release request.** Never push `main` yourself. Push your branch, then ask **qits-projects** to release it. Use `qits` first (next section): `qits release-request create --project <project> --repository <repository> --branch <your branch> --summary '<what this release is>'` is the door with the credential handled for you. The fallback is a hand-written `curl` against the service's public name, `https://<app>.qits.$QITS_DOMAIN/…`, with the bearer `qits-token qits-platform` prints — it works from the platform network and from a runner node alike, because the public names answer from both:
+**Branch → release request.** Never push `main` yourself. Push your branch, then ask **qits-projects** to release it. Use `qits` first (next section): `qits release-request create --project <project> --repository <repository> --branch <your branch>` is the door with the credential handled for you; what the request carries comes from the work item your branch names, so there is nothing to describe (an older CLI that still demands `--summary` takes any text, and the service ignores it). The fallback is a hand-written `curl` against the service's public name, `https://<app>.qits.$QITS_DOMAIN/…`, with the bearer `qits-token qits-platform` prints — it works from the platform network and from a runner node alike, because the public names answer from both:
 
     PROJECTS=https://projects.qits.$QITS_DOMAIN/projects/api
 
-    curl -sS -X POST -H "Authorization: Bearer $(qits-token qits-platform)" -H 'Content-Type: application/json' "$PROJECTS/repositories/<repository>/release-requests" -d '{"branch":"<your branch>","summary":"<what this release is>"}'
+    curl -sS -X POST -H "Authorization: Bearer $(qits-token qits-platform)" -H 'Content-Type: application/json' "$PROJECTS/repositories/<repository>/release-requests" -d '{"branch":"<your branch>"}'
 
 Nothing has merged when that answers. The request folds `main`, your branch and every released tag still in flight onto its own `release/<id>` branch, the QA pipeline builds that fold, and a green gate releases it: the manifests are stamped, the fold is tagged with the version, and the source branches are deleted. Poll the request (`GET $PROJECTS/repositories/<repository>/release-requests/<id>`) until it reads `RELEASED` — `CONFLICTED` means the fold does not merge and is yours to resolve, `FAILED` and `REJECTED` say why in `detail`. Watch the build behind it: `curl -sS -H "Authorization: Bearer $(qits-token qits-platform)" https://ci.qits.$QITS_DOMAIN/ci/api/runs/active` (and `/ci/api/runs/finished?limit=10`).
 
