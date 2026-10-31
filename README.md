@@ -69,12 +69,14 @@ no `ci-event-upstream-*.yml` files any more.
 
 Everything starts with a feature idea. The idea is fleshed out into an
 epic. Once the epic is refined, the whole stack branches to
-`epic/<epic-slug>` — all submodule repositories included. Everything
-done for the epic lives under the `epic/*` prefix.
+`epic/<qualified id>` (for example `epic/qits-765`) — all submodule
+repositories included. Everything done for the epic lives under the
+`epic/*` prefix.
 
 That branch is the basis for the coding harness's workspace. The
-workspace can open sub-branches like `epic/<epic-slug>/<task-slug>`
-when it needs to, but that is an edge case.
+workspace can open sub-branches like `<epic branch>-<name>` (for
+example `epic/qits-765-pacts`) when it needs to, but that is an edge
+case.
 
 When the changes are ready for a first deployment, each repository's part
 of them is released — a release request per repository, gated, versioned

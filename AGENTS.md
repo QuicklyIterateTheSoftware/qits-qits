@@ -298,16 +298,16 @@ credential helper reads are injected at container creation, so `git fetch` and
 
     # the wrapper at a ticket branch — the commonest reason to open one. Fetch
     # into a ref of your own and name that ref, rather than FETCH_HEAD
-    git -C /workspace fetch origin ticket/<slug>:refs/upcoming/<slug>
-    git -C /workspace worktree add /tmp/upcoming-wrapper refs/upcoming/<slug>
+    git -C /workspace fetch origin ticket/<qualified id>:refs/upcoming/<qualified id>
+    git -C /workspace worktree add /tmp/upcoming-wrapper refs/upcoming/<qualified id>
 
     # a submodule is a clone of its own: fetch and open the worktree in it
     git -C /workspace/components/<component>/<repo> fetch origin main
     git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> origin/main
 
     # a submodule at a ticket branch, the same way
-    git -C /workspace/components/<component>/<repo> fetch origin ticket/<slug>:refs/upcoming/<slug>
-    git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> refs/upcoming/<slug>
+    git -C /workspace/components/<component>/<repo> fetch origin ticket/<qualified id>:refs/upcoming/<qualified id>
+    git -C /workspace/components/<component>/<repo> worktree add /tmp/upcoming-<repo> refs/upcoming/<qualified id>
 
     # remove each worktree through the repository that created it
     git -C /workspace worktree remove /tmp/upcoming

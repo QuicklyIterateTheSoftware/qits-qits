@@ -120,7 +120,7 @@ real `git fetch` through `githost.dev.internal` succeeds.
 ### An admin workspace is how a hand step happens, and an agent can create one
 
     POST http://dev-qits-workspaces:8080/workspaces/api/workspaces
-    {"repositoryId":"<uuid>","id":"<label>","branch":"epic/<slug>","admin":true}
+    {"repositoryId":"<uuid>","id":"<label>","branch":"epic/<qualified id>","admin":true}
 
 `admin: true` binds the host's `/var/run/docker.sock` into the container
 (`WorkspaceContainerFactory`, ADMIN MODE), decided at creation and never promotable. The create door
