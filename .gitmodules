@@ -220,18 +220,6 @@
 	ignore = all
 	update = merge
 	branch = main
-[submodule "qits-configuration-service"]
-	path = components/qits-configuration/qits-configuration-service
-	url = ../qits-configuration-service.git
-	ignore = all
-	update = merge
-	branch = main
-[submodule "qits-configuration-frontend"]
-	path = components/qits-configuration/qits-configuration-frontend
-	url = ../qits-configuration-frontend.git
-	ignore = all
-	update = merge
-	branch = main
 [submodule "qits-orchestrator-service"]
 	path = components/qits-orchestrator/qits-orchestrator-service
 	url = ../qits-orchestrator-service.git
