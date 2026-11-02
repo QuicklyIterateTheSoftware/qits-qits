@@ -140,9 +140,10 @@ docker read under "Sources of truth" stays read-only, unchanged.
 
 ### Database
 
-- `target`: id, name, slots_total, minimums (`min_ci`, `min_workspace`, `min_desk`),
-  capabilities, credential_volume, login_claude/login_kimi, registration_token_id/subject,
-  client_id, quarantine and health columns.
+- `target`: id, name, slots_total, minimums (`min_ci`, `min_workspace`, `min_desk`), optional
+  maximums (`max_ci`, `max_workspace`, `max_desk`; null is no ceiling, qits-1813), capabilities,
+  credential_volume, login_claude/login_kimi, registration_token_id/subject, client_id,
+  quarantine and health columns.
 - `lease`: id, slot_type (CI/WORKSPACE/DESK), owner_app, owner_ref, project_id, work_key,
   pin_target_id, target_id, priority, state, spec, spec_hash, exit_code, timestamps.
 - `work_volume`: owner_app, work_key, target_id, volume_name, timestamps.
@@ -152,8 +153,8 @@ docker read under "Sources of truth" stays read-only, unchanged.
 | Door | Roles | Notes |
 |---|---|---|
 | `POST /targets` | admin, admin-agent, system | answers the target plus `installLine`, once |
-| `GET /targets`, `GET /targets/{id}`, `GET /targets/{id}/health` | admin, admin-agent, system, agent | DTO carries slots, minimums, used, login, credentialVolume, loginCommand, kimiLoginCommand, connected, quarantined, runnerVersion |
-| `PATCH /targets/{id}` | admin, admin-agent, system | 409 `MINIMUMS_EXCEED_TOTAL` |
+| `GET /targets`, `GET /targets/{id}`, `GET /targets/{id}/health` | admin, admin-agent, system, agent | DTO carries slots, minimums, maximums, used, login, credentialVolume, loginCommand, kimiLoginCommand, connected, quarantined, runnerVersion |
+| `PATCH /targets/{id}` | admin, admin-agent, system | 409 `MINIMUMS_EXCEED_TOTAL`; 409 `MAXIMUM_BELOW_RESERVATION` (qits-1813: a type never runs more leases than its maximum) |
 | `DELETE /targets/{id}` | admin, admin-agent, system | 409 `TARGET_BUSY` while a lease is not ENDED; else sends `Retire` |
 | `POST /targets/{id}/registration-token` | admin, admin-agent, system | rotates the token, answers a new `installLine` |
 | `POST /targets/{id}/greenlight` | admin, admin-agent | |
