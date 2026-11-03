@@ -219,13 +219,26 @@ and put new files somewhere else. The follower's precondition for moving the
 checkout is that a `git status` comes back empty, and *which* status it runs
 depends on the version of the platform-access CLI — the same artifact as the
 `qits` CLI on `PATH`, so `/etc/qits-cli-version` answers the question — with
-`2026.919.80759` as the cutover:
+`2026.919.80759` and `2026.1102.235059` as the cutovers:
 
-    # 2026.919.80759 and newer
+    # 2026.1102.235059 and newer: the root's tracked state, then each
+    # initialised submodule on its own
+    git status --porcelain --untracked-files=no --ignore-submodules=all
+    git diff --cached --name-only --ignore-submodules=none
+    git -C <submodule> status --porcelain --untracked-files=no --ignore-submodules=none
+    git -C <submodule> for-each-ref --contains HEAD --count=1 refs/heads refs/remotes refs/tags   # empty refuses, unless HEAD is the gitlink
+
+    # 2026.919.80759 up to 2026.1102.235059
     git status --porcelain --untracked-files=no --ignore-submodules=none
 
     # older
     git status --porcelain --ignore-submodules=none
+
+From `2026.1102.235059` on (qits-538) the follower names every path it refuses
+on, a submodule that holds only untracked files or sits clean at another commit
+is moved rather than refused, and "already at" also requires every submodule to
+be at its gitlink. What follows describes the older guards, which still run in
+containers whose CLI predates it.
 
 Run the one that matches your version. `/etc/qits-cli-version` reports the CLI
 baked into the image, which is not necessarily the binary the running follower
