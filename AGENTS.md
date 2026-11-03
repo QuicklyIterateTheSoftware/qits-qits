@@ -29,9 +29,14 @@ component does not.
 Repository names follow the `<component>[-<modifier>]-<role>[-<tech>]` grammar:
 `qits-ci-service`, `qits-ci-frontend`, `qits-ci-daemon`, `qits-idp-service`,
 `qits-eventstream-javalib`. Roles are `service`, `frontend`, `app`, `daemon`,
-`oci`, `cli`, `javalib` and `jslib` (`app`: a deployable application of its own,
-such as `qits-landing-app`); a tech suffix appears only where the role alone is
-ambiguous. See `wrapper-reorganization-plan.md` for the full map of which
+`oci`, `cli`, `javalib`, `jslib` and `monorepo` (`app`: a deployable application
+of its own, such as `qits-landing-app`; `monorepo`: one repository that releases
+several kinds, such as `qits-platform-access-monorepo`, which releases the `qits`
+CLI, its commands library and the MCP service image); a tech suffix appears only
+where the role alone is ambiguous. The role tells a reader what a repository is;
+it decides nothing. What a repository builds and publishes is declared in its own
+`.config/qits/`, never read from its name (owner ruling 2026-11-03; removing the
+remaining name derivation is qits-1834). See `wrapper-reorganization-plan.md` for the full map of which
 repository belongs to which component.
 
 **`platform` is not a modifier, and the tier it named is gone.** A service used
@@ -44,9 +49,10 @@ seventeen were renamed to drop it (`qits-idp-platform-service` became
 `qits-idp-service`). A word that no longer means anything is worse than one that
 never existed.
 
-**One name keeps it and is not an exception**: `qits-platform-access-cli`, whose
-`platform` is the COMPONENT — `components/qits-platform-access/` — rather than a
-modifier before the role. Hold that distinction, because a search for
+**One name keeps it and is not an exception**: `qits-platform-access-monorepo`
+(called `qits-platform-access-cli` until qits-631), whose `platform` is the
+COMPONENT — `components/qits-platform-access/` — rather than a modifier before
+the role. Hold that distinction, because a search for
 `-platform-` matches eighteen repositories and only seventeen were ever about the
 tier. Match the `-platform-<role>` SUFFIX, never the bare substring.
 

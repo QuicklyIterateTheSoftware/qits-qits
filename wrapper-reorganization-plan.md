@@ -63,6 +63,12 @@ rewrite that section when phase 1 lands.
     components/qits-build-images/   qits-build-images-oci
     components/qits-database/       qits-database-oci
     components/qits-bootstrap/      qits-bootstrap-cli
+    components/qits-platform-access/ qits-platform-access-monorepo
+
+`qits-platform-access-monorepo` was `qits-platform-access-cli` until qits-631 (2026-11-03): it
+releases the `qits` CLI binary, its commands library and the MCP service image. `monorepo`
+says to a reader that it releases several kinds; what it builds and publishes is declared in
+its `.config/qits/release.yml`, not read from the name (owner ruling 2026-11-03, qits-1834).
 
 Rename column (phase 2): `qits-spa-<x>` → `qits-<x>-frontend`,
 `qits-platform-<x>` → `qits-<x>-platform-service`, `qits-platform-spa-<x>` →

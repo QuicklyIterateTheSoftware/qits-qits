@@ -268,9 +268,9 @@
 	branch = main
 	ignore = all
 	update = merge
-[submodule "qits-platform-access-cli"]
-	path = components/qits-platform-access/qits-platform-access-cli
-	url = ../qits-platform-access-cli.git
+[submodule "qits-platform-access-monorepo"]
+	path = components/qits-platform-access/qits-platform-access-monorepo
+	url = ../qits-platform-access-monorepo.git
 	branch = main
 	ignore = all
 	update = merge
