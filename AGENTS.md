@@ -227,8 +227,14 @@ depends on the version of the platform-access CLI — the same artifact as the
 `qits` CLI on `PATH`, so `/etc/qits-cli-version` answers the question — with
 `2026.919.80759` and `2026.1102.235059` as the cutovers:
 
-    # 2026.1102.235059 and newer: the root's tracked state, then each
-    # initialised submodule on its own
+    # the release carrying qits-290 and newer: the root's rule at every depth,
+    # asked in the root and then in each initialised submodule, nested ones too
+    git -C <repo> status --porcelain --untracked-files=no --ignore-submodules=all
+    git -C <repo> diff --cached --name-only --ignore-submodules=none
+    git -C <submodule> for-each-ref --contains HEAD --count=1 refs/heads refs/remotes refs/tags   # empty refuses, unless HEAD is the gitlink
+
+    # 2026.1102.235059 up to qits-290: the root's tracked state, then each
+    # initialised submodule on its own, one level deep
     git status --porcelain --untracked-files=no --ignore-submodules=all
     git diff --cached --name-only --ignore-submodules=none
     git -C <submodule> status --porcelain --untracked-files=no --ignore-submodules=none
@@ -243,8 +249,15 @@ depends on the version of the platform-access CLI — the same artifact as the
 From `2026.1102.235059` on (qits-538) the follower names every path it refuses
 on, a submodule that holds only untracked files or sits clean at another commit
 is moved rather than refused, and "already at" also requires every submodule to
-be at its gitlink. What follows describes the older guards, which still run in
-containers whose CLI predates it.
+be at its gitlink. That guard still stopped one level down: the follower moved
+submodules without `--recursive`, so a service's nested `webui` stayed at the
+commit the container was provisioned with, and `--ignore-submodules=none` inside
+the service then reported it as ` M service/src/main/webui` — frozen from the
+second wrapper release after any webui bump. From the release carrying qits-290
+the move is recursive, and untracked content or a nested submodule clean at
+another commit is not refused at any depth; the refusal names the nested path
+from the root. What follows describes the older guards, which still run in
+containers whose CLI predates them.
 
 Run the one that matches your version. `/etc/qits-cli-version` reports the CLI
 baked into the image, which is not necessarily the binary the running follower
