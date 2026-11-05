@@ -151,7 +151,7 @@ names for the git host. Creating a ref is never guarded, only updating or deleti
 one — which is why the bootstrap's first push of a fresh repo needs nothing.
 
 The RELEASE is the deployment: `SCMRelease` → qits-ci runs the repo's
-`.config/qits/ci-event-release.yml` (build `docker/Dockerfile`, push to the registry at
+`.config/qits/release.yml` `release:` steps (build `docker/Dockerfile`, push to the registry at
 `registry.qits.<domain>`) → the green run and the `SCMRelease` meet and qits-ci announces
 `SoftwareRelease` → qits-deployments opens a Deployment Request for that version coordinate, reads
 the repo's `deployments.yml` at the released tag, registers the application if it is new, pulls,
@@ -256,11 +256,17 @@ same transaction that reads it. The bootstrap only ever reconciles the environme
 `PATCH` — it never deletes it, because a `DELETE` tears down every container of the environment, the
 deployer-managed core included.
 
-To add a service: give the repo a `.config/qits/ci-event-release-request.yml` and a
-`.config/qits/ci-event-release.yml`, a `docker/Dockerfile` and a `deployments.yml` if it needs
-anything but the defaults, then open a release request for it. Add its name
-to `DEPLOYABLES` in `components/qits-bootstrap/qits-bootstrap-cli`'s `PlatformModel` (plus run-args if it needs state) so
-the bootstrap carries it too.
+To add a service: give the repo a `.config/qits/release.yml` (its `archetype:` and the `artifacts:`
+it publishes), a `docker/Dockerfile` and a `.config/qits/deployments.yml`, then open a release
+request for it. The bootstrap carries it with no list to edit. Carrying `deployments.yml` is what
+makes the boot deploy it. Declaring `artifacts:` that another repository pins at a release version
+is what makes the boot replay it. Every submodule of the wrapper is pushed. The order follows from
+what each repository builds against (pom, `package.json`, `Dockerfile` `FROM`/`ARG` defaults,
+gitlinks) and from what it needs running (`resources:`).
+The one hand-written step left is a rule in `components/qits-bootstrap/qits-bootstrap-cli`'s
+`CutoverRules`, and only when the new service's cutover must not land inside another's (qits-3).
+To see where a repository lands, run `qits-bootstrap order --wrapper <dir>`. It prints the derived
+pushes, replays and deploys, read-only.
 
 ## Teardown
 
