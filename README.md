@@ -27,6 +27,48 @@ bootstrap report prints the one-liner (a `POST /idp/api/clients`), and
 the answer's `clientId` and `secret` are the pair. It does not survive a
 re-bootstrap; hand it back with `DELETE /idp/api/clients/<clientId>`.
 
+## Addressing
+
+There is one address model: every platform service is
+`https://<label>.qits.<QITS_DOMAIN>`, reached through the edge (epic
+qits-428). The label is the service's `host:` in its
+`.config/qits/deployments.yml`, else its application name without `qits-`
+(`registry` is qits-artifacts, `mcp` the MCP service). The platform project
+`qits` has no environment label, so `QITS_ENVIRONMENT` never enters an
+address. Services call each other the same way browsers, runners, CI steps
+and agents do, with their own `qits:system` bearer from
+`quarkus.oidc-client.qits`. Defaults are expressions over `QITS_DOMAIN`, never
+configuration entries, and a service without `QITS_DOMAIN` refuses to start.
+A call to the process's own host goes to `http://localhost:8080`.
+
+Four exceptions, and nothing else names an internal alias:
+
+- **E1, the edge itself.** It dials upstreams by the `upstreamHost` in its
+  projection, and dials qits-idp (`QITS_EDGE_IDP_DIAL_URL`), qits-events (its
+  catch-up), qits-observability (its own telemetry) and its Postgres on
+  `qits-net`. It cannot dial itself, so it serves the platform labels
+  (`idp`, `registry`, `mirror`, `githost`) before its catch-up ends.
+- **E2, the edge's own image and the cold boot.** qits-edge deploys
+  start-first, so the old edge serves the pull of the new image. Before the
+  edge is ready, qits-bootstrap-cli makes its API calls on internal aliases,
+  and switches each label to its edge host once `edge-ready` has proved it.
+  Its image pushes never use a machine name: they wait until
+  `registry.qits.<domain>` serves a real certificate (`registry-ready`) and
+  push there. The edge answers a machine name such as
+  `registry.dev.localhost` with a 404.
+- **E3, the deployer's break-glass.** In qits-deployments only, a peer call
+  that still fails after qits-http-core's 30 s switchover retry gets one more
+  try on `http://<env>-qits-<app>:8080`, logged as `edge unavailable; using
+  internal address for <app>`.
+- **E4, databases.** Postgres stays on `qits-net` (`QITS_RESOURCE_*_URL`
+  JDBC).
+
+Telemetry goes through the edge too: services export with
+`qits-telemetry-core`, whose OTLP exporters carry the `qits` bearer, and the
+edge records no span for the ingest path. Services stay attached to
+`qits-net`, because the edge and Postgres reach them there; only the
+addressing changed. Measured results are on epic qits-428's thread.
+
 ## Branching model
 
 There are no deploy branches. A release is a **release request** on
