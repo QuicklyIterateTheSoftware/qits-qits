@@ -62,7 +62,7 @@ rewrite that section when phase 1 lands.
     components/qits-runner/         qits-runner-javalib
     components/qits-build-images/   qits-build-images-oci
     components/qits-database/       qits-database-oci
-    components/qits-bootstrap/      qits-bootstrap-cli
+    components/qits-bootstrap/      qits-bootstrap-cli, qits-bootstrap-javalib
     components/qits-platform-access/ qits-platform-access-monorepo
 
 `qits-platform-access-monorepo` was `qits-platform-access-cli` until qits-631 (2026-11-03): it
