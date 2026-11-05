@@ -151,7 +151,7 @@ names for the git host. Creating a ref is never guarded, only updating or deleti
 one — which is why the bootstrap's first push of a fresh repo needs nothing.
 
 The RELEASE is the deployment: `SCMRelease` → qits-ci runs the repo's
-`.config/qits/ci-event-release.yml` (build `docker/Dockerfile`, push to the registry at
+`.config/qits/release.yml` `release:` steps (build `docker/Dockerfile`, push to the registry at
 `registry.qits.<domain>`) → the green run and the `SCMRelease` meet and qits-ci announces
 `SoftwareRelease` → qits-deployments opens a Deployment Request for that version coordinate, reads
 the repo's `deployments.yml` at the released tag, registers the application if it is new, pulls,
