@@ -50,8 +50,12 @@ Four exceptions, and nothing else names an internal alias:
   (`idp`, `registry`, `mirror`, `githost`) before its catch-up ends.
 - **E2, the edge's own image and the cold boot.** qits-edge deploys
   start-first, so the old edge serves the pull of the new image. Before the
-  edge is ready, qits-bootstrap-cli uses internal aliases and loopback, and
-  switches each label to its edge host once `edge-ready` has proved it.
+  edge is ready, qits-bootstrap-cli makes its API calls on internal aliases,
+  and switches each label to its edge host once `edge-ready` has proved it.
+  Its image pushes never use a machine name: they wait until
+  `registry.qits.<domain>` serves a real certificate (`registry-ready`) and
+  push there. The edge answers a machine name such as
+  `registry.dev.localhost` with a 404.
 - **E3, the deployer's break-glass.** In qits-deployments only, a peer call
   that still fails after qits-http-core's 30 s switchover retry gets one more
   try on `http://<env>-qits-<app>:8080`, logged as `edge unavailable; using
