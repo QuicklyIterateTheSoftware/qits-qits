@@ -298,3 +298,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-bootstrap-javalib"]
+	path = components/qits-bootstrap/qits-bootstrap-javalib
+	url = ../qits-bootstrap-javalib.git
+	branch = main
+	ignore = all
+	update = merge
