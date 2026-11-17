@@ -67,12 +67,20 @@ release-request:
   # bump whose sibling release was withdrawn, or a gitlink somebody moved by hand to a commit that
   # only ever existed in their working copy.
   #
-  # RESOLVING MEANS FETCHING, NOT `cat-file -e`. The daemon's clone holds none of the sibling's
-  # objects, so a bare `git cat-file -e <sha>` here would fail for every pin that is perfectly
-  # good; the object has to be brought over before the question can be asked at all. Heads AND
-  # tags are fetched because the release's own guard asks whether the HOST can resolve the commit,
-  # not whether it is tagged — a pin is written from a released tag today, and a check narrower
-  # than the guard it stands in for would go red on a fold the release would have taken.
+  # RESOLVING MEANS AN `ls-remote` FIRST, NOT A FETCH. The daemon's clone holds none of the
+  # sibling's objects, so a bare `git cat-file -e <sha>` here would fail for every pin that is
+  # perfectly good — the object would have to be brought over before the question could be asked
+  # at all. BUT a pin is written from a released tag, so it is normally a tag tip, and a tip is
+  # exactly what `git ls-remote` answers from the ref advertisement alone, no objects fetched.
+  # Heads AND tags are read because the release's own guard asks whether the HOST can resolve the
+  # commit, not whether it is tagged — a check narrower than the guard it stands in for would go
+  # red on a fold the release would have taken. A fetch is kept only as the fallback for a pin
+  # that is no tip: this wrapper shares no history with any sibling, so a fetch here pulls a
+  # sibling's WHOLE history every time it runs regardless of what it is fetching, which with 52
+  # siblings is the download qits-2305 is about. The host also serves no partial fetch — a
+  # `--filter` was tried here and answered "filtering not recognized" — so there is no cheaper
+  # fetch to fall back to; checking ls-remote first is what keeps this check as strict as the
+  # release guard while paying the fetch's cost only when a tip cannot answer the question.
   - image: qits/build-images/ci-base:latest
     timeout-seconds: 900
     script: |
@@ -120,16 +128,31 @@ release-request:
           continue
         fi
 
-        # Fetched into ONE namespace, forced, reused by every entry: the refs are scratch and only
-        # the objects matter, so no submodule name is ever interpolated into a ref name.
-        # `--filter=blob:none` asks for commits and trees and leaves the file contents on the host,
-        # which is the whole history at a fraction of the bytes. A host that will not serve a
-        # partial fetch says so, and the plain fetch behind it is what the maintenance bump uses.
         sibling="$origin_parent/$name"
-        if ! git fetch -q --no-tags --filter=blob:none "$sibling" \
-                 '+refs/heads/*:refs/estate/heads/*' '+refs/tags/*:refs/estate/tags/*' 2>/dev/null \
-           && ! git fetch -q --no-tags "$sibling" \
-                 '+refs/heads/*:refs/estate/heads/*' '+refs/tags/*:refs/estate/tags/*'; then
+        if ! refs=$(git ls-remote "$sibling" 2>/dev/null); then
+          echo "$name: cannot read $sibling, so its pin $sha cannot be checked" >&2
+          failed=$((failed + 1))
+          continue
+        fi
+        # A pin is written from a released tag, so it is normally a tip: match the whole
+        # 40-character hash in the first column against every head, every tag and every peeled
+        # tag (`refs/tags/*^{}` still starts with `refs/tags/`, so one prefix match covers both
+        # the tag object and what it points at). A tip costs no fetch at all.
+        if printf '%s\n' "$refs" \
+             | awk -v s="$sha" '$1==s && ($2 ~ /^refs\/(heads|tags)\//) {f=1} END{exit !f}'; then
+          checked=$((checked + 1))
+          echo "$name is pinned at $sha, which $name holds"
+          continue
+        fi
+
+        # Reached only for a pin ls-remote found no tip for: fetched into ONE namespace, forced,
+        # reused by every entry, so no submodule name is ever interpolated into a ref name. The
+        # host serves no partial fetch — `--filter` was tried here and answered "filtering not
+        # recognized" — so there is no cheaper fetch to reach for, only the plain one, and only
+        # here: a pin reachable from a branch or a tag but not sitting at its tip still needs the
+        # objects brought over before `cat-file -e` can answer at all.
+        if ! git fetch -q --no-tags "$sibling" \
+               '+refs/heads/*:refs/estate/heads/*' '+refs/tags/*:refs/estate/tags/*'; then
           echo "$name: cannot read $sibling, so its pin $sha cannot be checked" >&2
           failed=$((failed + 1))
           continue
