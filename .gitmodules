@@ -310,3 +310,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-network-access-frontend"]
+	path = components/qits-network-access/qits-network-access-frontend
+	url = ../qits-network-access-frontend.git
+	branch = main
+	ignore = all
+	update = merge
