@@ -322,3 +322,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-agents-roster-javalib"]
+	path = components/qits-agents/qits-agents-roster-javalib
+	url = ../qits-agents-roster-javalib.git
+	branch = main
+	ignore = all
+	update = merge
