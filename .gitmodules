@@ -316,3 +316,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-agents-contract-javalib"]
+	path = components/qits-agents/qits-agents-contract-javalib
+	url = ../qits-agents-contract-javalib.git
+	branch = main
+	ignore = all
+	update = merge
