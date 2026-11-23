@@ -328,3 +328,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-agents-daemon"]
+	path = components/qits-agents/qits-agents-daemon
+	url = ../qits-agents-daemon.git
+	branch = main
+	ignore = all
+	update = merge
