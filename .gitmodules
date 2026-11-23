@@ -334,3 +334,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-agents-service"]
+	path = components/qits-agents/qits-agents-service
+	url = ../qits-agents-service.git
+	branch = main
+	ignore = all
+	update = merge
