@@ -346,3 +346,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-certificates-service"]
+	path = components/qits-certificates/qits-certificates-service
+	url = ../qits-certificates-service.git
+	branch = main
+	ignore = all
+	update = merge
