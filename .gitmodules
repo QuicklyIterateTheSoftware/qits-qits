@@ -340,3 +340,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-egress-service"]
+	path = components/qits-egress/qits-egress-service
+	url = ../qits-egress-service.git
+	branch = main
+	ignore = all
+	update = merge
