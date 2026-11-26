@@ -352,3 +352,9 @@
 	branch = main
 	ignore = all
 	update = merge
+[submodule "qits-toggles-service"]
+	path = components/qits-toggles/qits-toggles-service
+	url = ../qits-toggles-service.git
+	branch = main
+	ignore = all
+	update = merge
