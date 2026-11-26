@@ -142,6 +142,7 @@ The **gc** process (kind `gc`), steps and edges:
 | `branches.sweep` | workspaces | `POST /workspaces/api/gc/branches` | repos.catalogue |
 | `artifacts.usage.after` | artifacts | `GET /artifacts/api/store/summary` | artifacts.sweep |
 | `usage.after` | containers | `GET /containers/api/gc/usage` | artifacts.sweep, containers.images, containers.volumes, containers.build-cache |
+| `toggles.retirement` | toggles | `POST /toggles/api/retirement/runs`; `?dryRun=true` when dryRun | — (the 22nd and last step) |
 
 The pins body is `{"pins":{"deployments":…,"ciDaemon":…,"dependencies":…,"configuredImages":…,
 "workspaceLaunches":…,"projectLaunches":…}}`, each member the peer's answer verbatim, each absent
@@ -154,7 +155,19 @@ service redeploys). The two `artifacts.usage.*` steps read the registry store's 
 live in postgres and are invisible to the docker usage read — the 2026-09-04 storage incident was
 50 GB no receipt showed.
 
-Config (`qits.orchestrator.*`): `targets.{artifacts,containers,ci,deployments}-url`
+`toggles.retirement` (epic qits-2542, qits-2703) is the clock of qits-toggles' retirement run:
+it POSTs `https://toggles.qits.${QITS_DOMAIN}/toggles/api/retirement/runs` with the orchestrator's
+own `qits:system` bearer — the bare path on a real run, `?dryRun=true` on a dry one, where
+qits-toggles files nothing and reports what it would. Its summary quotes the run's report (filed,
+kept, dropped, used, failed) and judges nothing: which toggle is due is qits-toggles' decision. It
+is last and has no edges: it deletes nothing (a removal ticket asks a person to delete a toggle's
+declaration), frees no disk either usage read could see, and nothing depends on it, so a slow pact
+read behind it delays no deleter. A failure — qits-toggles' 502 when its read of the deployed pacts
+failed, having filed nothing, or an unreachable peer — is a FAILED row and a FAILED run, and every
+other step has still run.
+
+Config (`qits.orchestrator.*`): `targets.{artifacts,containers,ci,deployments}-url` (and, among the later peers,
+`targets.toggles-url`, `https://toggles.qits.${QITS_DOMAIN}`)
 (defaults `http://qits-<name>:8080`; the live platform injects
 `dev-qits-*` for tier services), `gc.cron` (`0 0 3 * * ?`, read in `gc.time-zone`, UTC), `gc.enabled`,
 `gc.dry-run`, `gc.image-keep-prefixes` (`qits/build-images/,qits/graalvmce-musl-builder`),
