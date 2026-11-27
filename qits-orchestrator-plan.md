@@ -127,31 +127,41 @@ The **gc** process (kind `gc`), steps and edges:
 |---|---|---|---|
 | `usage.before` | containers | `GET /containers/api/gc/usage` | — |
 | `artifacts.usage.before` | artifacts | `GET /artifacts/api/store/summary` | — |
-| `pins.deployments` | deployments | `GET /platform-deployments/api/pins` | — |
+| `pins.deployments` | deployments | `GET /deployments/api/pins` | — |
 | `pins.ci` | ci | `GET /ci/api/daemon` | — |
 | `pins.dependencies` | maintenance | `GET /maintenance/api/pins` | — |
-| `pins.images` | configuration | `GET /configuration/api/pins` | — |
 | `pins.workspaces` | workspaces | `GET /workspaces/api/pins` | — |
 | `pins.projects` | projects | `GET /projects/api/pins` | — |
-| `artifacts.plan` | artifacts | `POST /artifacts/api/gc/plan {pins}` | the six pins.* steps |
-| `artifacts.sweep` | artifacts | `POST /artifacts/api/gc/sweep {pins}`; SKIPPED("dry run") when dryRun | artifacts.plan + the six pins.* steps |
-| `containers.images` | containers | `POST /containers/api/gc/images` keep = deployments pins as `qits/<app>:<sha>` + config prefixes | pins.deployments |
-| `containers.volumes` | containers | `POST /containers/api/gc/volumes` | usage.before |
-| `containers.build-cache` | containers | `POST /containers/api/gc/build-cache` | usage.before (needs no pins; runs after images by declaration order) |
+| `pins.mirror-images` | maintenance | `GET /maintenance/api/pins/images`; FAILED unless a non-empty array; not a pin source | — |
+| `artifacts.plan` | artifacts | `POST /artifacts/api/gc/plan {pins}` | the five pins.* steps |
+| `artifacts.sweep` | artifacts | `POST /artifacts/api/gc/sweep {pins}`; SKIPPED("dry run") when dryRun | artifacts.plan + the five pins.* steps |
+| `containers.images` | containers | `POST /containers/api/gc/images` keep = deployments pins as `qits/<app>:<sha>` + config prefixes | the five pins.* steps |
+| `containers.volumes` | containers | `POST /containers/api/gc/volumes` | usage.before + the five pins.* steps |
+| `containers.build-cache` | containers | `POST /containers/api/gc/build-cache` | usage.before + the five pins.* steps (not containers.images; runs after it by declaration order) |
 | `repos.catalogue` | projects | `GET /projects/api/repositories` | — |
-| `branches.sweep` | workspaces | `POST /workspaces/api/gc/branches` | repos.catalogue |
+| `branches.sweep` | workspaces | `POST /workspaces/api/gc/branches {repositories, keepPrefixes}` | repos.catalogue + the five pins.* steps |
+| `tags.sweep` | projects | `POST /projects/api/gc/tags {pins}` (`gc.tags-sweep-call-timeout`) | the five pins.* steps + repos.catalogue |
+| `claims.idp-clients` | deployments | `GET /deployments/api/claims/idp-clients` | — |
+| `idp.service-clients` | idp | `POST /idp/api/gc/service-clients {claims}`; refused, never sent, when the claims are empty | claims.idp-clients + the five pins.* steps |
+| `mirror.sweep` | mirror | `POST /mirror/api/gc/sweep {pins:{images}}`; without `pins` when pins.mirror-images failed (`gc.mirror-sweep-call-timeout`) | — (not even pins.mirror-images) |
 | `artifacts.usage.after` | artifacts | `GET /artifacts/api/store/summary` | artifacts.sweep |
 | `usage.after` | containers | `GET /containers/api/gc/usage` | artifacts.sweep, containers.images, containers.volumes, containers.build-cache |
 | `toggles.retirement` | toggles | `POST /toggles/api/retirement/runs`; `?dryRun=true` when dryRun | — (the 22nd and last step) |
 
-The pins body is `{"pins":{"deployments":…,"ciDaemon":…,"dependencies":…,"configuredImages":…,
+Every `{…}` body also carries `dryRun`. The five pins.* steps are `PIN_SOURCES`: every step that
+deletes depends on all five (qits-1175), so a run with one source unread deletes nothing anywhere.
+
+The pins body is `{"pins":{"deployments":…,"ciDaemon":…,"dependencies":…,
 "workspaceLaunches":…,"projectLaunches":…}}`, each member the peer's answer verbatim, each absent
-when unread (fail-closed at qits-artifacts). The six sources differ by tense: deployments = what
+when unread (fail-closed at qits-artifacts). The five sources differ by tense: deployments = what
 serves, ci = what a run launches, maintenance = what source still references (`pins.dependencies`,
-internal maven/npm/docker manifest pins), configuration = what the NEXT deploy will configure
-(`pins.images`), and workspaces/projects = what a container launch would pull TODAY
+internal maven/npm/docker manifest pins), and workspaces/projects = what a container launch would pull TODAY
 (`pins.workspaces`/`pins.projects` — the effective values, which lag the configured ones until the
-service redeploys). The two `artifacts.usage.*` steps read the registry store's own bytes, which
+service redeploys). A sixth source, `pins.images` from qits-configuration, was retired by
+qits-1176; old runs still carry rows under that id. `pins.mirror-images` (qits-2253) is not a pin
+source: it protects qits-mirror's tags alone, is in no `pins` body, and nothing has an edge on it —
+`mirror.sweep` sends it as `{"pins":{"images":…}}`, or without `pins` when the read failed, and
+qits-mirror then falls back to its window rule for tags. The two `artifacts.usage.*` steps read the registry store's own bytes, which
 live in postgres and are invisible to the docker usage read — the 2026-09-04 storage incident was
 50 GB no receipt showed.
 
@@ -166,13 +176,17 @@ read behind it delays no deleter. A failure — qits-toggles' 502 when its read 
 failed, having filed nothing, or an unreachable peer — is a FAILED row and a FAILED run, and every
 other step has still run.
 
-Config (`qits.orchestrator.*`): `targets.{artifacts,containers,ci,deployments}-url` (and, among the later peers,
-`targets.toggles-url`, `https://toggles.qits.${QITS_DOMAIN}`)
-(defaults `http://qits-<name>:8080`; the live platform injects
-`dev-qits-*` for tier services), `gc.cron` (`0 0 3 * * ?`, read in `gc.time-zone`, UTC), `gc.enabled`,
-`gc.dry-run`, `gc.image-keep-prefixes` (`qits/build-images/,qits/graalvmce-musl-builder`),
+Config (`qits.orchestrator.*`):
+`targets.{artifacts,containers,ci,deployments,projects,workspaces,maintenance,idp,mirror,toggles}-url`
+(defaults `https://<name>.qits.${QITS_DOMAIN}`, artifacts at `https://registry.qits.${QITS_DOMAIN}`;
+`%dev`/`%test` use `http://dev-qits-<name>:8080`), `gc.cron` (`0 0 3 * * ?`, read in `gc.time-zone`, UTC), `gc.enabled`,
+`gc.dry-run`, `gc.deploy-trigger.enabled` (true), `gc.deploy-trigger.quiet-period` (PT10M),
+`gc.image-keep-prefixes` (`qits/build-images/,qits/graalvmce-musl-builder`),
+`gc.branch-keep-prefixes` (`environment/,release/`),
 `gc.image-min-age` (PT6H), `gc.volume-min-age` (PT24H),
-`gc.build-cache-keep-bytes` (20 GB), `gc.call-timeout` (PT120S).
+`gc.build-cache-keep-bytes` (10 GB), `gc.builder-cache-keep-bytes` (1 GB), `gc.call-timeout` (PT120S),
+`gc.tags-sweep-call-timeout` (PT900S), `gc.mirror-sweep-call-timeout` (PT30M),
+`gc.pins.retry.attempts` (6), `gc.pins.retry.delay` (PT30S).
 Outbound auth: four named `quarkus-oidc-client`s (`artifacts`,
 `containers`, `ci`, `deployments`), `client-id=qits-platform-orchestrator`,
 `grant.type=client`, audience per peer, `client-enabled=false` in the
