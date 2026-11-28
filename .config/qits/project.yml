@@ -12,7 +12,9 @@ front_desk:
   # The delivery loop (qits-1440): the desk's project.delivery session, with its own
   # qits:desk token, dispatches the backlog bugs first, then by priority, then oldest
   # (a rule of thumb, qits-2089), approves what `approves` hands it and starts REFINED
-  # items, within these limits.
+  # items. How many items run at once is not set here: the desk's slots are the
+  # workspace leases the targets can grant (qits-2573), and `max_running` is gone
+  # (qits-2728).
   # `automation` and `contract` (qits-1517) let it approve a member request of an item
   # in flight under rule member-ci-green, once every gate before approval is green.
   # `config-directory` (qits-1560) lets it approve a fold that changes .config/qits/,
@@ -25,6 +27,5 @@ front_desk:
   # stays the owner's.
   delivery:
     enabled: true
-    max_running: 5
     start_refined: true
     approves: [manual-review, artifact-declarations, automation, contract, config-directory, no-changes]
